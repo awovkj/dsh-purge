@@ -87,7 +87,58 @@ try {
   const report = await selfcheck.selfCheck("", home);
   if (report.state !== "broken") problems.push(`无宿主时 selfcheck 应为 broken，实际 ${report.state}`);
   else ok("selfcheck 无宿主时安全降级");
+
+  // The artifact includes its own assessment source and acorn, with no AWA
+  // sibling or developer SDK needed. Every action here is offline bookkeeping.
+  execFileSync(process.execPath, [path.join(pkgDir, "scripts/sync-assessment-engine.mjs"), "--check"],
+    { cwd: pkgDir, encoding: "utf8", timeout: 30000 });
+  ok("随包评估源码、许可和逐文件完整性通过离线核对");
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (major > 22 || major === 22 && minor >= 19) {
+    const [{ RedteamStore }, assessment, { buildSrcReport }] = await Promise.all([
+      import(pathToFileURL(path.join(pkgDir, "lib/redteam/store-core.js")).href),
+      import(pathToFileURL(path.join(pkgDir, "lib/redteam/awa-integration.js")).href),
+      import(pathToFileURL(path.join(pkgDir, "lib/redteam/src-report.js")).href),
+    ]);
+    const state = path.join(tmp, "assessment-state"), store = new RedteamStore(state);
+    try {
+      const target = "https://fixture.invalid/api/item", scope = ["https://fixture.invalid/api"];
+      const id = store.openEngagement("Packed SRC fixture", scope, { assessment_mode: "src",
+        exclude: ["https://fixture.invalid/api/excluded"], bindCurrent: false }).id;
+      const options = { env: { AWA_DDD_PACKAGE_PATH: path.join(tmp, "nonexistent-awa-package"),
+        AWA_DDD_WORKSPACE: path.join(tmp, "nonexistent-awa-state") } };
+      const before = await assessment.assessmentStatus(store, id, options);
+      if (!before.engine.embedded || before.context.ready) throw Error("Packed internal assessment readiness is invalid");
+      const prepared = await assessment.ensureNativeAssessment(store, id, {}, options);
+      if (!prepared.context.ready || prepared.binding.workspace !== path.join(store.dirOf(id), "assessment")) {
+        throw Error("Packed internal assessment did not prepare its own engagement workspace");
+      }
+      store.addVuln(id, { target, title: "Packed unverified candidate", status: "candidate", severity: "info" });
+      const imported = await assessment.assessmentImport(store, id, {}, options);
+      const reviewed = await assessment.assessmentReview(store, id, { verify: true }, options);
+      if (imported.data.candidate_ids.length !== 1 || reviewed.reviews[0]?.status !== "confirmation_pending") {
+        throw Error("Packed assessment promoted a candidate without current proof");
+      }
+      const source = path.join(tmp, "inert-client.js");
+      fs.writeFileSync(source, 'fetch("https://fixture.invalid/api/static-source", { method: "GET" });\n');
+      const discovered = await assessment.assessmentRun(store, id, "surface.import",
+        { path: source, format: "javascript", base_url: "https://fixture.invalid/api" }, options);
+      if (!discovered.data.operation_ids?.length) throw Error("Packed acorn/source discovery did not register static metadata");
+      const discoveryReport = buildSrcReport(store, id, { save: false });
+      if (discoveryReport.confirmed !== 0 || discoveryReport.candidates !== 1 || discoveryReport.can_claim_complete) {
+        throw Error("Packed SRC report has invalid candidate or coverage semantics");
+      }
+      if (fs.existsSync(options.env.AWA_DDD_PACKAGE_PATH) || fs.existsSync(options.env.AWA_DDD_WORKSPACE)) {
+        throw Error("Packed assessment followed external AWA settings");
+      }
+      ok("解压包独立完成实际 Python SRC 初始化、候选复核、静态 AST 和报告");
+    } finally { store.close(); }
+  } else console.log("  - 内置评估实际运行需 Node 22.19+；此运行时仅校验随包源码");
 } finally {
+  const relative = path.relative(path.resolve(os.tmpdir()), path.resolve(tmp));
+  if (!relative || path.isAbsolute(relative) || relative.startsWith("..") || !path.basename(tmp).startsWith("purge-smoke-")) {
+    throw Error("Smoke cleanup target is outside its newly created temporary workspace");
+  }
   removeTreeNoFollowSync(tmp);
 }
 

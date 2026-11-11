@@ -1,6 +1,8 @@
 # 安装、升级与故障排查
 
-当前版本 **1.6.88**。面向用户与协助安装的 Agent。支持的安装器环境：Linux CLI/Web；macOS Desktop；Windows 11 的 PowerShell 5.1/7。完整 Windows 宿主补丁及界面验收与安装器测试分开，不能因安装通过就宣称全部功能正常。
+当前版本 **1.8.0**。面向用户与协助安装的 Agent。支持的安装器环境：Linux CLI/Web；macOS Desktop；Windows 11 的 PowerShell 5.1/7。完整 Windows 宿主补丁及界面验收与安装器测试分开，不能因安装通过就宣称全部功能正常。
+
+内置评估源码随主包的 `lib/redteam/assessment-engine/` 提供，运行时无需安装或绑定独立 awa-ddd。评估使用 Node ≥22.19、Python ≥3.10，以及当前靶标自己的 `assessment` 台账；普通 Purge 功能的运行条件见 README。升级保留旧外部 settings/binding、原提示词和用户设置，不自动初始化目标评估或重启 DSH。首次按真实 HTTP URL 准备评估的流程见 [红队/内置评估/SRC](REDTEAM-AWA-SRC.md)。
 
 ## 安装前
 

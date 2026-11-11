@@ -29,8 +29,8 @@ enabled: true
 ## 基本用法
 
 ```bash
-# 1) 单目标快速体检（先看会命中什么，不实际打）
-nuclei -u https://target.example.com -severity critical,high,medium -rl 30 -c 15
+# 1) 只查看候选模板（不发目标请求，不表示命中）
+nuclei -u https://target.example.com -severity critical,high,medium -tl
 
 # 2) 批量：从资产库导出的存活 URL 清单
 nuclei -l runs/alive-urls.txt -severity critical,high -rl 50 -c 25 \
@@ -83,7 +83,7 @@ nuclei -l runs/alive-urls.txt -tags cve -tl
 
 1. 读 `runs/nuclei-*.jsonl`，逐条 `redteam_vuln_add`：
    - `title`（模板名 + 命中点）、`severity`、`cve`（模板带的 `classification.cve-id`）、`target`（**带端口**）、
-     `evidence`（命中回显/响应特征/matched-at）、`confidence=confirmed`（nuclei 命中即为已确认存在于响应层面）、
+     `evidence`（命中回显/响应特征/matched-at）、`status=candidate`（扫描命中是候选，不能由标签直接确认）、
      `gained`（通过它能拿到什么）、`agent=vuln-scan`。
 2. **每条确认漏洞配一条 `redteam_http_evidence_add`**：请求行 + Host + 关键请求头 + 响应摘要（模板的 `curl-command` 字段可直接用）。
 3. 每个关键动作 `redteam_chain_add`：`stage_code=recon` 或 `internet`，

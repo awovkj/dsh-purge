@@ -1,6 +1,12 @@
 # 维护、迁移与恢复
 
-当前版本 **1.6.88**。包名 `dsh-purge-community`，来源仅本仓库正式 GitHub Releases；保留内部 Cordis ID `dsh-purge`、HTTP `/dsh-purge/*` 及用户数据目录。主安装步骤与镜像故障决策树统一见 [安装指南](INSTALLATION.md)；[AGENTS.md](../AGENTS.md) 是 Agent 操作说明。
+当前版本 **1.8.0**。包名 `dsh-purge-community`，来源仅本仓库正式 GitHub Releases；保留内部 Cordis ID `dsh-purge`、HTTP `/dsh-purge/*` 及用户数据目录。主安装步骤与镜像故障决策树统一见 [安装指南](INSTALLATION.md)；[AGENTS.md](../AGENTS.md) 是 Agent 操作说明。
+
+## 内置评估源码与历史数据
+
+awa-ddd 2.2.0 的生产评估源码随 `lib/redteam/assessment-engine/` 分发，MIT 许可证、NOTICE 和 `provenance.json` 保留来源及逐文件哈希。维护者运行 `node scripts/sync-assessment-engine.mjs --check` 离线核对；明确选择已审阅的本地源码后，才用 `--source` 同步写入本仓库。运行时直接使用随包核心，不自动查询或同步独立 AWA 项目。[维护流程和验证边界](REDTEAM-AWA-SRC.md)。
+
+每个 engagement 的 `<靶标目录>/assessment` 是独立评估工作区，内部项目固定为 `assessment`；模型不能替换 code/workspace。旧 `settings.json` 的外部路径/工作区及 `awa-binding.json` 保留为历史数据，不选择或执行外部引擎。独立 awa-ddd 2.2.0 升级、用户提示词和设置不因嵌入改写；维护源码不自动部署、应用补丁、初始化目标评估或重启正在运行的 DSH。
 
 ## 兼容与操作边界
 

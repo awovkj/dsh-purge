@@ -1,5 +1,6 @@
 import { apiUrl } from "../api/client.js";
 import React from "react";
+import { AssessmentTab, SrcDiscoveryReport } from "../community/awa-evidence.js";
 // UI derived from YuJunZhiXue/dsh-purge 1.1.71 (MIT). See LICENSE.
 
 export const __dshPurgeDrill = (() => {
@@ -3223,6 +3224,11 @@ export const __dshPurgeDrill = (() => {
 
   function FindingsTab(props) {
     const eng = props.engagement;
+    const isSrc = props.assessmentMode === "src";
+    const refsOf = value => {
+      try { const refs = typeof value === "string" ? JSON.parse(value) : value; return Array.isArray(refs) ? refs : []; }
+      catch { return []; }
+    };
     const refreshKey = props.refreshKey || 0;
     const [sev, setSev] = React.useState("");
     const [status, setStatus] = React.useState("");
@@ -3284,15 +3290,15 @@ export const __dshPurgeDrill = (() => {
             stats: null,
           }),
       );
-      api({ op: "credentials", engagement: eng }).then(
+      if (!isSrc) api({ op: "credentials", engagement: eng }).then(
         (r) => setCreds((r && r.items) || []),
         () => {},
       );
-      api({ op: "access", engagement: eng }).then(
+      if (!isSrc) api({ op: "access", engagement: eng }).then(
         (r) => setAccesses((r && r.items) || []),
         () => {},
       );
-      api({ op: "attackFiles", engagement: eng }).then(
+      if (!isSrc) api({ op: "attackFiles", engagement: eng }).then(
         (r) => setFiles((r && r.items) || []),
         () => {},
       );
@@ -3305,7 +3311,7 @@ export const __dshPurgeDrill = (() => {
         op: "updateVuln",
         engagement: eng,
         id: id,
-        patch: { status: next },
+        patch: { status: next, ...(isSrc ? { evidence_refs: refsOf(state.items.find(item => item.id === id)?.evidence_refs) } : {}) },
       }).then(
         (r) => {
           if (!r || r.ok === false) {
@@ -3372,7 +3378,7 @@ export const __dshPurgeDrill = (() => {
         status === "confirmed",
         () => setStatus((v) => (v === "confirmed" ? "" : "confirmed")),
       ),
-      concl(
+      !isSrc && concl(
         "exp",
         "已利用",
         stats.byStatus.exploited || 0,
@@ -3392,7 +3398,7 @@ export const __dshPurgeDrill = (() => {
       concl("med", "中危", stats.bySeverity.medium || 0, sev === "medium", () =>
         setSev((v) => (v === "medium" ? "" : "medium")),
       ),
-      concl("gain", "拿到权限", stats.withGained || 0, false, () => {}),
+      !isSrc && concl("gain", "拿到权限", stats.withGained || 0, false, () => {}),
       h("div", { className: "rt-spacer" }),
       h(
         "span",
@@ -3526,8 +3532,8 @@ export const __dshPurgeDrill = (() => {
             h(
               "div",
               { className: "rt-kv" },
-              h("b", null, "拿到什么"),
-              gainedList.length
+              h("b", null, isSrc ? "停止记录" : "拿到什么"),
+              isSrc ? h("span", null, v.stop_reason || "待直接证据核实") : gainedList.length
                 ? h(
                     "span",
                     null,
@@ -3632,6 +3638,7 @@ export const __dshPurgeDrill = (() => {
                 "button",
                 {
                   className: "rt-btn",
+                  disabled: isSrc && !refsOf(v.evidence_refs).length,
                   onClick: (e) => {
                     e.stopPropagation();
                     setVulnStatus(v.id, "confirmed");
@@ -3639,7 +3646,7 @@ export const __dshPurgeDrill = (() => {
                 },
                 "确认",
               ),
-              h(
+              !isSrc && h(
                 "button",
                 {
                   className: "rt-btn",
@@ -3798,7 +3805,7 @@ export const __dshPurgeDrill = (() => {
         h("option", { value: "" }, "全部状态"),
         h("option", { value: "candidate" }, "待验证"),
         h("option", { value: "confirmed" }, "已确认"),
-        h("option", { value: "exploited" }, "已利用"),
+        !isSrc && h("option", { value: "exploited" }, "已利用"),
         h("option", { value: "false-positive" }, "误报"),
         h("option", { value: "fixed" }, "已修复"),
       ),
@@ -3958,9 +3965,9 @@ export const __dshPurgeDrill = (() => {
         "div",
         { className: "rt-subtabs" },
         subTabBtn("vulns", "漏洞", state.total || 0),
-        subTabBtn("files", "攻击文件", allFiles.length),
-        subTabBtn("creds", "凭据", creds.length),
-        subTabBtn("access", "访问会话", accesses.length),
+        !isSrc && subTabBtn("files", "攻击文件", allFiles.length),
+        !isSrc && subTabBtn("creds", "凭据", creds.length),
+        !isSrc && subTabBtn("access", "访问会话", accesses.length),
         h("div", { className: "rt-spacer" }),
         grouped
           ? h(
@@ -4021,7 +4028,7 @@ export const __dshPurgeDrill = (() => {
       state.error && !needRestart
         ? h("div", { className: "rt-err" }, state.error)
         : null,
-      subTab === "files"
+      !isSrc && subTab === "files"
         ? h(
             "div",
             { className: "rt-body", style: { overflow: "auto" } },
@@ -4037,13 +4044,13 @@ export const __dshPurgeDrill = (() => {
             ),
             h(AttackFilesTab, { engagement: eng, refreshKey: refreshKey }),
           )
-        : subTab === "creds"
+        : !isSrc && subTab === "creds"
           ? h(
               "div",
               { className: "rt-body", style: { overflow: "auto" } },
               credSection,
             )
-          : subTab === "access"
+          : !isSrc && subTab === "access"
             ? h(
                 "div",
                 { className: "rt-body", style: { overflow: "auto" } },
@@ -9451,6 +9458,9 @@ export const __dshPurgeDrill = (() => {
     const [snapshot, setSnapshot] = React.useState(null);
     const [err, setErr] = React.useState(null);
     const [newName, setNewName] = React.useState("");
+    const [newMode, setNewMode] = React.useState("redteam");
+    const [newScope, setNewScope] = React.useState("");
+    const [newExclude, setNewExclude] = React.useState("");
     const [geom, setGeom] = React.useState(loadRtGeom);
     const [creating, setCreating] = React.useState(false);
     const [refreshKey, setRefreshKey] = React.useState(0);
@@ -9528,7 +9538,10 @@ export const __dshPurgeDrill = (() => {
       const name = String(nameArg || newName).trim();
       if (!name) return;
       setCreating(true);
-      api({ op: "openEngagement", name: name }).then(
+      const scope = newScope.split(/[\r\n,]+/).map(value => value.trim()).filter(Boolean);
+      const exclude = newExclude.split(/[\r\n,]+/).map(value => value.trim()).filter(Boolean);
+      api({ op: "openEngagement", name: name, assessment_mode: newMode,
+        ...(scope.length || newMode === "src" ? { scope } : {}), exclude }).then(
         (r) => {
           setCreating(false);
           if (!r || r.ok === false) {
@@ -9706,18 +9719,23 @@ export const __dshPurgeDrill = (() => {
     };
 
     const stats = (snapshot && snapshot.stats) || {};
+    const isSrc = engagements.find(item => item.id === eng)?.assessment_mode === "src";
     const tabs = [
       ["assets", "资产测绘"],
+      ["evidence", "内置评估"],
       ["env", "环境适配"],
       ["agents", "智能体"],
       ["sessions", "会话隧道"],
-      ["findings", "漏洞战果"],
+      ["findings", isSrc ? "漏洞发现" : "漏洞战果"],
       ["chain", "攻击链"],
       ["scores", "得分目标"],
       ["report", "报告"],
       ["knowledge", "知识库"],
       ["skills", "技能库"],
-    ];
+    ].filter(item => !isSrc || !["env", "sessions", "chain", "scores", "knowledge", "skills"].includes(item[0]));
+    React.useEffect(() => {
+      if (isSrc && !tabs.some(item => item[0] === st.tab)) setUI({ tab: "assets" });
+    }, [isSrc, st.tab]);
     const full = isFullWindow();
     const openFull = () => {
       try {
@@ -9757,6 +9775,7 @@ export const __dshPurgeDrill = (() => {
 
     let body;
     if (err) body = h("div", { className: "rt-err" }, err);
+    else if (st.tab === "evidence") body = h(AssessmentTab, { engagement: eng, api });
     /* 全局页：没有靶标也能看（知识库 / 环境适配 / 技能库 / 智能体概览） */
     else if (st.tab === "knowledge")
       body = h(KnowledgeTab, { refreshKey: refreshKey });
@@ -9764,7 +9783,11 @@ export const __dshPurgeDrill = (() => {
     else if (st.tab === "skills")
       body = h(SkillsTab, { refreshKey: refreshKey });
     else if (st.tab === "agents" || st.tab === "prompts")
-      body = h(AgentsTab, { engagement: eng, refreshKey: refreshKey });
+      body = isSrc ? h("div", { className: "rt-pane" }, h("div", { className: "rt-card" },
+        h("h4", null, "SRC 发现与复核"),
+        h("p", null, "先整理明确范围内资产和已有证据，通过项目内置评估核心验证候选。直接证据确认后停止该目标的后续请求，整理报告与修复建议。"),
+        h("p", null, "SRC 预设提供发现、证据和报告工具；项目模式和范围在创建时固定。")))
+        : h(AgentsTab, { engagement: eng, refreshKey: refreshKey });
     else if (!eng) {
       body = h(
         "div",
@@ -9782,8 +9805,15 @@ export const __dshPurgeDrill = (() => {
                 marginBottom: 8,
               },
             },
-            "输入攻防演练靶标单位名称，创建演练并开始资产测绘。",
+            "创建红队或 SRC 靶标。SRC 在明确范围内发现漏洞，取得直接证据后停止该项验证。",
           ),
+          h("select", { className: "rt-input", value: newMode, onChange: event => setNewMode(event.target.value) },
+            h("option", { value: "redteam" }, "红队模式"), h("option", { value: "src" }, "SRC 漏洞发现模式")),
+          h("textarea", { className: "rt-textarea", rows: 3, value: newScope,
+            placeholder: "明确授权范围，每行一项 URL / 域名 / IP / CIDR；SRC 必填",
+            onChange: event => setNewScope(event.target.value) }),
+          newMode === "src" ? h("textarea", { className: "rt-textarea", rows: 2, value: newExclude,
+            placeholder: "排除范围，每行一项；可留空", onChange: event => setNewExclude(event.target.value) }) : null,
           h(
             "div",
             { style: { display: "flex", gap: 8 } },
@@ -9828,11 +9858,12 @@ export const __dshPurgeDrill = (() => {
     else if (st.tab === "sessions")
       body = h(SessionTab, { engagement: eng, refreshKey: refreshKey });
     else if (st.tab === "findings")
-      body = h(FindingsTab, { engagement: eng, refreshKey: refreshKey });
+      body = h(FindingsTab, { engagement: eng, refreshKey: refreshKey, assessmentMode: isSrc ? "src" : "redteam" });
     else if (st.tab === "chain")
       body = h(ChainTab, { engagement: eng, refreshKey: refreshKey });
     else if (st.tab === "report")
-      body = h(ReportTab, { engagement: eng, refreshKey: refreshKey });
+      body = isSrc ? h(SrcDiscoveryReport, { engagement: eng, api })
+        : h(ReportTab, { engagement: eng, refreshKey: refreshKey });
     else if (st.tab === "attackfiles")
       body = h(FindingsTab, { engagement: eng, refreshKey: refreshKey });
     else if (st.tab === "scores")
@@ -9940,9 +9971,11 @@ export const __dshPurgeDrill = (() => {
             engagements.length ? "选择靶标" : "暂无靶标",
           ),
           engagements.map((x) =>
-            h("option", { key: x.id, value: x.id }, x.name || x.id || "未命名"),
+            h("option", { key: x.id, value: x.id }, (x.assessment_mode === "src" ? "[SRC] " : "") + (x.name || x.id || "未命名")),
           ),
         ),
+        isSrc ? h("span", { className: "rt-tag" }, "直接证据即停止") : null,
+        h("button", { className: "rt-btn", onClick: () => { setEng(null); setSnapshot(null); setErr(null); setUI({ tab: "assets" }); } }, "新建靶标"),
         h("div", { className: "rt-spacer" }),
         embedded ? null : h(VersionBar, null),
         full

@@ -1,0 +1,566 @@
+{
+  "schema": "dsh-purge-assessment-source/v1",
+  "upstream": {
+    "name": "awa-ddd",
+    "version": "2.2.0",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 awa-ddd contributors",
+    "source_sha256": "881cbc6a6d7463e29832524bce6a81f043517e8f1fef9c665304c37aad6cfa05"
+  },
+  "distribution": "Checked-in production source; no external AWA project is consulted at runtime.",
+  "files": [
+    {
+      "path": "LICENSE",
+      "origin": "awa-ddd",
+      "upstream_sha256": "f2b31de10f72cfb149cecadec30bd5db4099980888c2d3b738989b3e2dedf10d",
+      "bundled_sha256": "f2b31de10f72cfb149cecadec30bd5db4099980888c2d3b738989b3e2dedf10d",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/__init__.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c338f5b680c512b93605d93a1bdcace7f7d8feeaf24353ebbef5794ea49957c1",
+      "bundled_sha256": "c338f5b680c512b93605d93a1bdcace7f7d8feeaf24353ebbef5794ea49957c1",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/__main__.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "674a6441b2c589eb2add35b2aa1f9791c96578016a289298db51370757283744",
+      "bundled_sha256": "9da108e3cbf47c1601ef6e1bc060b2f2b918dd07b0d51a5938cdd681cb759bd3",
+      "adaptations": [
+        "Dispatches the private owner configuration before public AWA contracts; no new public action."
+      ]
+    },
+    {
+      "path": "awa_ddd/assessment.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "45cec559bb29457ed5fad63180f59813ac8bcf139c02c04370adc65df336e40e",
+      "bundled_sha256": "45cec559bb29457ed5fad63180f59813ac8bcf139c02c04370adc65df336e40e",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/assessment_hints.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "38941a842b12cc22cdf09c2de7084df456c1e93fb16755550cab9f805e8a07c2",
+      "bundled_sha256": "38941a842b12cc22cdf09c2de7084df456c1e93fb16755550cab9f805e8a07c2",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/assessment_mode.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "6fb8571c4f6b817a73742be60800ca843c31df01c5e8a09d2451d2d78137ee5a",
+      "bundled_sha256": "6fb8571c4f6b817a73742be60800ca843c31df01c5e8a09d2451d2d78137ee5a",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/assessment_preparation.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "2505d5c07719c856410d4e32a2607634eeb0b5dfd1396f83a45971d11007dfae",
+      "bundled_sha256": "2505d5c07719c856410d4e32a2607634eeb0b5dfd1396f83a45971d11007dfae",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/batch.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "686a0f98c7fb34c269363f3737c1731edbff823b5d5377dff40f766508200d88",
+      "bundled_sha256": "686a0f98c7fb34c269363f3737c1731edbff823b5d5377dff40f766508200d88",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/browser.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "0d319cd52efb59a9e59dfc6dda9167445f7038e7f24f9976f8efd238c71917fa",
+      "bundled_sha256": "0d319cd52efb59a9e59dfc6dda9167445f7038e7f24f9976f8efd238c71917fa",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/browser_policy.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "afe0217c3a6099f371a2326118cc69af36501707b3370d21670c897b04859090",
+      "bundled_sha256": "afe0217c3a6099f371a2326118cc69af36501707b3370d21670c897b04859090",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/candidates.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "25d6fd909ef5db743adc6953921480a65f5c43414064f01896e98f498345a0b3",
+      "bundled_sha256": "25d6fd909ef5db743adc6953921480a65f5c43414064f01896e98f498345a0b3",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/completeness.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "e12540b3ce2c60b424659c518f8f9d11470a79f36d944670b4bfc03490d01744",
+      "bundled_sha256": "e12540b3ce2c60b424659c518f8f9d11470a79f36d944670b4bfc03490d01744",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/continuation.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "930eba6cdfe0baedd3b6a83e28fea54e4348b1bf705aee12aa6826239c88216a",
+      "bundled_sha256": "930eba6cdfe0baedd3b6a83e28fea54e4348b1bf705aee12aa6826239c88216a",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/contracts.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "4faa32362c6bdb73a62d4d7a98c4f060390cc128eb11f03440bb0936266be31a",
+      "bundled_sha256": "4faa32362c6bdb73a62d4d7a98c4f060390cc128eb11f03440bb0936266be31a",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/discovery.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c9d70a030a5a4a2cd5ffe371d8a5dab49c57ca74ab8877ac4c400cf4c327fe84",
+      "bundled_sha256": "c9d70a030a5a4a2cd5ffe371d8a5dab49c57ca74ab8877ac4c400cf4c327fe84",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/__init__.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "af81c30fd39ee030aee389892420e3cc06cb69cc2a0a5dc988ba269bba824566",
+      "bundled_sha256": "af81c30fd39ee030aee389892420e3cc06cb69cc2a0a5dc988ba269bba824566",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/campaign.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "d509d736cc58cfc11a7677a5445dfcbbd9a071aaa5d053c6ee812c78dc34afc3",
+      "bundled_sha256": "d509d736cc58cfc11a7677a5445dfcbbd9a071aaa5d053c6ee812c78dc34afc3",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/common.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "3d55e3c2278450ba19939bb41bcafcf04d84af37364a9ff6b5839c33813ffbb3",
+      "bundled_sha256": "3d55e3c2278450ba19939bb41bcafcf04d84af37364a9ff6b5839c33813ffbb3",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/coverage_claim.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "94a95b697f8bfb0a74302bf038abeefea13ad7bc7217fde346a8c7ee32c2e774",
+      "bundled_sha256": "94a95b697f8bfb0a74302bf038abeefea13ad7bc7217fde346a8c7ee32c2e774",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/finding.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "b0dfcf996aa63686b25c216166b46b8dc0ea098cdacca8161de95ab76efe8461",
+      "bundled_sha256": "b0dfcf996aa63686b25c216166b46b8dc0ea098cdacca8161de95ab76efe8461",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/gap.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "6706b025723b6a0578c0f72f180b01ce11d2f22acfa2a111bd146716439847c3",
+      "bundled_sha256": "6706b025723b6a0578c0f72f180b01ce11d2f22acfa2a111bd146716439847c3",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/hypothesis.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "2010e95e89860bb349b9081747370d79e654fa402258f35493a54251e1419f6d",
+      "bundled_sha256": "2010e95e89860bb349b9081747370d79e654fa402258f35493a54251e1419f6d",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/known_case.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "d9cadc973de2a974b78a5834a316da68b6814d53ff268a3daa6f66122b39fdd6",
+      "bundled_sha256": "d9cadc973de2a974b78a5834a316da68b6814d53ff268a3daa6f66122b39fdd6",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/repository.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "a0b235e0624b172458a44cc61c4e5b11f77368a35e34a818a271fcd66f205ed4",
+      "bundled_sha256": "a0b235e0624b172458a44cc61c4e5b11f77368a35e34a818a271fcd66f205ed4",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/review.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "5b41fed29d7e939bf0d420140781b5cd800b5b805ef6e41a0d7a455b4fe43bd5",
+      "bundled_sha256": "5b41fed29d7e939bf0d420140781b5cd800b5b805ef6e41a0d7a455b4fe43bd5",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/test_recipe.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "4df737ea50b4571f0177979384fd3144da95c8f441d075edd186e6dfc576ddad",
+      "bundled_sha256": "4df737ea50b4571f0177979384fd3144da95c8f441d075edd186e6dfc576ddad",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/test_run.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "e73170d126e807aa663476cd8fa30d827f83940f3b8feecaf80c43b0818dc174",
+      "bundled_sha256": "e73170d126e807aa663476cd8fa30d827f83940f3b8feecaf80c43b0818dc174",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/domain/universe.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "e34818252167a9f9041c355c0bd3c5e06e3b2f34df802c70c3fc726fc8dbf9a6",
+      "bundled_sha256": "e34818252167a9f9041c355c0bd3c5e06e3b2f34df802c70c3fc726fc8dbf9a6",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/dsh_context.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "bundled_sha256": "0197cbe9d22c0f024e45ec438df9b6c3f1f2606f58a3367201f92a896049c1c8",
+      "adaptations": [
+        "Private owner-only, atomic monotonic scope/exclude merge; immutable mode and mutation policy; no target requests."
+      ]
+    },
+    {
+      "path": "awa_ddd/engine.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "d3aced46f59c231b825e69231eb25fd17a94a60630d5fe294a1b5600e6670126",
+      "bundled_sha256": "d3aced46f59c231b825e69231eb25fd17a94a60630d5fe294a1b5600e6670126",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/__init__.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "e803394377d02de3abaa98fdbc75d0ef89ed1d68426b2a7f8881c69b66a6bd5b",
+      "bundled_sha256": "e803394377d02de3abaa98fdbc75d0ef89ed1d68426b2a7f8881c69b66a6bd5b",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/browser_provider.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "1cba1c55d1f1d8352fe1e601f5f8f2579deb0dc5a8b098d2839818cc73729223",
+      "bundled_sha256": "1cba1c55d1f1d8352fe1e601f5f8f2579deb0dc5a8b098d2839818cc73729223",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/capabilities.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "f6836cb4143f137ee4b8e61d2b338930493ab91d4ba6e012ab556a9a6bbaf87a",
+      "bundled_sha256": "f6836cb4143f137ee4b8e61d2b338930493ab91d4ba6e012ab556a9a6bbaf87a",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/external_provider.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "a9306e20a219070784bfc1d73b0be4c1ece26ede73caa673d114b88d2cab21a5",
+      "bundled_sha256": "a9306e20a219070784bfc1d73b0be4c1ece26ede73caa673d114b88d2cab21a5",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/fixtures.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "5fc3f1c260806f4e07143595474498afffa68c045d60b36a74f5a712694e266b",
+      "bundled_sha256": "5fc3f1c260806f4e07143595474498afffa68c045d60b36a74f5a712694e266b",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/oracle_profiles.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "3d1846d4c57628aa5b8d5580c05c2b67cef9c675596e01d7facc056180264b8c",
+      "bundled_sha256": "3d1846d4c57628aa5b8d5580c05c2b67cef9c675596e01d7facc056180264b8c",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/recipe_builder.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c0277408ad289e744aeef6d2d43ed54f5c5c6c3d7a679192ccfd1897a26836b1",
+      "bundled_sha256": "c0277408ad289e744aeef6d2d43ed54f5c5c6c3d7a679192ccfd1897a26836b1",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/review_engine.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "0d014ef9fc015ce83d8b78181ddc91f5631d0a940b96d498b5a8b1f738615f62",
+      "bundled_sha256": "0d014ef9fc015ce83d8b78181ddc91f5631d0a940b96d498b5a8b1f738615f62",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/execution/test_runner.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "e5070c675ea7d0ae3809d65d45ca2ad84ded912296fc2659ebe7bb908d6f93f6",
+      "bundled_sha256": "e5070c675ea7d0ae3809d65d45ca2ad84ded912296fc2659ebe7bb908d6f93f6",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/external.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "b8f21ef968a3dd3c72672306b94778f0aab65db4bb62d44fe2f226f3340aa317",
+      "bundled_sha256": "b8f21ef968a3dd3c72672306b94778f0aab65db4bb62d44fe2f226f3340aa317",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/finding_binding.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "e4c450a74a3da25cc687e553dd65945b7823075235465d4ffe7087f463e7f6df",
+      "bundled_sha256": "e4c450a74a3da25cc687e553dd65945b7823075235465d4ffe7087f463e7f6df",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/importers.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c0eede83a7c14cf6991625936a1d7c40b8c339cc84401310041158172922f9cc",
+      "bundled_sha256": "c0eede83a7c14cf6991625936a1d7c40b8c339cc84401310041158172922f9cc",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/inputs.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "53a45f5ae62eccadd803a760c76dcd46d4bf61710fb02225d6464d76306fec93",
+      "bundled_sha256": "53a45f5ae62eccadd803a760c76dcd46d4bf61710fb02225d6464d76306fec93",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/integration.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "513fe1552db5b7500faf6bf8372116fe6d3e9af1415376a0e7ea3808384c3685",
+      "bundled_sha256": "513fe1552db5b7500faf6bf8372116fe6d3e9af1415376a0e7ea3808384c3685",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/lineage.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "3be8d6854d6427027b15f53b921c1fc160572897aab2a72b3da81a920d1fcba9",
+      "bundled_sha256": "3be8d6854d6427027b15f53b921c1fc160572897aab2a72b3da81a920d1fcba9",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/loop_guard.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "37fd3430666dd1677222970849dc6eb328404dd7da6d4e7447e7b274d4e26739",
+      "bundled_sha256": "37fd3430666dd1677222970849dc6eb328404dd7da6d4e7447e7b274d4e26739",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/mcp_http.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c74844096c503db6cb261a2d6229af8f75db37b5c8839b496d29a470ae887574",
+      "bundled_sha256": "c74844096c503db6cb261a2d6229af8f75db37b5c8839b496d29a470ae887574",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/oracle_contracts.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "10cdd86b0ff3939cb22922587f122d4615765e8d821c7111b7b5f9f7a4991b87",
+      "bundled_sha256": "10cdd86b0ff3939cb22922587f122d4615765e8d821c7111b7b5f9f7a4991b87",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/parameter_coverage.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "a848a06925937c78e4e20b321baed625812b1fe95a7a372bddc18255445210c9",
+      "bundled_sha256": "a848a06925937c78e4e20b321baed625812b1fe95a7a372bddc18255445210c9",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/__init__.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "be0ac0fe5ebbe7b847ba696af28c6d61a964c2a242a3b7efa164d49a0850f1b2",
+      "bundled_sha256": "be0ac0fe5ebbe7b847ba696af28c6d61a964c2a242a3b7efa164d49a0850f1b2",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/campaign.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "fe1bf2d019d2fd1fb6fbb4eca412af33fabd35c20d840b791fd2d24d2281faa6",
+      "bundled_sha256": "fe1bf2d019d2fd1fb6fbb4eca412af33fabd35c20d840b791fd2d24d2281faa6",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/coverage.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "9bd37322fabd5acd969291dcefdcddba534126ea556739e86833e9029c888924",
+      "bundled_sha256": "9bd37322fabd5acd969291dcefdcddba534126ea556739e86833e9029c888924",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/hypotheses.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "2d25f7320895e8d2e1b15d42437c0c5e700050135932cd7018580856ec80c09f",
+      "bundled_sha256": "2d25f7320895e8d2e1b15d42437c0c5e700050135932cd7018580856ec80c09f",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/known_cases.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "d3aa776e5e32455628e86c77327553ce04e5b88b02b02f922ad35080a5486235",
+      "bundled_sha256": "d3aa776e5e32455628e86c77327553ce04e5b88b02b02f922ad35080a5486235",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/migration.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "d3b22d2156508eeaf6335d87db40d116558b917ed2c2014d69b5262d003a38d1",
+      "bundled_sha256": "d3b22d2156508eeaf6335d87db40d116558b917ed2c2014d69b5262d003a38d1",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/route_parser.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "636a0cd19d4c12a65dc2ffcb4a496868cf614a35678be94b0814000868d27195",
+      "bundled_sha256": "636a0cd19d4c12a65dc2ffcb4a496868cf614a35678be94b0814000868d27195",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/planning/scheduler.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "0884857aa8d6577501c009ac91b34c10849631e781fa124a83b7bcf091029032",
+      "bundled_sha256": "0884857aa8d6577501c009ac91b34c10849631e781fa124a83b7bcf091029032",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/publication.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "8a937a13b73de9f96c6c9cb2d8c45596538d6cb6573af0e60f687fcdeefd9d1d",
+      "bundled_sha256": "8a937a13b73de9f96c6c9cb2d8c45596538d6cb6573af0e60f687fcdeefd9d1d",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/recon_parsing.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "8e3968476a6064036fdc3c82315b23357b4f12e0f6d90c7fe69da3962eaabe26",
+      "bundled_sha256": "8e3968476a6064036fdc3c82315b23357b4f12e0f6d90c7fe69da3962eaabe26",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/reconnaissance.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "5d009cfbec31c343a16dd839bd8dab2ecf6bf0429869bc283cd74e98c244e564",
+      "bundled_sha256": "5d009cfbec31c343a16dd839bd8dab2ecf6bf0429869bc283cd74e98c244e564",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/reporting/__init__.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "5569034c9d3d624e5c9f146e8eea4e46f555654a586987f5b9fb1a0190ede0fc",
+      "bundled_sha256": "5569034c9d3d624e5c9f146e8eea4e46f555654a586987f5b9fb1a0190ede0fc",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/reporting/matrix.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "156f70416f55f47974a2b7161a140b62460e6674c4709cd5edad1658a85da933",
+      "bundled_sha256": "156f70416f55f47974a2b7161a140b62460e6674c4709cd5edad1658a85da933",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/reporting_legacy.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "4b69b4dba697f7431324ddd630d59bf0c081585b3fc34740f34174bba0d6d09f",
+      "bundled_sha256": "4b69b4dba697f7431324ddd630d59bf0c081585b3fc34740f34174bba0d6d09f",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/reproduction.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c55582e790461bf6a2ca49d2af4e5458dd8aaced50ec94a66e11ca664b79c1ec",
+      "bundled_sha256": "c55582e790461bf6a2ca49d2af4e5458dd8aaced50ec94a66e11ca664b79c1ec",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/runtime.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "d69ef31029e1f7e4f91f25427e6227079842e3b203d15f59b44271c5564d99a4",
+      "bundled_sha256": "d69ef31029e1f7e4f91f25427e6227079842e3b203d15f59b44271c5564d99a4",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/scenario.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "cec6a633156704ce3db9914301dc33d0ed4f1fc031aff5526c57201ef2232be1",
+      "bundled_sha256": "cec6a633156704ce3db9914301dc33d0ed4f1fc031aff5526c57201ef2232be1",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/scope.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "77a5f9915685bc7aa0471bbc1582ec49a73b77be051889d0695051f2e755ca7f",
+      "bundled_sha256": "77a5f9915685bc7aa0471bbc1582ec49a73b77be051889d0695051f2e755ca7f",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/security_hypotheses.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "975e551494d13cf9e4bc78422ae04a235e609129f0d28af6d4c4eefa7e5fcd93",
+      "bundled_sha256": "975e551494d13cf9e4bc78422ae04a235e609129f0d28af6d4c4eefa7e5fcd93",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/store.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "c903fb4829cb1a51c1b2e9dca7ced04a13c148a5fa28e6c375113e92c1c77e00",
+      "bundled_sha256": "c903fb4829cb1a51c1b2e9dca7ced04a13c148a5fa28e6c375113e92c1c77e00",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/transport.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "150699beccab81d2a68a901142dfdf0f28142411612492ccdc92e10ce947441b",
+      "bundled_sha256": "150699beccab81d2a68a901142dfdf0f28142411612492ccdc92e10ce947441b",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/tscanplus.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "0b8dd33f17cca3eb06935cca92943ec8087cad81ee183480bd214e754833ec78",
+      "bundled_sha256": "0b8dd33f17cca3eb06935cca92943ec8087cad81ee183480bd214e754833ec78",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/v2api.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "41f382b74cf604bc4c4780e435a9b65c3e2eae13bdc1887bb27408fd70e1279d",
+      "bundled_sha256": "41f382b74cf604bc4c4780e435a9b65c3e2eae13bdc1887bb27408fd70e1279d",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/workflow.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "3f538e55faba450867c89f64eab7e4a528b2fb650dac35c5efcc0642fcfa7486",
+      "bundled_sha256": "3f538e55faba450867c89f64eab7e4a528b2fb650dac35c5efcc0642fcfa7486",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/wsl_runner.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "14f04bbcd2ff976795a5b05651e45fa8b9478804d3e86305ee79e3f11fc81747",
+      "bundled_sha256": "14f04bbcd2ff976795a5b05651e45fa8b9478804d3e86305ee79e3f11fc81747",
+      "adaptations": []
+    },
+    {
+      "path": "awa_ddd/xss_consumption.py",
+      "origin": "awa-ddd",
+      "upstream_sha256": "5e92397e7e68389f50b9179d2cf75ec2465f0c626fbd002ed3baaa39c6f387e7",
+      "bundled_sha256": "5e92397e7e68389f50b9179d2cf75ec2465f0c626fbd002ed3baaa39c6f387e7",
+      "adaptations": []
+    },
+    {
+      "path": "src/actions.mjs",
+      "origin": "awa-ddd",
+      "upstream_sha256": "930642ff535e83ded03497a260b6c5d601c0a21a5010e9a002382fed7187bfa6",
+      "bundled_sha256": "930642ff535e83ded03497a260b6c5d601c0a21a5010e9a002382fed7187bfa6",
+      "adaptations": []
+    },
+    {
+      "path": "src/bridge.mjs",
+      "origin": "awa-ddd",
+      "upstream_sha256": "bb48445116739de73f7310273621ba5b08edadbbbad9b8740466a4e56bb1c8dd",
+      "bundled_sha256": "840051982d9f0662dff5783ca4b3db8f435c32f099f1dfcc1025120fa303a84c",
+      "adaptations": [
+        "Default state directory belongs to dsh-purge; engagement runtime supplies its own explicit workspace.",
+        "Transport accepts the private owner context action; public action catalogs and help remain unchanged."
+      ]
+    },
+    {
+      "path": "src/parse-js.mjs",
+      "origin": "awa-ddd",
+      "upstream_sha256": "4aa9efac3d5d93bc422d79780da50cd6b6fecbef883e46452dcab44fb3763ef6",
+      "bundled_sha256": "4aa9efac3d5d93bc422d79780da50cd6b6fecbef883e46452dcab44fb3763ef6",
+      "adaptations": []
+    }
+  ]
+}

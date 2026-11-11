@@ -1,3 +1,23 @@
+# 1.8.0
+
+- 将 awa-ddd 2.2.0 的生产评估核心直接写入 `lib/redteam/assessment-engine`，随 dsh-purge 源码及发行包提供。运行时静态加载项目内入口，不依赖同级 awa-ddd 安装或外部 packagePath。
+- 每个靶标独立管理 `assessment` 台账及内部固定工程，新增原生 `redteam_assessment_status/start/run/import/review` 工具；模型和面板不再选择外部代码、工作目录或绑定工程。
+- 创建靶标时根据明确 HTTP 范围或已有真实 HTTP 材料幂等准备上下文；域名/IP/CIDR 缺少实际 URL 时保留待准备。源范围校验后的 URL 规则仅可在内部单调补充，私有适配动作不出现在模型工具目录。
+- 演练台页签改为「内置评估」，并保留严格证据复核、SRC 发现即停、持久会话继承、脱敏报告与同源 API 校验。旧外部配置、绑定和数据留存，不执行其代码或共享工作目录。
+- 内置源码带 MIT 许可、逐文件来源/哈希及离线校验；固定 acorn 依赖供 JavaScript 材料解析，真实 DSH SDK 纳入开发测试。加入独立安装、实际 Python、作用域合并和原生生命周期回归。
+
+完整用法见 [REDTEAM-AWA-SRC](docs/REDTEAM-AWA-SRC.md)。本版交付源码和本地包；测试在隔离目录及受控夹具中进行，不自动安装、apply 或重启当前 DSH。
+
+# 1.7.0（本次工作中已由 1.8.0 内置实现替代的桥接草稿）
+
+- 新增本地 awa-ddd 2.2.0 桥：固定项目/后端绑定、脱敏候选交换、来源与输入精确关联、复核回执及当前 machine 证明确认。
+- 新增独立 SRC 预设、固定靶标模式/范围、原生工具执行门禁、冷祖先的持久会话继承、直接证据确认与跨桥停止。
+- 演练台提供「证据复核」、红队/SRC 新建入口、SRC 发现报告；SRC 界面展示发现与停止，公开报告省略 URL 查询值。
+- 修复红队 API 对回环请求不区分来源的问题；本地 Desktop origin 与同源 web 客户端保留，外站 web origin 在写入前拒绝。
+- 同步 Python/Node 工具与文档契约，加入跨项目、真实 SDK、完整性、停止与报告回归。源码及本地包供验收，未发布到外部服务。
+
+详细用法与验证范围见 [REDTEAM-AWA-SRC](docs/REDTEAM-AWA-SRC.md)。
+
 # 1.6.88
 
 - 补齐 1.6.87 的 Windows 维护锁修复：守卫目录为空时 `rmdir` 也可能瞬时 `EPERM`/`EACCES`/`EBUSY`，同样按可重试处理；持续失败仍报 `MAINTENANCE_BUSY`，不会误删活动锁。

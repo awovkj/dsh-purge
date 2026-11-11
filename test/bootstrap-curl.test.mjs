@@ -5,9 +5,13 @@ import https from 'node:https';import http from 'node:http';import net from 'nod
 import {execFile} from 'node:child_process';import {promisify} from 'node:util';
 import {curlReleaseRequest,downloadReleaseFile} from '../scripts/bootstrap-install.mjs';
 const exec=promisify(execFile);
-test('real system curl: CONNECT/TLS, binary body, redirect validation, limits, timeout and curlrc isolation',async()=>{
+test('real system curl: CONNECT/TLS, binary body, redirect validation, limits, timeout and curlrc isolation',async(t)=>{
+  // An explicit test-only executable supports Git installations outside ProgramFiles.
+  const configuredOpenSsl=process.env.PURGE_TEST_OPENSSL_EXEC;
+  if(configuredOpenSsl && !path.isAbsolute(configuredOpenSsl))throw new Error('PURGE_TEST_OPENSSL_EXEC must be an absolute executable path');
   const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'purge-bootstrap-tls-'));
-  const openssl=process.platform==='win32'?path.join(process.env.ProgramFiles||'C:\\Program Files','Git/usr/bin/openssl.exe'):'openssl';
+  t.after(()=>fs.rmSync(tmp,{recursive:true,force:true}));
+  const openssl=configuredOpenSsl||(process.platform==='win32'?path.join(process.env.ProgramFiles||'C:\\Program Files','Git/usr/bin/openssl.exe'):'openssl');
   await exec(openssl,['req','-x509','-newkey','rsa:2048','-nodes','-keyout',path.join(tmp,'key.pem'),'-out',path.join(tmp,'cert.pem'),'-days','1','-subj','/CN=github.com','-addext','subjectAltName=DNS:github.com,DNS:release-assets.githubusercontent.com']);
   const sockets=new Set(),requests=[];
   const binary=Buffer.from([0,255,10,13,128,1,2]);

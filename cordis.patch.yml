@@ -58,7 +58,7 @@
     - id: dsh-purge-redteam
       name: dsh-purge-community/redteam
 
-    # 自带 agent 预设：unrestricted（无限制模式）
+    # 自带 agent 预设：unrestricted 与独立 SRC 漏洞发现模式
     - id: dsh-purge-presets
       name: dsh-purge-community/presets-plugin
 

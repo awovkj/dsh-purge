@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.6.88** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.1 / rc.2 / rc.3 / rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.8.0** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.1 / rc.2 / rc.3 / rc.5 同样通过） · [English](docs/README.en.md)
 
-1.6.88 为已授权测试入口增加一次性命令执行挑战，区分文件写入与命令执行。[发行说明](https://github.com/kingcharleslzy-ai/dsh-purge/releases/tag/v1.6.88)。
+1.8.0 将 awa-ddd 2.2.0 的生产评估源码写入本项目，随包提供内置评估核心。每个靶标直接使用自己的内部台账，按真实 HTTP URL 初始化；SRC 取得直接证据后停止该项测试，并保留未测范围。[实施与使用说明](docs/REDTEAM-AWA-SRC.md)。本地源码和 TGZ 可供验收，线上发行链接须待发布后使用。
 
 **原项目与作者**：小杨 / YuJunZhiXue 是历史上游 dsh-purge 的作者署名。本仓库独立维护社区版，保留上游版权和 MIT 许可证。历史署名不代表对当前同名 GitHub 账号身份的核实。详见[署名记录](NOTICE.md)与[许可证](LICENSE)。
 
@@ -68,6 +68,12 @@ dsh-purge Community 是一个跑在你自己机器上的 Harness 附加组件。
 
 本机学习、个人项目、自动化实验与维护工作。请在你拥有或已获授权的环境中使用；涉及他人系统时，先取得许可。
 
+### 内置证据评估与 SRC
+
+演练台的「内置评估」页直接使用当前靶标的范围、候选与证据。`lib/redteam/assessment-engine/` 是随包生产源码，保留 MIT 许可证及逐文件来源/哈希清单；每个靶标有独立的 `assessment` 工作区和内部固定项目。首次按真实 HTTP(S) URL 准备评估，无需绑定外部 awa-ddd；模型不能选择引擎代码路径或外部工作区。
+
+SRC 使用创建时固定的范围与排除项，只进行发现和必要证据核实；直接证据确认后停止该项，报告保留未测和待核实项。旧外部 AWA settings/binding 作为历史数据保留，不参与新版执行。独立 awa-ddd 2.2.0 升级继续保留，内置核心可用维护脚本离线核对和同步；原用户提示词、设置和正在运行的 DSH 不由源码升级改写。[流程、源码来源和验证边界](docs/REDTEAM-AWA-SRC.md)。
+
 ## 1.6.39 更新
 
 修复独立安装器只显示 `fetch failed` 的问题：分阶段诊断、有限重试和系统 curl 备用下载，继续严格校验官方来源、证书和 SHA256。下载失败不触碰现有安装。[发行说明](docs/releases/1.6.48.md) · [配置与验收](docs/maintenance-issue-52.md)
@@ -89,7 +95,7 @@ dsh-purge Community 是一个跑在你自己机器上的 Harness 附加组件。
 下面命令适用于**已经安装 `dsh` 命令、且使用 `web` profile 的 CLI/Web 用户**，在 macOS/Linux 终端或 Windows PowerShell 中运行。桌面版用户优先用上面的界面；不要为了安装插件再用 `npx` 下载另一套宿主。
 
 ```sh
-dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.6.88/dsh-purge-community-1.6.88.tgz"
+dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.8.0/dsh-purge-community-1.8.0.tgz"
 ```
 
 `web` 必须与实际启动的 profile 一致；自定义数据目录需要沿用该实例的 `DSH_HOME`。命令使用本次发行的固定版本 URL；不是 `npm install -g`，也不是安装裸 npm 包名。本项目通过 GitHub 发行，**不要替换成 `add dsh-purge` 或 `add dsh-purge-community`**。官方 CLI 的安装不会额外运行我们安装器的 Release SHA256 比对及迁移快照；需要这些功能时选方式三。[官方 CLI 安装说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)
@@ -191,10 +197,11 @@ sh "$PURGE_INSTALL_DIR/install.sh" --dry-run
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.6.88 |
+| 插件 | `dsh-purge-community` 1.8.0 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可）；红队工具需 ≥22.5（`node:sqlite`） |
+| 内置评估 | Node ≥22.19、Python ≥3.10；实际浏览器观察需现有 Playwright 运行时 |
 
 ## 出问题怎么办
 

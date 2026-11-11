@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.6.88** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.1 / rc.2 / rc.3 / rc.5 同样通过）
+> 当前版本：**1.8.0** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.1 / rc.2 / rc.3 / rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -133,14 +133,31 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.6.88 |
+| 插件 | `dsh-purge-community` 1.8.0 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可）；**红队工具需 ≥22.5**（依赖 `node:sqlite`，低版本会在加载红队工具时失败） |
+| 内置评估 | Node ≥22.19、Python ≥3.10；实际浏览器观察需现有 Playwright 运行时 |
+
+### 内置评估核心与 SRC（1.8.0）
+
+SRC 使用独立 `src` 预设与创建时固定的 `assessment_mode:src` 靶标；scope 必须非空，exclude 必须明确（可为空）。禁止通过普通 open/update 或换 preset 降级。会话绑定及父子关系持久保存，SRC 不回退到其他会话的全局 current。
+
+awa-ddd 2.2.0 的生产评估源码已写入 `lib/redteam/assessment-engine/` 并随 dsh-purge 包提供，保留 MIT 许可证、版权、NOTICE 与 `provenance.json` 的逐文件来源/哈希清单。独立 awa-ddd 2.2.0 升级继续保留。维护者使用 `node scripts/sync-assessment-engine.mjs --check` 离线核对随包源码；明确选择已审阅源码后才用 `--source` 同步写入，运行时不搜索或同步外部 AWA 项目。
+
+使用 `redteam_assessment_status/start/run/import/review` 与 `redteam_src_report`，面板入口为「内置评估」。每个 engagement 使用 `<当前靶标目录>/assessment` 工作区，内部项目固定为 `assessment`；代码来自本安装，模型不能指定 code/packagePath、workspace、backend 或 project_id。有真实 HTTP(S) URL scope 或范围内已登记的实际 URL 时首次操作可直接初始化，否则用 start 提供本范围的真实 target/URL scope，无需绑定外部工程。初始化继承 SRC 与来源排除项，首次选定的 v1/v2 评估模型保持固定。
+
+`assessment_import` 只导入候选，来源页上限 200；`assessment_review` 对同靶标全部已纳入候选统一分页，复核页上限 100，无需指定 import_id。两种分页默认 50 条，分别使用返回的 `page_kind/next_offset`，不串用 offset；切换靶标时归零。`verify:false` 保存 inferred 回执；`verify:true` 重新核验当前 machine 判据、finding、完整哈希和精确输入关联后确认。既有 confirmed 标签或人工文字不升级为机器证明。
+
+旧外部 `settings.json` 路径/工作区字段和 `awa-binding.json` 原样保留，不选择或执行外部引擎。旧 AWA JavaScript API 与 HTTP `awa*` 操作兼容调用内置核心；模型评估工具只注册五个 `redteam_assessment_*` 入口，不再注册旧 `redteam_awa_*`。
+
+SRC 模型只能把材料登记为 claimed/inferred，不能自行声明 observed、工具输出权威或用自由填写的 verified_result/evidence_upgrade 升级。文本声明和哈希一致不等于核实。确认必须经过 native review `verify:true` 的真实机器证明，或可信操作员/代码路径核实实际观察；随后需要本靶标 observed ev_id、同具体目标及直接证据类型/观察。确认后停止该项；Shell、隧道、凭据、主动外部适配器、业务写入和深度利用入口被拒绝。普通 Purge 注入在 SRC 会话关闭，独立 SRC 指引保留。未测/受阻保留分母，发现报告不声明整个范围耗尽。
+
+完整流程、源码来源、模式边界、导入/复核参数及验证口径见 [红队/内置评估/SRC](docs/REDTEAM-AWA-SRC.md)。源码升级不改原用户提示词/设置，不自动安装、apply 或重启当前 DSH。
 
 ### 证据账本（1.6.81 起）
 
-口头报告用 `claimed` 并填写 `source_agent`。工具默认按 `inferred` 记录。用 `redteam_evidence_upgrade` 提交实际核实的结果；普通引用和旧版缺少核实记录的引用保留，需另行核实。计数或哈希报错时先处理账本异常。导入文件须位于当前靶标目录，可暂存在其 `incoming/` 子目录，也可以直接传截图内容。已撤回的问题可按 `withdrawn` 查询。
+口头报告用 `claimed` 并填写 `source_agent`。工具默认按 `inferred` 记录。普通红队上下文可用 `redteam_evidence_upgrade` 提交实际核实的结果；SRC 模型按上述限制通过原生机器证明复核或可信操作员/代码路径核实，不能用自由升级参数替代核实。普通引用和旧版缺少核实记录的引用保留，需另行核实。计数或哈希报错时先处理账本异常。导入文件须位于当前靶标目录，可暂存在其 `incoming/` 子目录，也可以直接传截图内容。已撤回的问题可按 `withdrawn` 查询。
 
 ## 10. 这份文档的维护规则
 

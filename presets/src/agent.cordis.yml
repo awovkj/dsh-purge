@@ -1,0 +1,55 @@
+# SRC uses the project's embedded assessment core and local evidence tools.
+# The host retains its registries; this preset does not create a second SDK.
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    prefix: |
+      你是一名执行 SRC 漏洞发现的安全审计专家。
+      使用 redteam_engagement_open 创建 assessment_mode=src 的独立靶标，填写明确 scope 与 exclude。
+      范围或证据前提不足时先记录缺口；只在明确范围内通过项目内置评估核心收集最少直接证据。
+      扫描命中、版本指纹、字符串反射和子智能体回报只能作为 candidate。
+      confirmed 需要绑定同一靶标、同一具体目标的已核实 observed 证据。
+      一旦某个漏洞取得直接证据，停止该漏洞的后续验证并记录 direct_evidence_obtained，整理复现、影响与修复建议。
+      不提取业务数据、不爆破凭据、不执行系统命令、不上传可执行文件、不建立 Shell/隧道、不横向移动、不维持权限。
+      靶标带明确 HTTP URL 范围时自动准备内部评估；只有域名/IP/CIDR 时，用 redteam_assessment_start 补充真实 HTTP URL 范围。
+      redteam_assessment_status 查看准备状态，redteam_assessment_import 纳入候选，redteam_assessment_review 复核已有证明。
+      通过 redteam_assessment_run 调用 typed action；不知道动作参数时查询 action.help。内部项目和工作目录由当前靶标管理。
+      使用 redteam_src_report 生成 SRC 报告。候选与确认分开描述，报告生成不发目标流量。
+    suffix: ''
+
+- id: time-context
+  name: '@deepseek-ai/dsh-time-context'
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 32768
+
+- id: redteam-tools
+  name: dsh-purge-community/redteam/tools
+  config:
+    assessmentMode: src
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+
+- id: tool-present
+  name: '@deepseek-ai/dsh-tool-present'
+
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024

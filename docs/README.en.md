@@ -8,7 +8,9 @@ A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / 
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 
-Current version 1.6.88 · targets **DSH Desktop 0.2.2-rc.1** (0.2.1-rc.1 / rc.2 / rc.3 / rc.5 also pass)
+Current version 1.8.0 · targets **DSH Desktop 0.2.2-rc.1** (0.2.1-rc.1 / rc.2 / rc.3 / rc.5 also pass)
+
+1.8.0 ships the awa-ddd 2.2.0 production assessment source inside this project. Each engagement uses its own internal ledger; SRC stops testing an item once direct evidence is confirmed and retains unresolved coverage. [Implementation and usage](REDTEAM-AWA-SRC.md). Online 1.8.0 download links become usable after publication; local source and archives are available for acceptance.
 
 **Original project and author:** independently maintained from [dsh-purge by 小杨 / YuJunZhiXue](https://github.com/YuJunZhiXue/dsh-purge). The original repository is available again. Original attribution, copyright and the MIT license are retained; this community distribution is not an official upstream release.
 
@@ -42,6 +44,12 @@ People usually call this a 破甲 ("armor-breaking") or unrestrained-mode plugin
 
 Local learning, personal projects, automation experiments and maintenance work. Use it on machines you own or are authorized to work on; get permission before touching anyone else's systems.
 
+## Built-in evidence assessment and SRC
+
+The drill panel's built-in assessment page uses the current engagement's scope, candidates and evidence. Production code is checked in under `lib/redteam/assessment-engine/`, with the MIT license, attribution and per-file SHA256 provenance. Each engagement owns an `assessment` workspace and a fixed internal project named `assessment`. The first assessment initializes from an explicit HTTP(S) URL; no external AWA project binding is required. Model calls cannot select engine code or an external workspace.
+
+Use `redteam_assessment_status/start/run/import/review` for the native workflow. SRC retains the scope and exclusions declared at creation, obtains direct evidence, then stops that item and reports unresolved or untested work. Old external AWA settings and bindings remain as historical data and do not select or execute an external engine. The standalone awa-ddd 2.2.0 upgrade remains available separately; maintainers can check or synchronize the embedded source offline. Source upgrades preserve user prompts and settings and do not install, apply patches or restart the live DSH instance. See [source provenance, workflow and validation limits](REDTEAM-AWA-SRC.md).
+
 ## Install
 
 **DSH provides the official plugin UI and `dsh plugin` CLI. Our `install.sh` / `install.ps1` are community-maintained wrappers, not DeepSeek scripts.**
@@ -51,7 +59,7 @@ Local learning, personal projects, automation experiments and maintenance work. 
 - CLI/Web users who already have `dsh` on PATH and use the `web` profile can use the official command below. Desktop users should not download another npx host to install into their existing desktop profile.
 
 ```sh
-dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.6.88/dsh-purge-community-1.6.88.tgz"
+dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.8.0/dsh-purge-community-1.8.0.tgz"
 ```
 
 Use the actual instance's profile and `DSH_HOME`. This project distributes via GitHub; do not substitute bare npm package names. The official command does not run our extra Release SHA256 check, migration snapshot or rollback wrapper.
@@ -78,7 +86,7 @@ Two separate preferences (check / install), default check-only every six hours. 
 
 ## Compatibility
 
-Plugin `dsh-purge-community` 1.6.88 · verified on DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / rc.2 / rc.3 / rc.5 · Node ≥ 18.
+Plugin `dsh-purge-community` 1.8.0 · verified on DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / rc.2 / rc.3 / rc.5 · Node ≥ 18. Redteam tools require Node ≥ 22.5; built-in assessment requires Node ≥ 22.19 and Python ≥ 3.10, with the existing Playwright runtime for actual browser observation.
 
 ## Troubleshooting
 
