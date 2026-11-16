@@ -7,19 +7,71 @@ import json
 from .. import engine
 from ..domain.repository import Repository
 from ..scope import require_scope
-from ..store import EngineError
+from ..store import EngineError, canonical
 from . import capabilities
 
 PURPOSES = {"auto", "frontend", "browser", "request_replay", "scanner_results", "sql_verification"}
+
+
+def _runtime_request(project, operation, materials):
+    selected_url = (operation or {}).get("url")
+    session, missing, request = None, [], None
+    if operation is None:
+        missing.append("exact_operation_required")
+    elif materials:
+        signatures = {(canonical(artifact["request"]), meta.get("session_id"),
+                       meta.get("session_generation"), meta.get("auth_mode")) for meta, artifact in materials}
+        if len(signatures) != 1:
+            missing.append("ambiguous_actual_request_identity")
+        else:
+            meta, artifact = materials[0]
+            request, selected_url = artifact["request"], artifact["request"]["url"]
+            if meta.get("session_id"):
+                session = project.get("session", meta["session_id"])
+                engine.session_valid(project, session)
+                engine.require_session_origin(project, session, selected_url)
+            elif operation.get("auth") != "public" or meta.get("actor_id") \
+                    or meta.get("auth_mode") == "anonymous_cookie" or meta.get("credential_header_names"):
+                missing.append("exact_verified_identity_binding")
+            session_headers = (session or {}).get("headers") or {}
+            business_headers = {key: value for key, value in request["headers"].items()
+                                if key not in {"host", "accept-encoding", "content-length", "connection"}}
+            if business_headers != session_headers:
+                missing.append("captured_business_headers_not_replayable")
+    elif operation.get("auth") != "public":
+        candidates = []
+        for candidate in project.list("session"):
+            if not candidate.get("actor_id") or not candidate.get("verified_at"):
+                continue
+            try:
+                actor = engine.session_valid(project, candidate)
+                engine.require_session_origin(project, candidate, selected_url)
+            except EngineError:
+                continue
+            if operation.get("auth") != "restricted" \
+                    or set(actor.get("roles") or []) & set(operation.get("allowed_roles") or []):
+                candidates.append(candidate)
+        if len(candidates) == 1:
+            session = candidates[0]
+        else:
+            missing.append("exact_verified_identity_binding" if not candidates else "ambiguous_actual_request_identity")
+    concrete = bool(operation and operation["method"] == "GET" and selected_url and "{" not in selected_url)
+    if request and (request["method"] != "GET" or request.get("body_base64")):
+        missing.append("body_free_get_required")
+        concrete = False
+    return {"url": selected_url, "session": session, "concrete": concrete and not missing, "missing": missing,
+            "authenticated": bool(session or operation and operation.get("auth") != "public"
+                                  or "exact_verified_identity_binding" in missing)}
 
 
 def route(project, args):
     allowed = {"project_id", "purpose", "operation_id", "evidence_ids", "campaign_id", "limit"}
     if not isinstance(args, dict) or set(args) - allowed or args.get("purpose", "auto") not in PURPOSES:
         raise EngineError("tool_route_arguments", "Select a literal purpose and current IDs; mode, tools, readiness and runtime are not writable inputs")
-    limit, ids = args.get("limit", 5), args.get("evidence_ids") or []
+    limit, ids = args.get("limit", 5), args.get("evidence_ids", [])
     if type(limit) is not int or not 1 <= limit <= 10 or not isinstance(ids, list) or len(ids) > 32 \
-            or any(not isinstance(identity, str) for identity in ids) or len(set(ids)) != len(ids):
+            or any(not isinstance(identity, str) or not identity for identity in ids) or len(set(ids)) != len(ids) \
+            or any(key in args and (not isinstance(args[key], str) or not args[key]) for key in ("operation_id", "campaign_id")):
         raise EngineError("tool_route_arguments", "Routing accepts 1..10 suggestions and at most 32 distinct actual E-IDs")
     operation = project.get("operation", args["operation_id"]) if args.get("operation_id") else None
     if operation:
@@ -43,6 +95,9 @@ def route(project, args):
     purpose, scripts, maps, html_seen = args.get("purpose", "auto"), [], [], False
     from ..assessment_mode import stop_receipt
     stopped = stop_receipt(project, operation) if operation else None
+    if operation and not stopped:
+        stopped = next((receipt for meta, artifact in materials
+                        if (receipt := stop_receipt(project, {**operation, "url": artifact["request"]["url"]}))), None)
     if stopped and purpose in {"browser", "request_replay", "sql_verification"}:
         add("native", "stopped_at_evidence", "This exact SRC target already stopped; inspect existing material instead of preparing new target requests",
             "evidence.inspect" if materials else "surface.inspect",
@@ -72,8 +127,10 @@ def route(project, args):
         if maps:
             add("native", "sourcemap_discovery", "A complete source map already exists; analyze offline with its exact provenance",
                 "surface.from_sourcemap", {"evidence_id": maps[0]})
+    declared_browser_consumer = any(str(entry.get("consumer") or "").lower() in
+        {"html_rendering", "dom_insertion", "browser_navigation"} for entry in (operation or {}).get("inputs", []))
     browser_needed = purpose == "browser" or purpose == "frontend" and not (scripts or maps) \
-        or purpose == "auto" and html_seen and not (scripts or maps)
+        or purpose == "auto" and (html_seen or declared_browser_consumer) and not (scripts or maps)
     if browser_needed:
         if stopped:
             add("native", "stopped_at_evidence", "SRC direct evidence stops this page; browser observation cannot reopen its target traffic",
@@ -81,29 +138,37 @@ def route(project, args):
             browser_needed = False
     if browser_needed:
         ready = capabilities.ready_for(project, provider="playwright", profile="native_page_visit")
-        from .recipe_builder import _first_session
-        session = _first_session(project, operation) if operation else None
-        concrete = bool(operation and "{" not in operation["url"] and operation["method"] == "GET"
-                        and (operation.get("auth") == "public" or session is not None))
-        if ready["ready"] and concrete:
+        binding = _runtime_request(project, operation, materials)
+        session = binding["session"]
+        if ready["ready"] and binding["concrete"]:
             add("playwright", "native_page_visit", "Rendering, dynamic routes or DOM behavior needs an isolated real browser; HTTP text is not runtime proof",
-                "browser.visit", {"url": operation["url"], "allow_write": False, "headless": True, "timeout": 15,
+                "browser.visit", {"url": binding["url"], "allow_write": False, "headless": True, "timeout": 15,
                                   **({"session_id": session["id"]} if session else {})}, offline=False)
         else:
             add("playwright", "native_page_visit", "Do not infer a DOM result while the exact page, runtime or identity is missing",
-                "browser.probe" if not ready["ready"] else "action.help", {} if not ready["ready"] else {"name": "browser.visit"},
-                missing=ready["reasons"] + ([] if concrete else ["exact_get_consumer_and_verified_identity"]), ready=False)
+                "browser.probe" if not ready["ready"] and not binding["missing"] else "action.help",
+                {} if not ready["ready"] and not binding["missing"] else {"name": "browser.visit"},
+                missing=ready["reasons"] + binding["missing"]
+                + ([] if binding["concrete"] else ["exact_get_consumer_and_verified_identity"]), ready=False)
     if purpose == "request_replay":
+        binding = _runtime_request(project, operation, materials)
         ready = capabilities.ready_for(project, provider="yakit", profile="public_get_replay",
-            method=(operation or {}).get("method", "GET"), authenticated=bool(operation and operation.get("auth") != "public"))
-        concrete = bool(operation and "{" not in operation["url"])
+            method=(operation or {}).get("method", "GET"), authenticated=binding["authenticated"])
+        concrete, session = binding["concrete"], binding["session"]
+        fallback = {"action": "http.preflight", "input": {"operation_id": operation["id"],
+                    **({"url": binding["url"]} if binding["url"] != operation["url"] else {}),
+                    **({"session_id": session["id"]} if session else {})}} \
+            if concrete else {"action": "action.help", "input": {"name": "identity.verify"
+                if set(binding["missing"]) & {"exact_verified_identity_binding", "ambiguous_actual_request_identity"}
+                else "http.preflight"}} if operation else None
         if ready["ready"] and concrete:
-            add("yakit", "public_get_replay", "Use the current verified fuzzer schema with exact packet, TLS and no-follow controls for this public GET",
-                "tool.yakit_replay", {"operation_id": operation["id"], "url": operation["url"], "effect": "read_only"}, offline=False)
+            add("yakit", "public_get_replay", "Use the current verified fuzzer schema with the bound public GET URL, TLS and no-follow controls; custom request headers are not replayed",
+                "tool.yakit_replay", {"operation_id": operation["id"], "url": binding["url"], "effect": "read_only"}, offline=False)
         else:
             add("yakit", "public_get_replay", "Installed Yak or a codec handshake is not a replay-ready fuzzer profile",
-                "action.help", {"name": "tool.probe"}, ready=False, missing=ready["reasons"] + ([] if concrete else ["exact_public_get"]),
-                fallback={"action": "http.preflight", "input": {"operation_id": operation["id"]}} if concrete else None)
+                "action.help", {"name": "http.preflight" if binding["missing"] else "tool.yakit_replay" if "mode_profile_denied" in ready["reasons"]
+                                  or "public_body_free_get_required" in ready["reasons"] else "tool.probe"},
+                ready=False, missing=ready["reasons"] + binding["missing"] + ([] if concrete else ["exact_public_get"]), fallback=fallback)
     configured_scanner = isinstance(project.config.get("external_tools", {}).get("tscanplus"), dict)
     if purpose == "scanner_results" or purpose == "auto" and configured_scanner:
         for profile, action in (("project_summary_read", "tool.tscanplus_summary"), ("existing_results_read", "tool.tscanplus_results"),

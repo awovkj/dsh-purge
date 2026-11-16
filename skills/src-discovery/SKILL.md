@@ -48,10 +48,13 @@ submission 草稿记录实际项目、规则引用和收录依据、复现前提
 实际响应先用 redteam_assessment_run 的 evidence.read 查看 JSON 字段结构或脱敏文本，根 JSON Pointer 是空字符串；不猜字段，不对 HTML/JS 使用 JSON 判据。
 完整前端 JS 或带同一强 ETag 的连续 Range 片段可用 surface.from_evidence 离线解析；静态 API/DOM 线索保持未核实。大型响应截断后先查看运行记录，不循环重试或把片段当完整证据。
 技能与方法按 skill.index 的 CWE/class/requires 索引选择；能力 blocked 时先处理明确前提，unknown 不等于运行可用。SRC/渗透专题按 runbook 的 index、authorization、input-controls、frontend、browser、evidence-levels、failure-triage、reporting、component-intelligence 加载。
+每次遇到新的消费点、浏览器需求、复放问题或扫描材料时先用 tool.route，按实际 operation_id/evidence_ids 和 purpose:auto/frontend/browser/request_replay/scanner_results/sql_verification 选择工具，复用返回的 next_step；它只读当前材料，不探测、不自动派发。
+已有完整 JS/map 优先离线 AST/sourcemap，不为静态路由启动浏览器；DOM、SPA 或真实脚本执行需要 Playwright。公开无正文 GET 按绑定 URL 重放需要 Yak 的已核实 fuzzer、TLS 和禁止重定向契约，不是任意头部的完整原包重放；安装 Yakit 或 codec 握手不足。提供证据时保留原请求身份与 URL，多身份歧义、额外业务头或已脱敏 URL 先处理 missing，不能换成匿名、首个会话或默认 URL。已有扫描结果优先 TscanPlus 的独立项目 namespace 只读入口，不把读结果当主动扫描或确认漏洞。
+WSL Kali 是操作者固定的运行后端，不是模型可随意切换的另一套权限；Linux 路径、发行版、Python、模块与浏览器缓存必须分别核实。工具未就绪时保留 missing，加载准备契约或处理不依赖它的任务，不能凭文件存在宣称可有效调用。
 evidence.diff 对比两条当前完整 E-ID；surface.from_sourcemap 只分析已采集 map 或实际 inline map。差分、路由、源码和疑似秘密保持线索，不自动定级或发新请求。
-http.capture_batch 每次最多20条明确只读请求，逐项复用范围、身份、Cookie、SRC停止和原生preflight；保留独立idempotency_key，取消和未知派发后先查已有run，不自动重放。
+http.capture_batch 每次最多20条明确只读请求；没有匿名 cookie_evidence_ids 时使用单个原生worker，匿名Cookie链保留逐项门面。每项重新核实范围、身份、Cookie、SRC停止和原生preflight；保留独立idempotency_key，取消和未知派发后先查已有run，不自动重放。实际发送、接收、字节与耗时按回执统计，复用为0新请求，未知保留null。
 workspace.list/read 只读本靶标固定材料目录；intel.import/search/get 从 incoming 的 NVD/KEV/GHSA JSON 整理本地情报，来源声明和版本范围不能证明目标存在漏洞。
-workflow.advice 只整理当前有效证明、已有候选和剩余前提；SRC停止优先，其他模式的后续影响核验仍需当前范围、真实身份、fixture和已实现typed provider。平台派发拒绝与目标HTTP响应分开记录，403不自动归为WAF。
+workflow.advice 只整理当前有效证明、已有候选和剩余前提；SRC停止优先，其他模式的后续影响核验仍需当前范围、真实身份、fixture和已实现typed provider。N/A处置只保存适用性草稿，没有机器排除证明时保留原分母和unverified_applicability，不据此结项。平台派发拒绝与目标HTTP响应分开记录，403不自动归为WAF。
 action.help 不传 name 时查看目录；陌生动作传确切名称。SRC 不提供 working_directory、独立 awa_*、scenario.run 或业务写入；缺浏览器保留 blocked，不把文件定位当运行成功。
 只收集证明漏洞所需的最少直接证据；扫描命中、版本指纹、反射字符串或子智能体回报先登记为 candidate。
 模型自述只登记 claimed 或 inferred，并写实际 source_agent、工具/动作、目标和材料引用。不要自填 observed、tool-output 或 verified_result。

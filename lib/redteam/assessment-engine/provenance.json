@@ -37,7 +37,7 @@
       "path": "awa_ddd/assessment.py",
       "origin": "awa-ddd",
       "upstream_sha256": "45cec559bb29457ed5fad63180f59813ac8bcf139c02c04370adc65df336e40e",
-      "bundled_sha256": "bbe002854cd02c6a3d83a9a4534b0dc3d40dbb6b03c9ccbc99276a5a20d57c74",
+      "bundled_sha256": "110cc5df8d0c80527936ea04aaab573e2e0ddc8aee2efd22ee5d24e851cc3a7e",
       "adaptations": [
         "Local 1.9.0 adaptation: current typed machine decisions generate bounded claim contracts; manual titles/impact remain source claims and severity is capped.",
         "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
@@ -54,7 +54,7 @@
       "path": "awa_ddd/assessment_mode.py",
       "origin": "awa-ddd",
       "upstream_sha256": "6fb8571c4f6b817a73742be60800ca843c31df01c5e8a09d2451d2d78137ee5a",
-      "bundled_sha256": "68d58c1e41d4c064c676f6b50d0c5e6429792d8b6119ac78f23d4c6bcb74fc74",
+      "bundled_sha256": "bbf7ad02309e430f5b16c23abe0c03adbf11475ec5fde39d6a68f986899272e2",
       "adaptations": [
         "1.10.0: Reads the fixed package-owned SRC source-stop snapshot before capture, identity, browser entry and recipe execution; binds normalized frozen resources and actual URLs, with zero-send failures.",
         "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
@@ -357,7 +357,7 @@
       "path": "awa_ddd/execution/recipe_builder.py",
       "origin": "awa-ddd",
       "upstream_sha256": "c0277408ad289e744aeef6d2d43ed54f5c5c6c3d7a679192ccfd1897a26836b1",
-      "bundled_sha256": "81917f649d3a805cd2ee6c8a5eec1b3ec9e2aa0932ad5a6a8fc9565e78048acb",
+      "bundled_sha256": "f4872a76579ad48f64249fc211822de69123611780071cb7be5d426aa8e44b10",
       "adaptations": [
         "Local 1.9.0 adaptation: structured same-operation/identity baseline requests, explicit provider gaps and semantic prerequisite refresh preserve attempt/cooldown history.",
         "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
@@ -400,7 +400,7 @@
       "adaptations": [
         "Zero-request demand-driven routes from actual context, supported profiles and current runtime receipts."
       ],
-      "bundled_sha256": "d5a48b23e75b489d0f30ed0fb8b065b0762078698fc45d691551863ada9839e9"
+      "bundled_sha256": "32678fff957b969d7f8341a42e2ab0938ad762849d4d4fe3ceb9d9501eeb7809"
     },
     {
       "path": "awa_ddd/external.py",
@@ -571,7 +571,7 @@
       "path": "awa_ddd/publication.py",
       "origin": "awa-ddd",
       "upstream_sha256": "8a937a13b73de9f96c6c9cb2d8c45596538d6cb6573af0e60f687fcdeefd9d1d",
-      "bundled_sha256": "d1805db946bdad08ae9c7fb39e6c027989a976d2f8fdcfb3c7d92cb3d04c4ead",
+      "bundled_sha256": "1b7baacf9461e2f99d99165c28c217336552018609d1bce67d8bfddac8226764",
       "adaptations": [
         "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
       ]

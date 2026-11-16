@@ -1,4 +1,4 @@
-# 发现工作流与本地辅助动作（1.11.0）
+# 发现工作流与本地辅助动作（1.12.0）
 
 这些动作通过当前会话的 `redteam_assessment_run` 调用，`engagement` 使用当前持久绑定的靶标。先读取准确契约：
 
@@ -18,9 +18,12 @@
 | 查找/阅读交付材料 | `workspace.list/read` | 否 | 否 |
 | 导入/检索本地漏洞目录 | `intel.import/search/get` | 否 | 否 |
 | 查找当前模式技能 | `skill.index` | 否 | 否 |
+| 按已有事实选择工具 | `tool.route` | 是 | 否 |
 | 根据当前证明整理后续工作 | `workflow.advice` | 否 | 否 |
 
 单个 `http.capture` 继续提供实际采集及读取下一步。批量入口只有明确请求列表，不补 URL、不生成请求或自动重试。离线动作不初始化评估、修改权限或执行正文中的命令。
+
+遇到HTML/DOM消费、公开无正文GET按绑定URL重放或已有扫描材料时，先使用 `tool.route`；已采集JS/map优先离线解析。参数是实际 `operation_id`、`evidence_ids`数组、可选实际 `campaign_id`、purpose和limit；不接受模型填写模式、后端或就绪。原请求身份/URL、额外业务头或脱敏URL无法绑定时先处理missing，不换会话、匿名或默认URL凑适配。当前Yak不是任意头部的完整原包重放。准确示例、缺件处理与工具边界见 [工具路由](TOOL-ROUTING.md)。
 
 ## 当前响应差分
 
@@ -48,6 +51,8 @@ JavaScript 含真实 `sourceMappingURL` 注释时，可以传其 E-ID。JavaScri
 
 静态路由提示、密钥样式和公开源码不自动成为漏洞。源码中的范围外路由提示保留声明状态，不生成目标请求。`save:false` 不写派生文件。
 
+普通map中嵌入的JS/mjs/cjs还生成有界常量/相对导入引用图及局部query/hash到DOM sink线索。动态表达式、shadowing、赋值、循环、缺失模块、TS/其它语言及indexed map保留gap。引用图始终 `declaration_only:true/runtime_verified:false/can_confirm:false`，不代表完整污点分析或实际脚本执行。
+
 ## 受控批量采集
 
 ```json
@@ -56,9 +61,11 @@ JavaScript 含真实 `sourceMappingURL` 注释时，可以传其 E-ID。JavaScri
 
 每次 1–20 项，键必须明确、彼此唯一。真实 operation 方法仅 GET/HEAD/OPTIONS；请求字段沿现有 `http.capture`，不能传 method/query/body 或换 effect 扩大执行。URL、有界头、session/resource、Cookie 证据、timeout/max_bytes 仍由原门面和随包核心核验，SRC 继续上限 65,536 字节、15 秒和不可撤销停止。
 
+没有匿名 `cookie_evidence_ids` 时，一次调用使用一个固定原生worker串行执行；每项派发前重新读取当前靶标台账并检查scope/exclude、身份、SRC停止及captured-session Cookie的origin/path/Secure/expiry。带匿名Cookie证据链的批量保留 `execution_strategy:per_item_facade`，不能宣称所有批量都只启动一次。
+
 每项依次 preflight，再 capture。原生精确 `already_preflighted` 回执仅沿 `http.capture` 恢复契约复用，另检查实际 operation 方法，capture 重新执行全部范围和身份检查。同一个键可返回已成功请求的原 E-ID；键冲突、先前未知 run 和当前未知派发保持恢复阻塞。
 
-返回原始 `index`、E-ID、完整性、真实状态码及离线读取下一步。`capture_attempts` 表示门面捕获调用次数；原生幂等可能复用，所以有捕获调用时出站请求计数为未知，不伪装为准确发包数。`stop_on_error:false` 只允许明确零发送拒绝后继续；未知、不完整证据和取消始终停止，保留剩余数，不自动重放。沿同 run/E-ID 先读取已有材料，再显式决定恢复。
+返回原始 `index`、E-ID、完整性、真实状态码及离线读取下一步。`capture_attempts` 表示捕获调用次数；单worker回执分别提供实际 `dispatch_attempts/requests_sent/responses_received/response_bytes/elapsed_ms`。response_bytes只计已采集响应正文，不是TCP/HTTP总字节。幂等复用为0新请求，不明为null；匿名链门面尚未聚合发送数，没有回执的浏览器子请求和宿主token保持unknown。`stop_on_error:false` 只允许明确零发送拒绝后继续；未知、不完整证据和取消始终停止，保留剩余数，不自动重放。沿同 run/E-ID 先读取已有材料，再显式决定恢复。
 
 ## 本靶标材料读取
 
@@ -87,6 +94,8 @@ list 最多扫描 2,000 个条目、四层子目录，返回省略/截断信息�
 
 匹配版本、CVSS 和 KEV 都是方法选择信息，不确认本目标受影响、不设置 finding 严重级，不自动创建漏洞或执行 PoC。相关技能仅按 CWE 关联固定方法论，仍要检查模式与真实前提。异常输入/缓存保留原文并返回 typed 错误，不自动清空、改源、更新依赖或修复用户文件。
 
+`intel.search` 默认按CVE/GHSA去重；任一来源匹配筛选时仍保留同advisory其它来源、每个源SHA256及版本冲突，`associated_source_records`单列关联源数量。`intel.get`读取单个原始源记录，不把多个来源的命中当多个漏洞。当前没有运行组件证明与根因级漏洞合并。
+
 ## 技能与后续建议
 
 ```json
@@ -94,10 +103,12 @@ list 最多扫描 2,000 个条目、四层子目录，返回省略/截断信息�
 {"action":"workflow.advice","input":{"limit":5}}
 ```
 
-技能索引从当前安装包读取 `cwe/class/requires`；mode 和 bounded 取实际靶标，不接受模型填写工具可见性或能力就绪。当前公开入口不探测运行时或读取实际工具注册表，需要这些前提的指导保留 `unknown`；模式不提供或尚未实现的能力、元数据错误显示 `blocked`。`available` 仅表示该指导的目录/前提状态，不是执行授权或漏洞证明。
+技能索引从当前安装包读取 `cwe/class/requires`；mode 和 bounded 取实际靶标，不接受模型填写工具可见性或能力就绪。门面内部读取当前真实agent工具schema及已有原生profile回执，不探测运行时；缺注册或未核实的前提保留 `unknown`，明确不可用、模式不提供、尚未实现能力或元数据错误显示 `blocked`。cached readiness绑定当前backend、profile、时效、采集回执和工具文件stat。`available` 仅表示该指导的目录/前提状态，不是执行授权或漏洞证明。
 
 SRC 和渗透可用固定 runbook 的 `resource:index` 及八篇专题：authorization、input-controls、frontend、browser、evidence-levels、failure-triage、reporting、component-intelligence。直接加载返回的 `next.arguments`，不拼装外部路径。
 
 工作建议只扫描已有有界候选、当前精确 proof 和来源停止，旧 confirmed 标签缺当前证明时进入待复核。没有准确原生义务或配方关联时仅提供 action.help，不用 operation_id 猜 assessment.prepare。SRC 保留 sourceStopMatches 的原目标/查询停止规则，停止项不会重新进入候选请求队列；建议只做本地提交材料和报告。不自动派单、扩大 scope、假定高影响或清空覆盖分母。
+
+v2 `review.disposition not_applicable` 仅保存同operation当前完整证据支持的适用性草稿，不能授予机器排除。覆盖保留原分母和 `unverified_applicability`，N/A、baseline、HTTP200及报告均不能代替真实安全结论。
 
 失败归因只消费真实 typed code、状态和 ID：平台拒绝是派发前的本地管控，401/403/429 是目标响应，运行错误和未知派发保留各自类别。403 不自动推断为 WAF 或安全控制已验证。continuation 每类保留三个有界样本，普通工具成功、时间戳或分页变动不会重置真实材料停滞预算。

@@ -1,14 +1,23 @@
+# 1.13.0
+
+- 移除内置检查更新子系统：删除 `lib/update*.js` 更新通道、自动检查/自动安装控制器、`/dsh-purge/update` 接口、面板「检测更新/更新/更新通道」入口、RedTeam 控制台版本更新按钮及其文案、样式与测试。
+- 保留维护页的本机备份、回滚、最近动作与备份清理；升级改为显式安装发行包，安装前仍自动备份并校验归档结构。
+- 发行元数据与归档下载改用固定官方主机的最小 HTTPS 客户端（`lib/release-fetch.js`），校验只认官方 `SHA256SUMS.txt`。
+- 凭据文件权限保护改为 `lib/secret-file.js`，红队凭据库行为不变。
+- 删除 `test/`、`packages/purge-panel/test/`、`prompt-lab/`、`docs/validation/`、`dist/`、`.scratch/` 与仓库根目录的 `*.tgz` 产物，并同步清理 CI 与 `package.json` 脚本。
+- `README.md` 与 `README.zh-CN.md` 保持一致；新增 [发行说明](docs/releases/1.13.0.md)。
 # 1.12.0
 
 - SQL Boolean 改为实际基线与两组 true/false 的五控制，模板采用显式 Jinja 方言及四个独立控制；旧 count-only、字面反射、计算器和模型填写的 actual 不授予证明。
-- v2 review 只保存模型草稿，不授予 supported/finding/SRC 停止。当前机器复核重读完整材料、独立控制、精确输入、身份、claim scope 与严重级上限。
+- v2 review 只保存模型草稿，不授予 supported/finding/SRC 停止。普通 v1 analyst 草稿不自动触发停止，直接调用停止也须当前可信证明。当前机器复核重读完整材料、独立控制、精确输入、身份、claim scope 与严重级上限。
 - 冻结 campaign 成员与本活动状态，KnownCase 精确绑定 origin/真实输入；跨活动共享尝试/未知效果但不继承证明或完成率，歧义 disposition 需明确 campaign_id。
-- 明确请求批量使用单个固定 native worker，逐派发重验范围、身份、Cookie 与 live SRC 停止；匿名 Cookie 链仍保留 per-item 门面。计量实际 sent/received/字节/wall time，复用为 0，未知不伪造成零。
+- 明确请求批量使用单个固定 native worker，逐派发重验范围、身份、Cookie 与 live SRC 停止；匿名 Cookie 链仍保留 per-item 门面。分别计量实际发送/接收、捕获正文 bytes 与 elapsed_ms，复用为 0，未知不伪造成零；不宣称测得完整网络字节。
 - 新 `tool.route` 把真实消费需求映射到离线发现、Playwright、Yak 或 TscanPlus 只读结果；完善 TLS/profile/file/backend/TTL readiness 和 typed WSL 环境/路径，模型不能选择后端或填写 ready。
+- 补 HTML/DOM 需求触发、实际 campaign 参数及保留 session/Cookie 的认证备用路径；提供证据时绑定唯一原请求，不改管理员会话或默认 URL，歧义、额外业务头与脱敏 URL 明确准备。Yak不是任意头部的完整原包重放，通用私有请求句柄入口仍缺。新增 15 场景可观察工具选择评分器，口头承诺、漏选、错参数与无新材料重复调用不计成功，真实模型效果仍未测。
 - 增加有界 GET 访问控制与受控反射 XSS provider、有限 JS 模块引用图、CVE/GHSA 情报去重及版本矛盾显示，保留未实现、模式禁止和未完成分母。
 - 版本、逐文件 provenance 与生成物同步；新增优化专项接入 npm test/redteam/assessment 后置门禁，保留既有工作区修改、用户设置、提示词和历史审计材料。
 
-本轮包含隔离真值/模拟 adapter 与真实 localhost HTTP；真实 Playwright/Yak/TscanPlus/WSL、模型选择、宿主/GUI/委派调度未验收，不宣称总体准确率或真实工具均可用。未下载/安装工具、访问第三方目标、打包发布、安装、apply 或重启正式 DSH。[方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md) · [实施](docs/MODE-UPGRADE-1.12.0.md) · [升级后锐评](docs/THREE-MODE-REVIEW-1.12.0.md)。
+本轮包含隔离真值/模拟 adapter、真实 localhost HTTP 及部分真实工具验收。2026-11-16 的 WSL Kali 固定 worker/HTTP/AST/sqlmap 版本探测与 TscanPlus 隔离空 namespace 三个只读 profile 通过；全工具、主动扫描与真实发现闭环仍未验收。实际 Playwright/Yak、模型选择、完整宿主/GUI/委派调度未验收，不宣称总体准确率或所有工具可用。未下载/安装工具、访问第三方目标、打包发布、安装、apply 或重启正式 DSH。[方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md) · [实施](docs/MODE-UPGRADE-1.12.0.md) · [升级后锐评](docs/THREE-MODE-REVIEW-1.12.0.md)。
 
 # 1.11.0
 
@@ -244,7 +253,7 @@ Windows 从更旧版本迁移时，Defender 仍可能拦截旧包文件的完整
 
 **已知限制**：Mac 隔离安装事务通过，GitHub 三平台检查通过；维护者的 Windows 4090 全新安装仍受 Defender 隔离原有技能文件阻断，不能宣称该机器完整安装、升级和回滚通过。维护者已知悉此限制并批准发布；本版不代表该拦截已解决。
 
-验证记录见 [维护说明](docs/update-layout-130-132-137.md)。安装、运行时诊断、网络传输与模型效果分别记录；不宣称所有宿主补丁已适配。用户设置、代理、正式 DSH 安装与进程不修改。
+验证记录见 [1.6.75 发行说明](docs/releases/1.6.75.md)。安装、运行时诊断、网络传输与模型效果分别记录；不宣称所有宿主补丁已适配。用户设置、代理、正式 DSH 安装与进程不修改。
 
 ---
 
@@ -873,7 +882,7 @@ $DSH_HOME/dsh-purge/boost-order.json   →  {"order": 9500}
 - 磁盘换包不再被误认为运行进程已加载：仍需重启时同时显示两种版本，不重复自动安装。
 - 文件缺失、包身份错误、读取失败、部分安装失败及回滚失败保持可见；检查更新成功或“没有新版”不会抹掉安装失败。
 - 保留自动检查、自动安装、间隔、提示词、规则及其他现有设置，不改宿主补丁、不自动应用或重启。
-- 增加跨版本状态、失败恢复、面板与真实 DSH 安装/回滚测试。详见 [维护说明](docs/maintenance-update-state.md)。
+- 增加跨版本状态、失败恢复、面板与真实 DSH 安装/回滚测试。详见 [1.6.41 发行说明](docs/releases/1.6.41.md)。
 
 旧进程若已被残留状态卡住，先通过维护页手动安装本版，再自行退出重开一次；新版本会自动核对旧记录。无需删除设置或切换更新开关。
 

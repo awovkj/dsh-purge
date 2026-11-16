@@ -9,7 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前源码版本 **1.12.0** · 宿主目标 **DSH Desktop 0.2.2-rc.1**（补丁源码目标；历史版本已适配 0.2.1-rc.1 / rc.2 / rc.3 / rc.5） · [English](docs/README.en.md)
+当前源码版本 **1.13.0** · 宿主目标 **DSH Desktop 0.2.2-rc.1**（补丁源码目标；历史版本已适配 0.2.1-rc.1 / rc.2 / rc.3 / rc.5） · [English](docs/README.en.md)
+
+1.13.0 移除内置检查更新子系统：不再有更新通道、自动检查/自动安装、镜像与 GitHub 密钥配置，也不再有 /dsh-purge/update 接口和面板更新按钮；升级改为显式安装发行包。同时清空测试套件、缓存与草稿产物，只保留发布所需源码、文档与安装器。
 
 1.12.0 按三模式锐评方案修正 SQL/模板证明、模型复核权限和活动覆盖串用；补真实身份访问控制、受控浏览器 XSS 配方、单 worker 批量及实际成本回执。新增 `tool.route`，按真实需求选择离线发现、Playwright、Yak 重放或 TscanPlus 结果；WSL 只使用操作者固定后端。源码图与情报去重仍为线索，不冒充漏洞。[优化方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md) · [实施与验证](docs/MODE-UPGRADE-1.12.0.md) · [升级后锐评](docs/THREE-MODE-REVIEW-1.12.0.md) · [工具路由](docs/TOOL-ROUTING.md)。
 
@@ -17,7 +19,7 @@
 
 1.10.0 已修复宿主合并 `list_agents` 与 fork 子预设的加载阻塞，保留用户 YAML 与原子任务限制；当时的 DSH Desktop 0.2.2-rc.3 专用 Electron 副本验收覆盖四个预设及空白 Agent 工具目录。历史故障见 [模式加载修复](docs/preset-mode-loading.md)，原验收见 [1.10.0 记录](docs/MODE-UPGRADE-1.10.0.md)。
 
-本轮交付源码与生成物，验证分为隔离真值/模拟适配器和真实 localhost HTTP。实际 Playwright、Yakit/Yak、TscanPlus、WSL Kali、模型工具选择、宿主/GUI 和委派调度未验收。没有打发行 TGZ、发布、安装、应用补丁、退出或重启正式 DSH；下文的 1.12.0 发行链接须在正式发布后使用。小样本与模拟不能证明总体准确率、召回率或实际工具可用；历史升级保留各自验证边界。
+本轮交付源码与生成物，验证分为隔离真值/模拟适配器、真实 localhost HTTP 和部分真实工具链。2026-11-16 的 WSL Kali 固定 worker、HTTP/AST 路径与 sqlmap 版本探测，以及 TscanPlus 隔离空 namespace 的三个只读 profile 通过；不代表 Kali 全工具、主动扫描或真实发现闭环。新增 15 场景工具选择评分器，真实模型选择仍未测。实际 Playwright、Yakit/Yak、完整宿主/GUI 和委派调度未验收。没有打发行 TGZ、发布、安装、应用补丁、退出或重启正式 DSH；下文的 1.12.0 发行链接须在正式发布后使用。小样本与模拟不能证明总体准确率、召回率或所有工具可用；历史升级保留各自验证边界。
 
 **原项目与作者**：小杨 / YuJunZhiXue 是历史上游 dsh-purge 的作者署名。本仓库独立维护社区版，保留上游版权和 MIT 许可证。历史署名不代表对当前同名 GitHub 账号身份的核实。详见[署名记录](NOTICE.md)与[许可证](LICENSE)。
 
@@ -113,7 +115,7 @@ SRC 使用创建时固定的范围与排除项，按实际平台规则发现具�
 下面是 1.12.0 正式发布后的固定版本命令。当前本地源码尚未发布，不应把此 URL 当作已有下载包。
 
 ```sh
-dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.12.0/dsh-purge-community-1.12.0.tgz"
+dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.13.0/dsh-purge-community-1.13.0.tgz"
 ```
 
 `web` 必须与实际启动的 profile 一致；自定义数据目录需要沿用该实例的 `DSH_HOME`。命令使用对应发行的固定版本 URL；不是 `npm install -g`，也不是安装裸 npm 包名。本项目通过 GitHub 发行，**不要替换成 `add dsh-purge` 或 `add dsh-purge-community`**。官方 CLI 的安装不会额外运行我们安装器的 Release SHA256 比对及迁移快照；需要这些功能时选方式三。[官方 CLI 安装说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)
@@ -187,7 +189,7 @@ sh "$PURGE_INSTALL_DIR/install.sh" --dry-run
 
 - 顶部一句话说明当前状态，主操作是「应用」；
 - 其余分区折叠，说明收进 `?`，需要时再展开；
-- 维护页可看最近动作、备份占用、更新偏好；
+- 维护页可看最近动作与备份占用；
 - 支持隐藏不用的入口（例如回退按钮），只影响显示。
 
 ## 常用命令
@@ -207,7 +209,9 @@ sh "$PURGE_INSTALL_DIR/install.sh" --dry-run
 | `purge-community usage` / `prune` | 备份占用与清理 |
 | `purge-community backup` / `rollback <id>` | 快照 / 回滚插件 |
 
-## 更新
+## 升级
+
+插件内不再检查或安装更新。升级方式是用官方 CLI 显式安装目标版本的发行包（见[安装](#安装)），安装前会自动备份，回滚在「维护 → 本机备份」里完成。
 
 维护页分别设置「自动检查」与「自动安装」，默认只检查，间隔 6 小时。安装完成不会自动重启——你决定什么时候重开。
 
@@ -215,7 +219,7 @@ sh "$PURGE_INSTALL_DIR/install.sh" --dry-run
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.12.0 |
+| 插件 | `dsh-purge-community` 1.13.0 |
 | 历史宿主覆盖 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5；按对应历史验收解释 |
 | 既有宿主验证 | DSH Desktop 0.2.2-rc.3：1.10.0 隔离 Loader 与空白 Agent 工具目录通过；完整 GUI、补丁及实际调度未验收 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |

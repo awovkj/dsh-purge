@@ -8,13 +8,13 @@ A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / 
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 
-Current source version 1.12.0 · host patch source target **DSH Desktop 0.2.2-rc.1** (earlier versions supported 0.2.1-rc.1 / rc.2 / rc.3 / rc.5)
+Current source version 1.13.0 · host patch source target **DSH Desktop 0.2.2-rc.1** (earlier versions supported 0.2.1-rc.1 / rc.2 / rc.3 / rc.5)
 
 1.12.0 tightens actual SQL/template proof, draft-only model reviews and independent campaign coverage; adds bounded verified-principal access controls, managed browser-XSS recipes, a single capture worker and measured cost receipts. `tool.route` maps actual demand to offline discovery, Playwright, Yak replay or engagement-bound TscanPlus results. WSL remains an operator-selected backend. Static source graphs and deduplicated intelligence remain leads, not confirmed findings. [Optimization plan](THREE-MODE-OPTIMIZATION-PLAN.md) · [Implementation](MODE-UPGRADE-1.12.0.md) · [Post-upgrade review](THREE-MODE-REVIEW-1.12.0.md) · [Tool routing](TOOL-ROUTING.md).
 
 1.11.0 adds current-evidence response comparisons, offline sourcemap discovery, bounded HTTP capture batches, fixed-directory material readers, local NVD/KEV/GHSA metadata and CWE-based skill navigation. Typed failure receipts and proof-based workflow advice retain scope, SRC evidence stops and unfinished coverage. These additions were independently written using Pojun as a design reference. The embedded upstream remains awa-ddd 2.2.0. [Plan](MODE-UPGRADE-1.11.0-PLAN.md) · [Implementation and validation](MODE-UPGRADE-1.11.0.md) · [Action guide](DISCOVERY-WORKFLOW.md) · [Release notes](releases/1.11.0.md).
 
-This upgrade separates isolated truth/adapter fixtures from actual localhost HTTP tests. Real Playwright, Yak/Yakit, TscanPlus, WSL Kali, model tool selection, host/GUI and delegation acceptance remain unverified. The existing four-preset Loader and idle Agent tool-catalog acceptance on Desktop 0.2.2-rc.3 belongs to 1.10.0. Nothing was packaged, published, installed, applied or restarted on the live instance. The 1.12.0 URLs below require future publication; small fixtures cannot establish overall precision, recall or live-tool availability.
+This upgrade separates isolated truth/adapter fixtures from actual localhost HTTP and partial live-tool acceptance. On 2026-11-16, the existing WSL Kali fixed worker, HTTP capture, AST paths and sqlmap version probe passed; TscanPlus passed three read-only profiles in an isolated empty namespace. This does not verify every Kali tool, active scanning or real finding ingestion. A 15-scenario tool-selection scorer is included, but actual model selection remains unmeasured. Real Playwright, Yak/Yakit, full host/GUI and delegation acceptance remain unverified. The existing four-preset Loader and idle Agent tool-catalog acceptance on Desktop 0.2.2-rc.3 belongs to 1.10.0. Nothing was packaged, published, installed, applied or restarted on the live instance. The 1.12.0 URLs below require future publication; small fixtures cannot establish overall precision, recall or all live-tool availability.
 
 **Original project and author:** independently maintained from [dsh-purge by 小杨 / YuJunZhiXue](https://github.com/YuJunZhiXue/dsh-purge). The original repository is available again. Original attribution, copyright and the MIT license are retained; this community distribution is not an official upstream release.
 
@@ -73,7 +73,7 @@ Use exact `action.help` contracts before unfamiliar calls. `evidence.read` inspe
 The following fixed-version command requires a published 1.12.0 release; this local source upgrade has not created that download.
 
 ```sh
-dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.12.0/dsh-purge-community-1.12.0.tgz"
+dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.13.0/dsh-purge-community-1.13.0.tgz"
 ```
 
 Use the actual instance's profile and `DSH_HOME`. This project distributes via GitHub; do not substitute bare npm package names. The official command does not run our extra Release SHA256 check, migration snapshot or rollback wrapper.
@@ -100,7 +100,7 @@ Two separate preferences (check / install), default check-only every six hours. 
 
 ## Compatibility
 
-Plugin source `dsh-purge-community` 1.12.0 · historical host coverage: DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / rc.2 / rc.3 / rc.5, interpreted using the corresponding historical records · Node ≥ 18. The isolated preset Loader and idle Agent tool-catalog acceptance on Desktop 0.2.2-rc.3 belongs to 1.10.0; full host and GUI remain unverified. Redteam tools require Node ≥ 22.5; built-in assessment requires Node ≥ 22.19 and Python ≥ 3.10, with an existing Playwright module and runnable browser for actual browser observation.
+Plugin source `dsh-purge-community` 1.13.0 · historical host coverage: DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / rc.2 / rc.3 / rc.5, interpreted using the corresponding historical records · Node ≥ 18. The isolated preset Loader and idle Agent tool-catalog acceptance on Desktop 0.2.2-rc.3 belongs to 1.10.0; full host and GUI remain unverified. Redteam tools require Node ≥ 22.5; built-in assessment requires Node ≥ 22.19 and Python ≥ 3.10, with an existing Playwright module and runnable browser for actual browser observation.
 
 ## Troubleshooting
 
@@ -114,7 +114,7 @@ If the panel does not open, confirm both sides run the same version, then follow
 
 ## Development
 
-`npm test`, `npm run test:optimization`, `npm run test:discovery`, `npm run check:docs`, `npm run check:client`, `npm run check:modes`, `npm run check:assessment`, `npm run test:ui`, `npm run test:electron`, `npm run smoke`. Actual 1.12.0 results and omitted checks are recorded in the [implementation record](MODE-UPGRADE-1.12.0.md). The optimization suite is also an npm post-test gate for test/redteam/assessment. Preset Loader acceptance requires an explicit installation path: `npm run check:mode-loader -- --host-root <absolute-installation-directory>`.
+`npm run check:docs`, `npm run check:client`, `npm run check:modes`, `npm run check:assessment` and `npm pack --ignore-scripts` are the remaining offline checks; the repository no longer ships a test suite.
 
 Agent-facing instructions live in [AGENTS.md](../AGENTS.md); when the two disagree, AGENTS.md wins.
 

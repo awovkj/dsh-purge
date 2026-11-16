@@ -272,7 +272,9 @@ export function checkEmbeddedAssessment(repositoryRoot = REPOSITORY_ROOT, source
   const provenance = JSON.parse(fs.readFileSync(safeFile(root, 'provenance.json'), 'utf8'));
   if (manifest.name !== IDENTITY || manifest.private !== true || manifest.type !== 'module'
       || provenance.schema !== SCHEMA || provenance.upstream?.name !== 'awa-ddd'
-      || manifest.version !== provenance.upstream.version || !Array.isArray(provenance.files)) throw new Error('Invalid embedded assessment identity or provenance');
+      || manifest.version !== provenance.upstream.version || !Array.isArray(provenance.files)
+      || !/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(manifest.dshPurgeAdaptationVersion || '')
+      || manifest.dshPurgeAdaptationVersion !== provenance.dshPurgeAdaptationVersion) throw new Error('Invalid embedded assessment identity or provenance');
   const names = new Set();
   for (const file of provenance.files) {
     const native = file?.origin === 'dsh-purge';
@@ -296,7 +298,7 @@ export function checkEmbeddedAssessment(repositoryRoot = REPOSITORY_ROOT, source
     if (source.version !== provenance.upstream.version || source.upstream_sha256 !== upstreamHash) throw new Error('Reviewed source checkout differs from the checked-in assessment component');
     if (source.files.some(expected => provenance.files.find(file => file.path === expected.path)?.bundled_sha256 !== expected.bundled_sha256)) throw new Error('Embedded adaptations differ from the reviewed source import');
   }
-  return { name: IDENTITY, version: manifest.version, files: names.size,
+  return { name: IDENTITY, version: manifest.version, adaptation_version: manifest.dshPurgeAdaptationVersion, files: names.size,
     python_files: actual.filter(file => file.endsWith('.py')).length, javascript_files: JS_FILES.length,
     source_sha256: upstreamHash, external_source_required: false };
 }
@@ -341,6 +343,7 @@ export function recordReviewedLocalAssessment({ repositoryRoot = REPOSITORY_ROOT
   if (upstreamDigest(files) !== provenance.upstream.source_sha256) throw new Error('Local adaptation changed upstream attribution');
   atomicWriteFileSync(safeFile(root, 'provenance.json'), JSON.stringify(next, null, 2) + '\n');
   atomicWriteFileSync(safeFile(root, 'package.json'), JSON.stringify({ ...manifest, dshPurgeAdaptationVersion: version }, null, 2) + '\n');
+  writeComponentDocumentation(root, version, provenance.upstream.version);
   return { ...checkEmbeddedAssessment(repositoryRoot), adaptation_version: version,
     local_adaptations_recorded: true, source_verification_performed: false, runtime_probed: false };
 }
@@ -380,8 +383,17 @@ export function synchronizeEmbeddedAssessment(sourceDirectory, { repositoryRoot 
     files: source.files.map(({ path, origin, upstream_sha256, bundled_sha256, adaptations }) => ({ path, origin, upstream_sha256, bundled_sha256, adaptations })) };
   atomicWriteFileSync(safeFile(root, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
   atomicWriteFileSync(safeFile(root, 'provenance.json'), JSON.stringify(provenance, null, 2) + '\n');
+  writeComponentDocumentation(root, version, source.version);
+  for (const file of stale) {
+    const target = safeFile(root, file.path);
+    if (fs.existsSync(target)) fs.unlinkSync(target);
+  }
+  return checkEmbeddedAssessment(repositoryRoot, sourceDirectory);
+}
+
+function writeComponentDocumentation(root, version, upstreamVersion) {
   atomicWriteFileSync(safeFile(root, 'NOTICE.md'), '# Internal assessment component\n\n'
-    + 'Production assessment code is derived from awa-ddd ' + source.version + ' (MIT).\n'
+    + 'Production assessment code is derived from awa-ddd ' + upstreamVersion + ' (MIT).\n'
     + 'Copyright (c) 2026 awa-ddd contributors. The complete license is in LICENSE.\n\n'
     + 'This directory is dsh-purge source and is shipped in the dsh-purge package.\n'
     + 'It contains the Python assessment engine, action catalog, bounded process\n'
@@ -391,11 +403,12 @@ export function synchronizeEmbeddedAssessment(sourceDirectory, { repositoryRoot 
     + 'The component does not contain the standalone AWA plugin, host\n'
     + 'SDKs, command-line installer, node_modules, tests, user data or credentials.\n'
     + 'provenance.json records upstream and bundled SHA-256 values and adaptations.\n\n'
-    + 'dsh-purge 1.10.0 additionally owns the structured request and bounded machine\n'
-    + 'claim helpers. Reviewed local identity, oracle, failure recovery and report\n'
-    + 'adaptations are retained only for the recorded upstream file hashes. New\n'
+    + 'dsh-purge ' + version + ' additionally owns the structured request, bounded machine\n'
+    + 'claim, campaign membership, access-control, batch worker and tool-routing\n'
+    + 'helpers. Reviewed local identity, oracle, recovery and report adaptations\n'
+    + 'are retained only for the recorded upstream file hashes. New\n'
     + 'upstream bytes require explicit contract review, including with --force.\n\n'
-    + "The 1.10.0 source-stop adaptation reads the trusted facade's fixed workspace\n"
+    + "The source-stop adaptation reads the trusted facade's fixed workspace\n"
     + 'snapshot before sending HTTP, identity, indirect recipe and browser requests.\n'
     + 'Browser routing refreshes it for each subrequest; invalid or stopped snapshots\n'
     + 'fail before sending. Offline verification and report access remain available.\n\n'
@@ -405,15 +418,16 @@ export function synchronizeEmbeddedAssessment(sourceDirectory, { repositoryRoot 
     + 'requests during discovery, or change the browser scope and write guards.\n\n'
     + 'Provenance covers the original per-file bytes, with Git preserving reviewed\n'
     + 'LF/CRLF source and explicit LF for the generated browser adaptation.\n\n'
-    + 'Isolated 1.10.0 checks are recorded in docs/MODE-UPGRADE-1.10.0.md. Source hashes\n'
+    + 'Upgrade checks are recorded in docs/MODE-UPGRADE-' + version + '.md. Source hashes\n'
     + 'describe the bundled bytes and do not claim runtime or assessment success.\n');
   atomicWriteFileSync(safeFile(root, 'README.md'), '# dsh-purge internal assessment engine\n\n'
     + 'This directory is production source shipped inside dsh-purge. Its assessment\n'
-    + 'logic derives from the locally reviewed awa-ddd ' + source.version + ' source,\n'
+    + 'logic derives from the locally reviewed awa-ddd ' + upstreamVersion + ' source,\n'
     + 'with explicit dsh-purge adaptations recorded in provenance.json. Runtime\n'
     + 'never selects or imports a separate awa-ddd checkout or plugin installation.\n\n'
     + 'The component contains Python production source, including private owner,\n'
-    + 'structured-request and bounded-claim helpers, and three JavaScript runtime\n'
+    + 'structured-request, bounded-claim, membership, access-control, batch and\n'
+    + 'tool-routing helpers, and three JavaScript runtime\n'
     + 'files: the bounded process bridge, public\n'
     + 'action catalog and inert-source AST helper. Python 3.10+ and Node 22.19+ are\n'
     + 'runtime requirements. acorn@8.19.0 is installed through the dsh-purge root\n'
@@ -431,14 +445,28 @@ export function synchronizeEmbeddedAssessment(sourceDirectory, { repositoryRoot 
     + "Full penetration reports are generated through this component's report.build;\n"
     + 'source labels, baseline observations and report snapshots do not grant proof\n'
     + 'or finalization authority.\n\n'
-    + 'The local dsh-purge adaptation version is 1.10.0; the upstream version remains\n'
-    + 'awa-ddd 2.2.0. Current native proofs bind operation/input, identity, complete\n'
+    + 'The local dsh-purge adaptation version is ' + version + '; the upstream version remains\n'
+    + 'awa-ddd ' + upstreamVersion + '. Current native proofs bind operation/input, identity, complete\n'
     + 'artifacts and oracle-generated claim scope, limitations and severity cap.\n'
     + 'Historical machine labels without the current contract remain pending.\n'
-    + 'Automatic builders provide SQL, bounded expressions at explicit non-calculator\n'
-    + 'template consumers and bounded generic controls; missing providers remain\n'
-    + 'blocked. Failed runs preserve attempts, evidence, cooldown and unknown writes.\n'
+    + 'Automatic builders provide actual-baseline double Boolean SQL controls,\n'
+    + 'explicit non-calculator template controls, verified-principal GET access\n'
+    + 'boundaries, native reflected HTML XSS controls and bounded generic tests.\n'
+    + 'Missing providers remain blocked. Model reviews and N/A applicability drafts\n'
+    + 'cannot grant a finding, a new SRC stop or a smaller coverage denominator.\n'
+    + 'Campaign members and verdicts are projected independently while actual\n'
+    + 'attempts, cooldown, uncertainty and stops remain engagement-wide.\n'
+    + 'Failed runs preserve attempts, evidence, cooldown and unknown writes.\n'
     + 'Offline verification neither replays requests nor reconciles unknown effects.\n\n'
+    + 'tool.route reads actual existing IDs and saved, profile-bound runtime receipts\n'
+    + 'without probing or target traffic. Existing scripts/maps use offline discovery;\n'
+    + 'DOM needs select Playwright, public GET replay requires Yak fuzzer/TLS controls,\n'
+    + 'and existing scanner results reuse the exact TscanPlus namespace. WSL remains\n'
+    + 'operator-selected. Requests without anonymous cookie_evidence_ids use one\n'
+    + 'fixed batch worker; anonymous Cookie chains retain per-item facade handling.\n'
+    + 'Each dispatch rechecks live scope, identity, Cookie and SRC restrictions.\n'
+    + 'Execution receipts count actual sends/receives/bytes/time; reuse is zero new\n'
+    + 'requests and unmeasured costs remain null.\n\n'
     + 'SRC reads the facade-owned dsh-source-stops.json snapshot from its fixed\n'
     + 'workspace before HTTP, preflight, identity, indirect recipe and browser\n'
     + 'requests. Browser routing refreshes that snapshot for every subrequest.\n'
@@ -466,21 +494,18 @@ export function synchronizeEmbeddedAssessment(sourceDirectory, { repositoryRoot 
     + 'Maintainers run node scripts/sync-assessment-engine.mjs --check from the\n'
     + 'dsh-purge root for a fully offline integrity check. An explicit --source\n'
     + 'PATH imports a reviewed upstream checkout; --check --source PATH also\n'
-    + 'compares its snapshot. Native helpers and reviewed local 1.10.0 adaptations\n'
+    + 'compares its snapshot. Native helpers and reviewed local adaptations\n'
     + 'are retained against their exact upstream hashes; changed upstream bytes\n'
     + 'require explicit contract review before any import, including --force.\n'
     + 'Modified managed source is preserved unless --force explicitly authorizes\n'
-    + 'resynchronization. Production never runs this source-import command.\n\n'
+    + 'resynchronization. --record-local records only allowlisted reviewed local\n'
+    + 'changes and retains upstream attribution; it does not verify source origin\n'
+    + 'or runtime correctness. Production never runs these maintainer commands.\n\n'
     + "Provenance covers exact source bytes. Git retains the managed component's\n"
     + 'reviewed LF/CRLF bytes; browser.py is generated with explicit LF line endings.\n\n'
-    + 'Isolated 1.10.0 checks are recorded in docs/MODE-UPGRADE-1.10.0.md. Generating the\n'
+    + 'Upgrade checks are recorded in docs/MODE-UPGRADE-' + version + '.md. Generating the\n'
     + 'provenance manifest is not an integrity check, runtime probe or assessment.\n'
     + 'It did not install dependencies, package, deploy, patch or restart the host.\n');
-  for (const file of stale) {
-    const target = safeFile(root, file.path);
-    if (fs.existsSync(target)) fs.unlinkSync(target);
-  }
-  return checkEmbeddedAssessment(repositoryRoot, sourceDirectory);
 }
 
 function argumentsOf(argv) {

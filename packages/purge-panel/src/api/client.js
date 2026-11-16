@@ -81,8 +81,6 @@ export function apiTimeoutMs(p, init) {
   const method = String((init && init.method) || "GET").toUpperCase();
   if (path.indexOf("/dsh-purge/community") !== -1)
     return method === "POST" ? 600000 : 20000;
-  if (path.indexOf("/dsh-purge/update") !== -1)
-    return method === "POST" ? 180000 : 45000;
   if (path.indexOf("/dsh-purge/uninstall") !== -1) return 90000;
   if (path.indexOf("/dsh-purge/skill") !== -1)
     return method === "POST" ? 120000 : 20000;

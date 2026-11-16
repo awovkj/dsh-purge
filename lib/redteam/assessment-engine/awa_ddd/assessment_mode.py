@@ -180,6 +180,10 @@ def record_stop(project, *, operation_id, evidence_ids, decision_id=None, findin
                 if finding_proof_state(project, finding).get("machine_proof") is not True:
                     raise EngineError("src_stop_proof", "The legacy machine finding requires current bounded proof")
             else:
+                oracle = decision.get("oracle") or {}
+                if decision.get("mode") != "analyst" or oracle.get("type") != "analyst_runtime" \
+                        or oracle.get("test_family") != "xss" or not decision.get("obligation_id"):
+                    raise EngineError("src_stop_proof", "A review draft cannot authorize a new SRC stop")
                 from .assessment import _bound_xss_proof, validate_confirmation
                 proof = _bound_xss_proof(project, decision)
                 validate_confirmation(project, decision, finding.get("category"))

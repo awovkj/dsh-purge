@@ -1,7 +1,8 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前源码版本：**1.12.0** · 宿主补丁源码目标 DSH Desktop **0.2.2-rc.1**（历史版本已适配 0.2.1-rc.1 / rc.2 / rc.3 / rc.5）
+> 当前源码版本：**1.13.0** · 宿主补丁源码目标 DSH Desktop **0.2.2-rc.1**（历史版本已适配 0.2.1-rc.1 / rc.2 / rc.3 / rc.5）
+> 2026-11-16 继续复审和收尾：补 HTML/DOM 按需路由、精确活动参数、保留身份/Cookie 的认证备用路径与 15 场景工具选择评分器。现有 WSL Kali 的固定 worker/localhost HTTP/AST/sqlmap 版本探测，以及本机 TscanPlus 隔离空 namespace 的三个只读 profile 有真实通过回执；不代表全 Kali 工具、主动扫描或真实漏洞结果闭环。实际 Playwright/Yak、真实模型选择与完整宿主/GUI/调度仍未验收。普通 v1 analyst 草稿不产生新 SRC 停止，旧冻结成员测试夹具改为真实活动成员。未下载/安装工具或发布、安装、apply、重启正式 DSH；完整结果见 [实施与验证](docs/MODE-UPGRADE-1.12.0.md)，剩余缺口见 [升级后复审](docs/THREE-MODE-REVIEW-1.12.0.md)。
 > 2026-11-15 按三模式锐评方案实施正确性、活动隔离、单 worker 批量、实际成本回执和需求驱动工具路由升级，补有限源码引用图及离线情报去重。本轮包含本地隔离回归和真实 localhost HTTP；实际 Playwright、Yakit/Yak、TscanPlus、WSL Kali、模型工具选择、宿主/GUI 和委派调度仍未验收。没有发布、安装、apply 或重启正式 DSH。见 [方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md)、[实施](docs/MODE-UPGRADE-1.12.0.md) 与 [升级后复审](docs/THREE-MODE-REVIEW-1.12.0.md)。
 > 2026-11-14 至 15 结合 Pojun 与两份对照分析，独立实现证据发现、受控批量采集、离线情报、技能导航和工作反馈，并进行本地隔离回归。当前源码和生成物升级为 1.11.0；没有新增真实 GUI、宿主补丁、目标、浏览器或委派调度验收，没有发布、安装、apply、退出或重启正式 DSH。见 [方案](docs/MODE-UPGRADE-1.11.0-PLAN.md)、[实施与验证](docs/MODE-UPGRADE-1.11.0.md) 和 [新动作使用](docs/DISCOVERY-WORKFLOW.md)。
 > 2026-11-14 先形成三模式完整方案，再优化源码与生成物，并进行本地隔离回归。DSH Desktop 0.2.2-rc.3 的专用 Electron 副本已核实预设 Loader 与空白 Agent 工具目录；完整 GUI、86 条补丁、真实目标和实际委派调度未验收。未打包发布、安装、apply、退出或重启正式 DSH，见 [完整方案](docs/MODE-UPGRADE-1.10.0-PLAN.md) 与 [实施和验证](docs/MODE-UPGRADE-1.10.0.md)。
@@ -132,7 +133,7 @@ purge-community probe new
 - 新增一条的规矩：
   1. 在 `targetFiles()` 里登记目标文件键；
   2. `replace` 里留一条 `[dsh-purge]` 标记，写进 `markers`；
-  3. 在 `test/patch-anchors.test.mjs` 里钉一份真实源码片段做回归；
+  3. 锚点片段必须在真实宿主源码里精确出现；本仓库已不再附带测试套件，改动后自行用 `diagnose` 验证；
   4. `optional: true` 用于第三方插件目标（不在场时显示"不适用"而不是失败）。
 - 宿主升级后锚点漂移：`diagnose` 会给出文件、行号、旧锚点首行、以及**可能的新落点**片段。
 - 确认新落点后：`reanchor apply <id> --lines A-B`（先看 dry-run 的候选片段，再加 `--yes` 写入）。覆盖存 `anchor-overrides.json`，引擎会把它当该条的 pattern；`reanchor clear <id>` 撤销。
@@ -149,22 +150,24 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.12.0 |
+| 插件 | `dsh-purge-community` 1.13.0 |
 | 历史已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5；1.8.1 渗透会话修复已做隔离回归，整版/GUI 尚未验收 |
 | 既有宿主验收 | DSH Desktop 0.2.2-rc.3：1.10.0 专用 Electron 副本的预设 Loader 与空白工具目录通过；完整 GUI、补丁及实际调度未验收 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | Purge 基础 ≥18；**红队工具需 ≥22.5**，不满足时返回明确运行前提；内置评估还需 ≥22.19 |
 | 内置评估 | Node ≥22.19、Python ≥3.10；实际浏览器观察需现有 Playwright 运行时 |
 
-### 内置评估核心、SRC 与渗透模式（1.12.0）
+### 内置评估核心、SRC 与渗透模式（1.13.0）
 
-工具选择先用 `redteam_assessment_run action:tool.route input:{operation_id:"实际 O-ID",purpose:"auto"}`；可另给当前完整 `evidence_id`、本活动 `campaign_id` 与 1–10 的 limit。purpose 还支持 frontend/browser/request_replay/scanner_results/sql_verification。动作只读已有内置上下文，不初始化、不探测、不发送目标请求；模型不能填写 mode/backend/ready/tools。已采集 JS/map 优先离线发现，实际 DOM 消费需求才推荐 Playwright；公开 GET 的 Yak 重放需要当前 fuzzer/TLS/no-follow profile，认证或写入不能丢弃身份凑适配。TscanPlus 仅复用本靶标已绑定 namespace 的只读结果。WSL 使用操作者已配置后端，不是模型可选 shell。优先使用返回的 next/fallback 准确参数，缺前提先准备，SRC 禁止项不调用。真实模型“需要时想到并选对”的效果仍须单独基准，路由单元通过不代替模型选择验收。
+工具选择先用 `redteam_assessment_run action:tool.route input:{operation_id:"实际 O-ID",purpose:"auto"}`；可另给最多32个不同的当前完整 `evidence_ids:["实际 E-ID"]`、本活动 `campaign_id` 与 1–10 的 limit。purpose 还支持 frontend/browser/request_replay/scanner_results/sql_verification。动作只读已有内置上下文，不初始化、不探测、不发送目标请求；模型不能填写 mode/backend/ready/tools。已采集 JS/map 优先离线发现，HTML材料或明确登记的HTML/DOM消费需求推荐 Playwright；声明本身不授予运行事实。公开无正文 GET 的 Yak 重放需要当前 fuzzer/TLS/no-follow profile，不是任意头部的完整原包重放。提供证据时绑定唯一原请求身份与URL；多请求/身份歧义、额外业务头、匿名Cookie或已脱敏URL保持准备状态，不能换成匿名、首个会话或默认URL凑适配。public_locator_requires_private_binding不提供可执行占位URL；通用私有请求句柄入口仍未实现。TscanPlus 仅复用本靶标已绑定 namespace 的只读结果。WSL 使用操作者已配置后端，不是模型可选 shell。优先使用返回的 next/fallback 准确参数，缺前提先准备，SRC 禁止项不调用。真实模型“需要时想到并选对”的效果仍须单独基准，路由单元通过不代替模型选择验收。
 
 技能和 runbook 使用当前真实 agent 的工具 schema 及有时效的原生能力回执；缺注册或未探测保持 unknown，明确模式禁止/未实现/失败保持 blocked。cached readiness 绑定 backend、profile、采集回执和工具文件 stat；旧回执、过期、后端切换或二进制替换不能继续 ready。浏览器原生 provider 不因 MCP 名称缺失而假受阻；模块、浏览器文件与实际 launch 分开核对。工具部署回执仍不是运行证明。
 
 五项 SQL Boolean 需要真实非空 quoted_string_equality 基线、两组独立 true/false 及实际计数 selector；旧 count-only 不确认。模板需要明确 jinja_expression、非计算器消费点和字面/语法/阴性/第二算式控制。受控 GET 访问边界使用实际已核实的不同主体、角色/租户与具体受保护数据；仅状态/长度不确认。反射 XSS 需独立 native browser 控制、实际消费字节与精确 dialog/文档回执；浏览器真实运行未验收时不能以模拟测试宣称可用。模型 review 只记 reviewed_draft，自称 human_independent 或自填 actual 不授予 supported、finding 或 SRC 停止。
 
 v2 campaign 冻结 HYP/case/gap 成员与初始状态；本活动状态、run、finding 和覆盖分开投影。多个活动共用 HYP 时 review.disposition 必须给 campaign_id，不选择“最近活动”。实际尝试、冷却、未知效果和 SRC 停止继续全靶标共享，新活动不自动重放旧任务。同活动离线 verify 沿真实 run 选取配方；多配方必须给精确 recipe_id/run_id，不用不存在的 recipe.campaign_id 推断。
+
+review.disposition 的 not_applicable 只接受明确 business_fact 与1–32个不同的当前同operation E-ID，保存 inferred/verified:false/can_exclude:false。覆盖保留原分母，显示 blocked 与 unverified_applicability；本轮没有机器适用性排除provider，N/A草稿不能缩分母、结项或宣称漏洞不存在。
 
 无匿名 cookie_evidence_ids 的 http.capture_batch 使用一个固定原生 worker，逐派发读取固定靶标台账，重新检查 scope、身份、SRC 停止和 captured-cookie origin/path/Secure/expiry。匿名证据 Cookie 链保留 per_item_facade，不能宣称所有批量都只启动一次。间接 Cookie 会话测试需 campaign.next 返回的显式 frozen recipe_id，逐控制检查目的地；run_id 恢复也读取原配方。真实 sent/received/dispatch/字节与 wall time 分别计量，复用为 0 新请求，未知为 null；浏览器子请求总数和可信宿主 tokens 缺回执仍 unknown，不用尝试数冒充发送数或扫描量冒充准确率。
 
@@ -176,7 +179,7 @@ surface.from_sourcemap 的源码引用图仅对随 map 提供的 JS 做有界常
 
 `workspace.list/read` 只读本靶标 `incoming`、`reports`、`assessment/discovery` 的有界非私密 UTF-8 材料，保留换行并在分页前完整脱敏；拒绝链接、凭据、原生数据库和任意路径。`intel.import/search/get` 只从本靶标 incoming JSON 导入 NVD/KEV/GHSA 元数据，保存源 SHA256，来源声明未验证；数字版本和简单范围只能给候选，复杂逻辑保持 unknown，不创建漏洞、运行 PoC 或改严重级。缓存损坏或导入失败保留原文件。
 
-`skill.index` 消费随包 `cwe/class/requires`，按实际固定模式显示 available/unknown/blocked；调用者不能填写模式、工具可见性或运行就绪。公开入口不探测运行时或读取实际工具注册表，所需运行前提保留 unknown；模式不提供、尚未实现能力或元数据错误为 blocked。SRC/渗透 runbook 均可按 `resource:index/authorization/input-controls/frontend/browser/evidence-levels/failure-triage/reporting/component-intelligence` 读取原创专题。`workflow.advice` 只读已有候选、当前精确证明和不可撤销 SRC 停止，返回离线复核/报告建议，不自动派单、不以摘要清空剩余项。平台拒绝的零发送与目标 401/403/429 分别记录；目标响应不自动解释为 WAF。完整参数见 [发现动作指南](docs/DISCOVERY-WORKFLOW.md)。
+`skill.index` 消费随包 `cwe/class/requires`，按实际固定模式显示 available/unknown/blocked；调用者不能填写模式、工具可见性或运行就绪。门面内部读取当前真实 agent 的工具schema及已有原生能力回执，不主动探测；缺注册或未核实的运行前提保留 unknown，明确不可用、模式不提供、尚未实现能力或元数据错误为 blocked。SRC/渗透 runbook 均可按 `resource:index/authorization/input-controls/frontend/browser/evidence-levels/failure-triage/reporting/component-intelligence` 读取原创专题。`workflow.advice` 只读已有候选、当前精确证明和不可撤销 SRC 停止，返回离线复核/报告建议，不自动派单、不以摘要清空剩余项。平台拒绝的零发送与目标 401/403/429 分别记录；目标响应不自动解释为 WAF。完整参数见 [发现动作指南](docs/DISCOVERY-WORKFLOW.md)。
 
 SRC 按 [漏洞提交流程](docs/SRC-SUBMISSION.md) 发现和记录具体安全缺陷。开始先读取当前安装的 `redteam_src_runbook resource:skill/workflow/submission`：核对实际项目规则与固定 scope/exclude、最小真实验证、查重、整理提交草稿，再由操作者提交及平台复核。纯缺安全头、版本/banner 和配置建议返回 `SRC_NOT_SUBMITTABLE`，不写入漏洞表；历史信息项保留并排除 SRC 漏洞分母。真实低危漏洞保留，严重级或自填影响不能代替当前安全证明。
 
@@ -218,7 +221,7 @@ SRC 开始发现前用 `redteam_src_runbook resource:skill/workflow` 加载当�
 
 门面返回 `next_step`，宿主在当前真实回合的 `agent/turn-stopping` 读取本地 v1 `plan.audit` 或 v2 `campaign.status`。续跑只沿当前靶标持久绑定，用户取消、新输入、SRC 停止与缺失前提优先；无新实际请求/响应控制材料、身份验证或安全测试闭环时最多三次提醒，声明/consumer/N/A/baseline/checkpoint 的 semantic key 变化不重置预算。仅换时间戳的重复捕获不算新材料；元数据建议关联未评估义务时先 `assessment.prepare`。同任务失败历史忽略分页与行政处置变化，不因其他任务进展清空；离线回执不由提示安排新目标请求。钩子已登记不等于真实 GUI 已执行，矛盾或缺失结项契约保留 unknown/unfinished。
 
-`assessmentStatus` 显示本地运行元数据、Python 配置、SRC 注册回执/时间、技能及续跑状态；文件定位和历史回执不是运行证明。操作者在面板保存本插件 Python/native/WSL/timeout 设置和偏好，模型动作不能修改。显式本地探测与 `redteam_preflight assessment_runtime:true` 不访问目标、不创建评估工程；本次源码升级没有调用。Playwright 缺件保留浏览器受阻，HTTP 与 browser-ready 分别返回。
+`assessmentStatus` 显示本地运行元数据、Python 配置、SRC 注册回执/时间、技能及续跑状态；文件定位和历史回执不是运行证明。操作者在面板保存本插件 Python/native/WSL/timeout 设置和偏好，模型动作不能修改。显式本地探测与 `redteam_preflight assessment_runtime:true` 不访问目标、不创建评估工程；2026-11-16 已在隔离工作区执行只读 runtime/tool probe、自有 localhost HTTP 与 TscanPlus 空 namespace 读取，没有调用正式 profile 的 redteam_preflight 或浏览器。Playwright 缺件保留浏览器受阻，HTTP 与 browser-ready 分别返回。
 
 浏览器复用操作者的 `PURGE_PLAYWRIGHT_ROOT` 或实际 `DSH_HOME/mcp/playwright` 与旧默认位置，支持已有 playwright/playwright-core。Chromium 缓存不等于模块；初始升级只修正定位代码、源码适配模板与 browser.py 的 bundled 哈希/说明。本轮隔离回归包含随包来源核对，没有安装、下载、探测或运行真实浏览器。
 
@@ -246,15 +249,14 @@ SRC 模型只能把材料登记为 claimed/inferred，不能自行声明 observe
 - `npm run check:docs` 会校验 `AGENTS.md` / `README.md` / `release-notes.md` / `package.json` 的版本一致，CI 里跑；不一致直接失败。
 - 面向人的概览在 `README.md`；**面向 agent 的操作细节以本文件为准**——两者冲突时，先信本文件，再去改 README。
 
-## 11. 更新偏好（1.6.5 起）
+## 11. 升级方式（1.13.0 起）
 
-维护页分别设置自动检查和自动安装。默认只检查，间隔 6 小时；旧 `autoUpdateOnStart` 只作为自动安装偏好的兼容默认值。显式新偏好存于 `$DSH_HOME/dsh-purge/update-preferences.json`，状态存于 `update-status.json`。不要为启用更新打开 `autoApplyOnStart`，不要改动提示词或 profile 权限。
+插件不再检查或安装更新：没有更新通道、自动检查/自动安装、镜像或 GitHub 密钥配置，也没有 `/dsh-purge/update` 接口与面板更新按钮。旧文件 `$DSH_HOME/dsh-purge/update-preferences.json`、`update-status.json` 不再读写，可以留着也可以删掉。
 
-`GET /dsh-purge/community` 返回 `update_preferences` 和 `update_status`；`POST` 同一路径，`{op:"preferences",value:{autoCheck:true,autoInstall:false,intervalHours:6}}` 保存偏好。省略字段保留当前值，间隔接受 1–168 的整数。保存不代表安装；安装后等待用户手动重启，不自行调用重启接口。
+升级一律用官方 CLI 显式安装目标版本发行包（`dsh plugin --profile <名称> add <固定版本TGZ URL>`）。安装前 `Maintenance` 自动备份并校验归档结构，回滚走「维护 → 本机备份」或 `purge-community rollback <备份ID>`。安装后由用户手动退出重开，不要自动 apply 或重启。
 
-Electron 的 app.asar 本体必须用 `diskFs()` 读取；不要把普通 Node 自检通过当作 Electron 运行时通过。`npm run test:electron` 在临时目录内运行真实 Electron 测试，不改动安装或用户设置。
+Electron 的 app.asar 本体必须用 `diskFs()` 读取；不要把普通 Node 自检通过当作 Electron 运行时通过。
 
-<a id="installation"></a>
 ## 12. 安装 / 更新失败：Agent 必读（1.6.47）
 
 1. **先选入口，不把社区脚本称为官方方法**。首次安装：DSH 官方插件界面/市场确认框，或该实例的 `dsh plugin --profile <实际名称> add <固定版本TGZ URL>`。官方管理器维护 `dsh.bundle`；我们的索引、TGZ 和 `scripts/install.sh` / `scripts/install.ps1` 是社区内容。本项目没有供此流程使用的裸 npm 包名，不运行 `add dsh-purge`、`add dsh-purge-community` 或全局 npm 安装。已有 `dsh-purge`/独立面板时选社区安装器迁移，不能先卸载旧包。完整可复制命令见 [README](README.md#安装) 与 [安装指南](docs/INSTALLATION.md)。
@@ -284,7 +286,7 @@ PowerShell 5.1 读取 UTF-8 JSON/文档应使用 `Get-Content -Raw -Encoding UTF
 - issue #10 / PR #11：Windows 密封宿主的「应用」只写磁盘补丁并启动等待助手，**不定时退出 host、不杀 Electron、不自动重开**。提醒用户从系统托盘完整退出，确认换包完成后手动打开。不要把关闭窗口当成退出，也不要自行执行旧版重启脚本。
 - `/dsh-purge/status` 的 `asar_handoff.phase`：`starting` 只是启动请求；`ready` / `waiting_for_quit` 才证明助手运行过；`complete` 才表示保留原归档并完成换包。`failed` / `expired` / `helper_stopped` 要读取 `resources/app.asar.purge-handoff.json` 及同名 `.log` 排查，不把 `.rename-pending` 当成功。状态与日志只包含换包诊断，不要上传用户配置。
 - 归档备份为 `app.asar.purge-<token>.bak`，独立于 profile 快照；不覆盖已有备份。等待期间归档被官方更新替换会停止，必须重新应用新宿主。离线修复/恢复见维护文档。
-- 助手启动异常时还要看 `.json.broker.log`、`.json.launch.log` 和 `.json.launch.log.error`。Windows Electron 的 detached PowerShell 可静默退出；不能改回直接 detached spawn，也不能把 broker 退出码 0 当作助手已就绪。设置 `PURGE_ELECTRON_EXEC` 后运行 `node --test test/windows-electron-handoff.test.mjs` 验证真实 Electron 的父进程退出后交接。
+- 助手启动异常时还要看 `.json.broker.log`、`.json.launch.log` 和 `.json.launch.log.error`。Windows Electron 的 detached PowerShell 可静默退出；不能改回直接 detached spawn，也不能把 broker 退出码 0 当作助手已就绪。交接验证需要在隔离 Electron 中手工复现；本仓库不再附带测试套件。
 - issue #9：原生存在 `describe` / `replace` 的宿主不能注入 legacy `register`，否则特性探测型插件会读错存储。升级会逆向移除 #42 的精确旧模板，保留两处设置通知；未知改版停止并诊断，不能整份覆盖 settings 源码或迁移/清空用户 settings 文档。缺少现代 API 的老宿主保留原兼容接口。
 - 应用前逐文件备份有任一错误，停止写入，不能声称可回滚。Windows 实测必须验证打开的备份描述符已关闭、应用/还原字节一致；普通 Node/Linux 通过不足以证明 Windows 文件句柄正常。
 
@@ -319,7 +321,7 @@ DSH 0.2.1 的 `tool-subagent` 不再接受 `toolFilter`。不能只删除它：�
 
 当前自动迁移只处理能逐项对应到原生工具行的 deny 策略；未知工具、allow 策略、无法证明等价的多个策略或独立子预设冲突时停止并诊断，不能静默放宽。注册 disposer 不代表成功，必须检查真实 registry.resolve 的 broken 字段。
 
-普通测试之外，用实际 Desktop Electron 运行 `test/desktop-presets.mjs`（`ELECTRON_RUN_AS_NODE=1`，`PURGE_TEST_HOST` 指向宿主的 `node_modules/@deepseek-ai`）。它在隔离目录复现旧错误、加载迁移后的父/子预设、创建空白 Agent 并核对真实工具可见性，不调用 LLM，不重启用户应用。可用 `PURGE_TEST_PRESET` 指定本机旧文件目录做私有验收，不能把该目录内容或用户提示词加入测试夹具。
+验收时用实际 Desktop Electron（`ELECTRON_RUN_AS_NODE=1`，`PURGE_TEST_HOST` 指向宿主的 `node_modules/@deepseek-ai`）在隔离目录手工复现旧错误、加载迁移后的父/子预设、创建空白 Agent 并核对真实工具可见性；不调用 LLM，不重启用户应用。本仓库已不附带该测试脚本，不能把目录可见当成允许执行。
 
 回滚代码会恢复旧版注册行为，原始用户文件本来就未改写；它也会恢复旧版在新宿主上的加载问题。不可为了回滚覆盖用户之后修改的提示词或设置。备份损坏或不可写时停止迁移，不绕开备份。
 
@@ -344,23 +346,21 @@ issue #19：`purge-community host-status` 输出 `disk.archive_exists` / `disk.u
 
 安装、应用和加载是三个不同阶段。安装不自动应用或重启；应用会备份并写磁盘，当前进程不热重载这些模块。用户方便时手动退出并重开后再确认真实界面。排查 #25 请提供 DSH/插件版本、系统、直接发送还是队列插话、单次还是重复点击、当前是否正在生成；不要索取整份配置、提示词、令牌或会话日志。
 
-验证：`npm test` 包含真实方法运行、延迟投影重复请求、消息消费、队列顺序与旧版迁移测试。可设置 `PURGE_TEST_HOST` 指向本机只读 `@deepseek-ai` 目录，运行 `node --test test/steering-runtime.test.mjs` 对实际安装方法验收。该测试使用内存服务，不等于完整桌面或真实模型验收。详见 [插话维护说明](docs/steer-notes.md)。
+验证：在隔离 home 中手工复现直接发送与队列插话、延迟投影重复请求、消息消费与队列顺序；本仓库不再附带测试套件，内存服务的验证结果不等于完整桌面或真实模型验收。详见 [插话维护说明](docs/steer-notes.md)。
 
-## 21. 多 profile 更新与源码 ZIP 校验
+## 21. 发行包与校验来源
 
-维护更新时以每个 profile 的实际包版本为准，不能把 `applied: true` 当成全部成功：需同时检查 `ok`、`hasUpdate`、`targets` 和错误。部分安装仍可能需要用户手动重启，但重启不能替代失败目标的重试。不要因此修改用户的更新开关、版本 pin、提示词或权限。
+插件不再遍历多 profile 自动更新，也不再发起任何发行查询。归档校验只剩两处：`Maintenance.install()` 按 tar 清单核对结构与包身份；独立安装器 `scripts/bootstrap-install.mjs` 负责来源、SHA256 与下载预算。两者都不接受镜像或调用方自报的摘要，不可用就停止，不能跳过校验。
 
-上游 ZIP 固定完整 commit SHA，并对全部文件校验 Git blob 摘要；GitHub API 不可用／清单不完整则停止，不能跳过校验。正式 TGZ 的 SHA256SUMS 校验保持不变。诊断返回 unknown 时保留未知状态，不能称为全绿，也不要自动重装。
+诊断返回 unknown 时保留未知状态，不能称为全绿，也不要自动重装。安装器测试通过不能代替模型质量对照。
 
-审查与测试边界见 [更新维护说明](docs/maintenance-issues-27-30.md)。普通任务能力反馈需独立复现，不能用安装器测试通过代替模型质量对照。
 
-## 22. 面板回滚与更新网络（1.6.29）
+## 22. 面板回滚（1.6.29）
 
-#34：回滚必须走 `.tgz` 安装，禁止对快照裸目录执行 add；后者会产生缺依赖的 link。安装命令退出 0 不足以成功，需在新进程检查依赖和插件入口。失败时恢复本次操作前的依赖图和清单，保留当前用户设置；发生并发修改则停止覆盖并提供恢复目录。不要拿旧更新器的目录回滚测试代替面板 Maintenance.rollback 的真实 CLI 测试。
+#34：回滚必须走 `.tgz` 安装，禁止对快照裸目录执行 add；后者会产生缺依赖的 link。安装命令退出 0 不足以成功，需在新进程检查依赖和插件入口。失败时恢复本次操作前的依赖图和清单，保留当前用户设置；发生并发修改则停止覆盖并提供恢复目录。
 
-#35：插件内所有更新请求共用 update-http。Token 从宿主的 GITHUB_TOKEN / GH_TOKEN 读取，仅发往 api.github.com，跨域不转发；代理优先 PURGE_HTTPS_PROXY，再 HTTPS_PROXY/HTTP_PROXY（支持小写），否则只读 Windows 静态系统代理；尊重 NO_PROXY。不改全局代理、不关证书校验、不改 Claude/SSH 网络。PAC/SOCKS 不支持时应明确提示；没有 token 仍可匿名，不要强迫用户提供密钥。不要把 token 或代理凭证写进公开 issue。
+面板维护页只保留备份、回滚、备份清理与最近动作。插件内不再有更新网络层（代理、镜像、GitHub token 都不再读取），因此不需要为更新配置环境变量，也不要为更新擅自重启宿主。
 
-错误区分额度耗尽、认证、资源不可用和网络超时；缓存/Atom 降级必须展示原因。环境设置需要由启动 DSH 的进程继承；不要为更新环境而擅自重启。独立 bootstrap 自包含下载器不属于插件内这层，不能声称所有入口都已继承。详见 [维护说明](docs/maintenance-issues-34-35.md)。
 
 ## 23. 嵌套布局自检（PR #33）
 
@@ -374,7 +374,7 @@ issue #19：`purge-community host-status` 输出 `disk.archive_exists` / `disk.u
 
 ## 25. 桌面归档诊断目标（1.6.32 / #40）
 
-status/selfcheck/diagnose 使用 `diagnosticHost` 统一检查当前安装的物理目录；`currentHost` 保留安装/启动定位语义。归档内启动路径仅映射到同一 Resources 下的 app 或 app.asar.unpacked，不能扫描别的安装来凑出绿色。部分或不可读的目标不能跳过，归档仍存在和权限差异继续提示。磁盘已应用不代表运行进程已加载；不因此自动重启、删归档或修改权限。复现和实际 HTTP handler 验收见 `npm run test:electron` 与 [维护说明](docs/maintenance-issue-40.md)。
+status/selfcheck/diagnose 使用 `diagnosticHost` 统一检查当前安装的物理目录；`currentHost` 保留安装/启动定位语义。归档内启动路径仅映射到同一 Resources 下的 app 或 app.asar.unpacked，不能扫描别的安装来凑出绿色。部分或不可读的目标不能跳过，归档仍存在和权限差异继续提示。磁盘已应用不代表运行进程已加载；不因此自动重启、删归档或修改权限。复现和实际 HTTP handler 验收需在隔离 Electron 中手工执行（本仓库不再附带自动化套件）；判读要点见 [维护说明](docs/maintenance-issue-40.md)。
 
 
 ## macOS #40：手动退出换包（1.6.35 起）
@@ -398,15 +398,16 @@ status/selfcheck/diagnose 使用 `diagnosticHost` 统一检查当前安装的物
 
 只重试一次，避免死循环。排查拒绝率先看 `purge-community audit --limit 20` 有没有 `refusal_retry`，再决定是否调整 `tuning.injectPosition`。本层与 §20 的插话、§19 的换包互不影响。
 
-## 1.6.38：慢网更新与审计属主
+## 1.6.38：独立安装器下载预算与审计属主
 
-归档预算使用 `PURGE_DOWNLOAD_TIMEOUT_MS`（默认 180000，范围 30000–900000）；可选 `PURGE_GH_MIRROR` 仅传输社区 TGZ，官方摘要不可用就停止。容器 root home 需明确服务 UID/GID；不要扩大权限或改全局代理。完整步骤、变量及测试边界见 [维护说明](docs/maintenance-issues-44-47.md)。不自动重启。
+安装器归档预算使用 `PURGE_DOWNLOAD_TIMEOUT_MS`（默认 180000，范围 30000–900000）；可选 `PURGE_GH_MIRROR` 仅作用于独立安装器的社区 TGZ 传输，官方摘要不可用就停止。容器 root home 需明确服务 UID/GID；不要扩大权限或改全局代理。完整步骤、变量及测试边界见 [维护说明](docs/maintenance-issues-44-47.md)。不自动重启。
+
 
 ## 1.6.39：独立安装器下载诊断（#52）
 
 `fetch failed` 不等于发行包未上传。独立安装器按 metadata / archive / checksum 输出失败阶段、当前官方域名、transport、attempt 和底层错误码；不要索取完整环境变量、代理地址、令牌或带签名的重定向 URL。瞬时连接错误和 408/429/500/502/503/504 最多两次 fetch，再尝试一次系统 curl，每次从原始官方 URL 重新开始。证书、来源、大小、SHA256、401/403/404 等永久错误停止；不要用关闭证书校验或跳过摘要来“解决”。
 
-备用 curl 沿用当前进程环境，禁用 curlrc，逐跳校验官方 HTTPS 域名（443），不使用镜像，不修改代理，也不保证修复所有网络问题。Windows 使用 System32/curl.exe，macOS/Linux 使用 /usr/bin/curl；缺失会明确报错。它不继承插件内 update-http 的系统代理读取逻辑。归档总预算默认 180 秒，可用 PURGE_DOWNLOAD_TIMEOUT_MS 在 30000–900000 范围设置；版本信息与校验清单各 60 秒。仅下载恢复不代表安装完成，必须继续通过 SHA256、包身份及迁移验证。
+备用 curl 沿用当前进程环境，禁用 curlrc，逐跳校验官方 HTTPS 域名（443），不使用镜像，不修改代理，也不保证修复所有网络问题。Windows 使用 System32/curl.exe，macOS/Linux 使用 /usr/bin/curl；缺失会明确报错。它不继承任何插件内代理逻辑（插件已无更新网络层）。归档总预算默认 180 秒，可用 PURGE_DOWNLOAD_TIMEOUT_MS 在 30000–900000 范围设置；版本信息与校验清单各 60 秒。仅下载恢复不代表安装完成，必须继续通过 SHA256、包身份及迁移验证。
 
 先让用户重新下载 install.sh/install.ps1，再执行 dry-run。仍失败时只收集系统/DSH 版本及脱敏的 `[download]` / `Release download failed` 行，区分 API、归档/CDN和校验清单，不擅自修改网络。安装前失败无须回滚，也不应动现有 profile。详见 [#52 维护说明](docs/maintenance-issue-52.md)。
 
@@ -420,7 +421,7 @@ status/selfcheck/diagnose 使用 `diagnosticHost` 统一检查当前安装的物
 
 ## 1.6.41：更新状态核对
 
-运行版本与当前 profile 磁盘版本分开核对；旧 pendingVersion 不代表当前安装。未知版本或读取失败继续告警，安装失败不会被成功检查掩盖。旧版已卡住时先手动安装新版，由用户手动退出重开一次；不要删除设置、改更新开关或自动重启。详见 [状态迁移与测试说明](docs/maintenance-update-state.md)。
+旧版已卡住时先手动安装新版，由用户手动退出重开一次；不要删除设置或自动重启。插件已无更新开关，`update-status.json` 不再读写。
 
 ## 1.6.42：设置与流诊断
 
@@ -456,7 +457,7 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 
 不要把用户正文包含模板标记当成默认值。自定义、手改、记录缺失或损坏的非空正文保留；仅精确匹配可证明来源的默认内容允许自动刷新。读取失败保留错误，不把失败当空文件。已丢内容只能从用户确认的稿件或备份恢复，不自动回滚整份配置。
 
-版本对账只读当前 profile 的启用入口及真实包身份，支持 `dsh-purge-community` 与 `dsh-purge` 别名；pnpm 的 YAML 从物理包目录解析。缺包、错误身份、多个不同副本继续报错；不要改名目录、删锁文件或清空 update-status.json 来消除告警。旧版对账失败会阻止自动安装，使用新版独立安装器原地升级，之后由用户手动重启。别名回滚保留原依赖名与用户后续编辑；回滚旧版会带回其旧缺陷。详见 [维护说明](docs/maintenance-issues-72-74.md)。
+不要改名目录、删锁文件或伪造版本来消除告警
 
 ## PR #78：安装目标与架构运行时
 
@@ -468,7 +469,7 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 
 - 本 fork **没有**「目标解析到公网就拒绝」的门禁。上游 1.1.74–1.1.77 曾在 `agent/pre-step` 里塞「不行，这是严令禁止的」并清空本轮消息，本版已连判定逻辑一起删除。
 - 不要以「靶场限制」「公网门禁」为由恢复这段代码；需要限制范围由操作者自己声明，插件不替用户判断目标归属。
-- `lib/net-scope.js` 只剩白名单文件 API（`readAllowText` / `writeAllowText` / `normalizeAllowText`）与 `ownServerNote()`（空实现）；`test/no-region-gate.test.mjs` 会在有人重新引入安装器或 `严令禁止` 时直接失败。
+- `lib/net-scope.js` 只剩白名单文件 API（`readAllowText` / `writeAllowText` / `normalizeAllowText`）与 `ownServerNote()`（空实现）；网关写入路径已删除，任何新增写入口都必须先重新评审。
 - 上游的 ReDoS 窗口扫描只为那个门禁服务，未采纳；`already queued` 的补丁改写与 pnpm postinstall 也未采纳，原因见 1.6.52 发行说明。
 
 ## 1.6.54：旧运行时链接与应用失败诊断（#79 / #77）
@@ -529,7 +530,7 @@ Web 子路径请求按实际插件脚本路径定位挂载点，根路径和桌�
 ## 1.6.64：expect 命中数契约与能力审计
 
 - `{ pattern, replace, expect: N }`：实际命中数不等于 N（含 0）时整条拒写，返回 `hitMismatch {patch_id, expected, actual, file}`；应用路径记为 `hit_mismatch:期望!=实际` 并计入未打上。
-- 真机探针 `test/expect-contract.test.mjs` 要求每个字面锚点在原始宿主（优先 `.dshpurge.bak`）里恰好出现一次；新增锚点必须收窄或声明 expect。
+- 真机探针要求每个字面锚点在原始宿主（优先 `.dshpurge.bak`）里恰好出现一次；新增锚点必须收窄或声明 expect。本仓库不再附带该探针脚本，用 `diagnose` 自查。
 - complete 模式注入段改为排在官方段之前（`[...dshPurgeSections, ...dshPurgeRest]`），旧宿主有专门迁移 pattern。
 - 审计口径：与上游 1.1.83 同名对比，72 条替换逐字一致，6 条为加强；上游独有的 #18/#19 是上下文保护（非闸），不启用。
 
@@ -558,7 +559,7 @@ Windows 换包仅对真实共享/锁冲突继续等待；其他错误保留 `det
 
 更新代理探测失败不代表 GitHub 已收到请求。Windows 先只读 `reg.exe`，必要时再用 PowerShell；不得自行关闭 TUN、改系统代理或忽略失败走直连。连接重置等瞬时错误最多重试两次，仍受原超时限制；HTTP、认证、证书、权限与 SHA256 错误要保留并处理根因。
 
-`update-channel.json` 的 token 不回显、不写日志；Windows 首次读取旧文件时收紧 DACL，新凭据在受保护文件创建后才写入。保护失败就报错，不降级成明文宽权限文件。不要删除旧配置、关 Defender 或加白名单来让更新显示成功。行为偏好、提示词、规则和宿主补丁不变，安装后不要自动重启。实测入口与限制见 [#122 维护说明](docs/update-channel-122.md)。
+凭据文件（`lib/secret-file.js`）的权限不回显、不写日志；Windows 首次读取旧文件时收紧 DACL，新凭据在受保护文件创建后才写入。保护失败就报错，不降级成明文宽权限文件。不要删除旧配置、关 Defender 或加白名单来让检查显示成功。行为偏好、提示词、规则和宿主补丁不变
 
 ## 1.6.69：恢复完整性、解包边界与生命周期
 
@@ -567,7 +568,7 @@ Windows 换包仅对真实共享/锁冲突继续等待；其他错误保留 `det
 - 插件停用/卸载后旧回调失效，仅清理该实例自己的全局入口。旧实例不能清掉新实例的回调；用户提示词、配置及宿主磁盘补丁不因此删除。
 - `apply` / `revert` 的错误以非零退出码报告；先检查输出与失败项目，重启不能修复失败写入。主动关闭的可选项按既有口径处理，不新增误报。
 - 列表性能优化保持详情字段、顺序和既有长度上限；统计读取失败要保留错误，不能显示为零。
-- 维护者使用 `PURGE_ELECTRON_EXEC=<隔离运行时> npm run test:maintenance:electron`；没有显式运行时就停止，不回退到正式应用。验收范围及 Windows Defender 阻碍见 [维护记录](docs/maintenance-integrity-169.md)。本次维护者已知悉该阻碍并明确要求发布，发行说明保留未通过的实机验收；不能把此决定说成问题已修复，也不能关防护、加白名单或把组件测试说成完整通过。
+- 维护者验收使用隔离 Electron 运行时；没有显式运行时就停止，不回退到正式应用。本仓库不再附带自动化套件，验收范围及 Windows Defender 阻碍见 [维护记录](docs/maintenance-integrity-169.md)。
 
 
 ## 1.6.70：宿主诊断与模块迁移
@@ -596,7 +597,7 @@ Windows 换包仅对真实共享/锁冲突继续等待；其他错误保留 `det
 
 如已确认手工 insert 与 bundle 入口重复，备份后逐字段保留原 config（包括提示词、未知项、false 和空字符串），合并为同 ID 配置覆盖；冲突或未知入口字段先停下核对。只移除那个已确认重复项，保留 insert 中其他插件，不按 dsh-purge-redteam 等前缀删除，不编辑已安装 bundle。原生错误仍在时按完整异常排查，不继续盲删。详见 [安装排障](docs/INSTALLATION.md#启动告警cannot-find-package-dsh-purge)。
 
-归档示例保留原文并紧邻警告。`check:docs` 解析 YAML fenced 示例，识别有/无引号的旧模块入口，不把普通提示词和报错文字当成安装入口；对应回归为 `test/install-docs.test.mjs`。迁移/回滚配置保留回归为 `test/market-migration.test.mjs`，均纳入默认测试。
+对应回归需在隔离环境中手工执行；迁移/回滚配置保留检查同样手工执行。本仓库不再附带测试套件。
 
 ### 1.6.73 启动语法错误
 

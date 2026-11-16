@@ -91,7 +91,7 @@ def _request_for(operation, entry, value):
 def automatic_provider(family):
     supported = family in {"sql_injection", "template_injection", "generic", "access_control", "xss"}
     return {"family": family, "supported": supported,
-            "provider": "native_http_controls" if supported else None,
+            "provider": "browser" if family == "xss" else "native_http_controls" if supported else None,
             "reason": None if supported else "dedicated_control_provider_not_implemented",
             "alternative": None if supported else "Use the dedicated scenario/browser/external test contract when available."}
 

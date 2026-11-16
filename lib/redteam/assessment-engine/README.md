@@ -6,7 +6,8 @@ with explicit dsh-purge adaptations recorded in provenance.json. Runtime
 never selects or imports a separate awa-ddd checkout or plugin installation.
 
 The component contains Python production source, including private owner,
-structured-request and bounded-claim helpers, and three JavaScript runtime
+structured-request, bounded-claim, membership, access-control, batch and
+tool-routing helpers, and three JavaScript runtime
 files: the bounded process bridge, public
 action catalog and inert-source AST helper. Python 3.10+ and Node 22.19+ are
 runtime requirements. acorn@8.19.0 is installed through the dsh-purge root
@@ -27,21 +28,29 @@ Full penetration reports are generated through this component's report.build;
 source labels, baseline observations and report snapshots do not grant proof
 or finalization authority.
 
-The local dsh-purge adaptation version is 1.10.0; the upstream version remains
-awa-ddd 2.2.0. Model records remain claimed/inferred. Current native proofs
-bind operation, input, identity, complete artifacts and the oracle-generated
-claim contract, including proof_scope, limitations and severity cap. Generic
-tool receipts do not independently establish a vulnerability or privilege.
-Historical machine labels without the current contract remain pending review.
+The local dsh-purge adaptation version is 1.12.0; the upstream version remains
+awa-ddd 2.2.0. Current native proofs bind operation/input, identity, complete
+artifacts and oracle-generated claim scope, limitations and severity cap.
+Historical machine labels without the current contract remain pending.
+Automatic builders provide actual-baseline double Boolean SQL controls,
+explicit non-calculator template controls, verified-principal GET access
+boundaries, native reflected HTML XSS controls and bounded generic tests.
+Missing providers remain blocked. Model reviews and N/A applicability drafts
+cannot grant a finding, a new SRC stop or a smaller coverage denominator.
+Campaign members and verdicts are projected independently while actual
+attempts, cooldown, uncertainty and stops remain engagement-wide.
+Failed runs preserve attempts, evidence, cooldown and unknown writes.
+Offline verification neither replays requests nor reconciles unknown effects.
 
-Automatic recipe builders currently provide SQL, bounded expressions at
-explicit non-calculator template consumers, and bounded generic controls.
-Missing providers and missing executable prerequisites are separate blockers.
-Requests retain real same-operation/identity baseline fields and are checked
-against the same structured transport semantics during execution and review.
-Failed runs preserve partial evidence, attempts, cooldown and unknown writes;
-offline verification neither replays requests nor reconciles unknown effects.
-Credential sessions retain their fixed origin before first verification.
+tool.route reads actual existing IDs and saved, profile-bound runtime receipts
+without probing or target traffic. Existing scripts/maps use offline discovery;
+DOM needs select Playwright, public GET replay requires Yak fuzzer/TLS controls,
+and existing scanner results reuse the exact TscanPlus namespace. WSL remains
+operator-selected. Requests without anonymous cookie_evidence_ids use one
+fixed batch worker; anonymous Cookie chains retain per-item facade handling.
+Each dispatch rechecks live scope, identity, Cookie and SRC restrictions.
+Execution receipts count actual sends/receives/bytes/time; reuse is zero new
+requests and unmeasured costs remain null.
 
 SRC reads the facade-owned dsh-source-stops.json snapshot from its fixed
 workspace before HTTP, preflight, identity, indirect recipe and browser
@@ -73,16 +82,17 @@ target requests and rejects unknown configuration fields.
 Maintainers run node scripts/sync-assessment-engine.mjs --check from the
 dsh-purge root for a fully offline integrity check. An explicit --source
 PATH imports a reviewed upstream checkout; --check --source PATH also
-compares its snapshot. Native helpers and local 1.10.0 adaptations are retained
-against their exact recorded upstream hashes; changed upstream bytes require
-explicit contract review before importing, including with --force.
+compares its snapshot. Native helpers and reviewed local adaptations
+are retained against their exact upstream hashes; changed upstream bytes
+require explicit contract review before any import, including --force.
 Modified managed source is preserved unless --force explicitly authorizes
-resynchronization. Production never runs this source-import command.
+resynchronization. --record-local records only allowlisted reviewed local
+changes and retains upstream attribution; it does not verify source origin
+or runtime correctness. Production never runs these maintainer commands.
 
 Provenance covers exact source bytes. Git retains the managed component's
 reviewed LF/CRLF bytes; browser.py is generated with explicit LF line endings.
 
-Isolated 1.10.0 checks are recorded in docs/MODE-UPGRADE-1.10.0.md. Generating the
-bundled provenance manifest is not an integrity check, runtime probe or target
-assessment. No dependency installation, packaging, deployment, host patching
-or restart was performed for this upgrade.
+Upgrade checks are recorded in docs/MODE-UPGRADE-1.12.0.md. Generating the
+provenance manifest is not an integrity check, runtime probe or assessment.
+It did not install dependencies, package, deploy, patch or restart the host.

@@ -1004,7 +1004,24 @@ def publish(project, action, result, *, minted=None):
         schema = {**schema, **_ACTION_SCHEMAS["browser.visit"], "id": _handle("run"),
                   "status": _enum("running", "interrupted", "succeeded", "failed"),
                   **_record_timestamps("run", "started_at finished_at completed_at")}
-    return PublicationContext(project, minted=minted).metadata(result, schema=schema)
+    public = PublicationContext(project, minted=minted).metadata(result, schema=schema)
+    if action == "tool.route" and isinstance(public, dict):
+        for row in public.get("items", []):
+            for key in ("next", "fallback"):
+                instruction = row.get(key)
+                if not isinstance(instruction, dict) or instruction.get("action") not in {
+                        "browser.visit", "http.preflight", "tool.yakit_replay"}:
+                    continue
+                inputs = instruction.get("input") or {}
+                if inputs.get("requestable") is not False and not any(inputs.get(flag) is True
+                        for flag in ("url_redacted", "locator_requires_binding", "native_input_requires_binding")):
+                    continue
+                row["missing"] = list(dict.fromkeys((row.get("missing") or []) + ["public_locator_requires_private_binding"]))
+                row[key] = {"action": "action.help", "input": {"name": instruction["action"]}}
+                if key == "next":
+                    row.update(ready=False, state="preparation_required", offline_only=True,
+                               reason="The public locator is redacted; bind the exact original request privately before dispatch. Do not substitute the operation default URL.")
+    return public
 
 
 def publish_report_summary(project, summary, *, extra_secrets=(), files=None):

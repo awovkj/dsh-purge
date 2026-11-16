@@ -1,6 +1,6 @@
 # 安装、升级与故障排查
 
-当前源码版本 **1.12.0**。面向用户与协助安装的 Agent。历史安装器支持 Linux CLI/Web、macOS Desktop、Windows 11 的 PowerShell 5.1/7；本次为三模式源码/生成物、隔离回归与真实 localhost HTTP，没有打包发布或安装正式实例。1.12.0 的固定发行 URL 待正式发布后使用。实际 Playwright/Yak/TscanPlus/WSL、模型选择、宿主与 GUI 未验收；已有 rc.3 Loader/工具目录验收来自 1.10.0，86 条补丁源码目标仍为 rc.1。[本轮范围与验证](MODE-UPGRADE-1.12.0.md)。
+当前源码版本 **1.13.0**。面向用户与协助安装的 Agent。历史安装器支持 Linux CLI/Web、macOS Desktop、Windows 11 的 PowerShell 5.1/7；本版移除插件内置的检查更新子系统并清空测试与草稿产物，升级改为显式安装发行包。1.13.0 的固定发行 URL 待正式发布后使用。已有 rc.3 Loader/工具目录验收来自 1.10.0，86 条补丁源码目标仍为 rc.1。[发行说明](releases/1.13.0.md)。
 
 内置评估源码随主包的 `lib/redteam/assessment-engine/` 提供，运行时无需安装或绑定独立 awa-ddd。评估使用 Node ≥22.19、Python ≥3.10，以及当前靶标自己的 `assessment` 台账；普通 Purge 功能的运行条件见 README。升级保留旧外部 settings/binding、原提示词和用户设置，不自动初始化目标评估或重启 DSH。首次按真实 HTTP URL 准备评估的流程见 [红队/内置评估/SRC](REDTEAM-AWA-SRC.md)。
 
@@ -105,7 +105,6 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'dsh-purge' imported from <pro
 ```yaml
 - id: dsh-purge
   config:
-    autoUpdateOnStart: false
 ```
 
 6. 核对最终有效入口、依赖解析和保留的配置后，由用户选择何时完整退出并重新打开 DSH，不自动重启。仍失败时，根据完整异常区分依赖、链接、profile 或服务故障，**不能认定还有重复入口而继续删除**。有歧义时停止迁移，保留备份和现场。
@@ -172,7 +171,7 @@ try {
 
 ## 开发验收
 
-`node --test test/install-registry.test.mjs test/bootstrap-install.test.mjs` 覆盖正常安装、精确错误重试、私有源、混合错误、官方缺元数据、网络失败、SHA256 稳定别名、临时路径与子进程。`test/install-windows.ps1` 在 Windows PowerShell 5.1 和 PowerShell 7 验证入口参数、路径、退出状态和环境恢复。CI 在 Linux/macOS/Windows 执行安装器测试。真实 DSH 隔离 profile 的迁移/回滚另行记录；这些测试均不能替代完整 Windows DSH UI/宿主补丁验收。
+安装器回归（重试、私有源、混合错误、官方缺元数据、网络失败、SHA256 稳定别名、临时路径与子进程）需在隔离 home 中手工复现；本仓库不再附带测试套件。
 
 ## Windows 历史真实运行时回归
 
@@ -196,7 +195,7 @@ try {
 
 ## 1.6.41：更新状态核对
 
-运行版本与当前 profile 磁盘版本分开核对；旧 pendingVersion 不代表当前安装。未知版本或读取失败继续告警，安装失败不会被成功检查掩盖。旧版已卡住时先手动安装新版，由用户手动退出重开一次；不要删除设置、改更新开关或自动重启。详见 [状态迁移与测试说明](maintenance-update-state.md)。
+旧版已卡住时先手动安装新版，由用户手动退出重开一次；不要删除设置或自动重启。插件已无更新开关。
 
 <a id="isolated-acceptance"></a>
 ## 安装命令的隔离验收（2026-10-23）

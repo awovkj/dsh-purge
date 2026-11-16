@@ -1537,7 +1537,12 @@ def record_finding(project,args):
                                                  "finding_id": finding["id"], "test_family": "xss"})
     project.event("finding.recorded",{"finding_id":finding["id"],"decision_id":decision["id"]})
     from .assessment_mode import mode as project_mode, record_stop
-    if project_mode(project) == "src":
+    stopping_proof = decision.get("mode") == "machine" or (
+        (decision.get("oracle") or {}).get("type") == "analyst_runtime"
+        and (decision.get("oracle") or {}).get("test_family") == "xss"
+        and decision.get("obligation_id") is not None
+        and (decision.get("proof") or {}).get("source") == "local_playwright")
+    if project_mode(project) == "src" and stopping_proof:
         operation_ids = {project.get("evidence", identity)["operation_id"] for identity in finding["evidence_ids"]}
         if decision.get("operation_id"):
             operation_ids = {decision["operation_id"]}
