@@ -119,6 +119,6 @@ def public_view(run):
     return {
         key: run.get(key) for key in (
             "id", "campaign_id", "hypothesis_id", "recipe_id", "recipe_revision", "recipe_spec_hash",
-            "mode", "status", "steps", "evidence_ids", "decision_ids", "error",
-            "effect", "dispatch_started_at", "completed_at", "created_at", "updated_at")
+            "mode", "status", "steps", "evidence_ids", "browser_visit_ids", "decision_ids", "error",
+            "effect", "execution_receipt", "dispatch_started_at", "completed_at", "created_at", "updated_at")
     } | {"evaluation": evaluation, "outcome": run.get("outcome")}

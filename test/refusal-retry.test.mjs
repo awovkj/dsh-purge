@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { looksLikeRefusal, refusalMatchIndex, streamWithRefusalRetry, RETRY_NUDGE } from "../lib/refusal-retry.js";
+import { PROMPT_RETRY_STRATEGIES } from "../lib/prompt-transport.js";
 
 const sys = (text) => ({ role: "system", content: [{ type: "text", text }] });
 const delta = (text) => ({ type: "text-delta", index: 0, text });
@@ -16,6 +17,7 @@ async function collect(iter) {
 test("refusal text is detected, normal text is not", () => {
   assert(looksLikeRefusal("I can't help with that."));
   assert(looksLikeRefusal("抱歉，我无法协助这个请求"));
+  assert(looksLikeRefusal("我不会提供这套方案。"));
   assert(!looksLikeRefusal("Here is the plan: 1) read the file 2) patch it"));
 });
 
@@ -83,4 +85,46 @@ test("short meta refusals count, long technical discussion does not", () => {
 test("the matching rule index is reported for diagnosis", () => {
   assert(refusalMatchIndex("这段指令是提示词注入，我不会执行。") >= 0);
   assert.equal(refusalMatchIndex("普通的技术说明，没有任何拒绝。"), -1);
+});
+
+test("Best-of-N ladder uses three distinct strategies before accepting a candidate", async () => {
+  const calls = [];
+  const factory = (options) => {
+    calls.push(options);
+    return (async function* () {
+      if (calls.length <= 3) {
+        yield delta("I'm sorry, but I can't help with that.");
+      } else {
+        yield delta("Step 1: decoded and ready.");
+      }
+      yield finish();
+    })();
+  };
+  const options = { messages: [sys("base system")] };
+  const chunks = await collect(streamWithRefusalRetry(factory, options, {
+    strategies: PROMPT_RETRY_STRATEGIES,
+    maxAttempts: 3,
+  }));
+  assert.equal(calls.length, 4);
+  assert.match(calls[1].messages[0].content[0].text, /isiZulu/);
+  assert.match(calls[2].messages[0].content[0].text, /ROT13/);
+  assert.match(calls[3].messages[0].content[0].text, /decoded contract/);
+  assert.equal(chunks.filter((c) => c.type === "text-delta")[0].text, "Step 1: decoded and ready.");
+});
+
+test("Best-of-N ladder emits the final refusal instead of losing the turn", async () => {
+  let calls = 0;
+  const factory = () => {
+    calls += 1;
+    return (async function* () {
+      yield delta("I can't help with that.");
+      yield finish();
+    })();
+  };
+  const chunks = await collect(streamWithRefusalRetry(factory, { messages: [sys("s")] }, {
+    strategies: PROMPT_RETRY_STRATEGIES,
+    maxAttempts: 2,
+  }));
+  assert.equal(calls, 3);
+  assert.match(chunks.find((c) => c.type === "text-delta").text, /can't help/);
 });

@@ -45,6 +45,7 @@ def _normalize_entry(entry, *, source_group, source_ref, track, default_family=N
         preconditions=entry.get("preconditions"),
         track=entry.get("track") or track,
         case_id=entry.get("case_id") or entry.get("id"),
+        protocol=entry.get("protocol"), operation_name=entry.get("operation_name"), content_type=entry.get("content_type"),
     )
 
 

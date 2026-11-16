@@ -6,6 +6,7 @@ returned upload path) are explicitly ``not_proof`` and never become confirmed
 findings without their required scope/controls.
 """
 from __future__ import annotations
+import math
 
 from ..store import EngineError
 
@@ -17,7 +18,7 @@ PROFILES = {
         "mechanism_contract": "Describes a normal response; it is not a security test.",
     },
     "authorization": {
-        "version": "1", "proof_scope": "authorization_boundary", "confirmable": True,
+        "version": "2", "proof_scope": "authorization_boundary", "confirmable": True,
         "requires": ["allowed_role_result", "forbidden_role_result", "anonymous_result", "server_role_evidence"],
         "not_proof": ["missing authorization for other roles/resources"],
         "severity_cap": "high",
@@ -59,11 +60,19 @@ PROFILES = {
         "mechanism_contract": "DBMS error signature appears only under the attack input and recovers with the baseline.",
     },
     "sql_metadata": {
-        "version": "1", "proof_scope": "sql_metadata_observation", "confirmable": True,
-        "requires": ["baseline", "attack", "business_count_change", "same_identity"],
+        "version": "2", "proof_scope": "sql_metadata_observation", "confirmable": False,
+        "requires": ["baseline", "attack", "negative_control", "business_count_change", "same_identity", "controls_complete"],
         "not_proof": ["all-table access", "data dump"],
+        "severity_cap": None,
+        "mechanism_contract": "Business counts are observations; literal data matching can produce the same difference in a parameterized query.",
+    },
+    "sql_boolean": {
+        "version": "1", "proof_scope": "sql_boolean_difference", "confirmable": True,
+        "requires": ["baseline", "true_control", "false_control", "second_true", "second_false",
+                     "same_identity", "controls_complete", "sql_context", "independent_controls"],
+        "not_proof": ["data extraction", "database privileges", "other SQL contexts"],
         "severity_cap": "medium",
-        "mechanism_contract": "A bounded business-count difference caused only by the registered SQL input.",
+        "mechanism_contract": "Two distinct true/false predicates preserve a real nonempty baseline only for true, in a frozen string comparison context.",
     },
     "parser_identification": {
         "version": "1", "proof_scope": "parser_identification", "confirmable": False,
@@ -73,9 +82,10 @@ PROFILES = {
         "mechanism_contract": "Identifies a parser response only; a secure type allowlist rejection also matches.",
     },
     "unexpected_expression_evaluation": {
-        "version": "1", "proof_scope": "unexpected_expression_evaluation", "confirmable": True,
+        "version": "2", "proof_scope": "unexpected_expression_evaluation", "confirmable": True,
         "requires": ["declared_formula_field", "normal_plain_value", "attack_arithmetic_value",
-                     "negative_literal_value", "expected_arithmetic_result", "reflection_exclusion"],
+                     "negative_literal_value", "expected_arithmetic_result", "reflection_exclusion",
+                     "sensitivity_value", "sensitivity_expected", "template_dialect", "independent_controls"],
         "not_proof": ["arbitrary code execution", "OS command execution", "other template engines"],
         "severity_cap": "medium",
         "mechanism_contract": "A field outside a declared formula feature evaluates an arithmetic expression; normal and negative controls keep the same input type.",
@@ -105,9 +115,9 @@ PROFILES = {
         "mechanism_contract": "Owned file content is readable at a path outside the declared storage root; filename and content are independently controlled.",
     },
     "browser_runtime": {
-        "version": "1", "proof_scope": "browser_runtime_xss", "confirmable": True,
-        "requires": ["application_triggered_dialog", "attack_controls", "normal_control_no_dialog",
-                     "consumer_page", "same_identity_control_group", "content_version"],
+        "version": "2", "proof_scope": "browser_runtime_xss", "confirmable": True,
+        "requires": ["application_triggered", "attack_dialog", "normal_dialog",
+                     "negative_dialog", "consumer_page", "same_identity", "content_version", "source_binding_verified", "independent_controls"],
         "not_proof": ["manual evaluate(alert)", "static HTML", "unbound imported MCP output"],
         "severity_cap": "high",
         "mechanism_contract": "The application stores/reflects attacker content and the consumer page itself triggers the marker dialog in a real browser.",
@@ -174,22 +184,39 @@ def evaluate(oracle_type, observations, controls=None):
         allowed = observations.get("allowed_role_result")
         forbidden = observations.get("forbidden_role_result")
         anonymous = observations.get("anonymous_result")
-        denied = {"denied", "forbidden", "unauthorized", "not_found", 401, 403, 404}
-        if allowed not in denied and forbidden in denied and anonymous in denied:
-            return _result("refuted", False, ["Forbidden and anonymous principals were denied."])
-        if allowed not in denied and forbidden not in denied:
-            return _result("supported", True, ["Forbidden principal accessed the same operation/resource."])
-        return _result("inconclusive", False, ["Role outcomes do not discriminate access policy."])
+        if not all(isinstance(value, dict) for value in (allowed, forbidden, anonymous)) \
+                or observations.get("server_role_evidence") is not True:
+            return _result("inconclusive", False, ["Exact protected objects and verified independent principal controls are required."])
+        if not 200 <= (allowed.get("status") or 0) < 300 or allowed.get("resource_matches") is not True \
+                or allowed.get("protected_value") in (None, "", [], {}):
+            return _result("inconclusive", False, ["The allowed principal did not establish the actual protected object."])
+        for value in (forbidden, anonymous if observations.get("policy_kind") != "authentication" else forbidden):
+            if 200 <= (value.get("status") or 0) < 300 and value.get("resource_matches") is True \
+                    and value.get("protected_value") == allowed["protected_value"]:
+                return _result("supported", True, ["A forbidden or anonymous principal received the same exact protected object under the declared policy."])
+        denied = {401, 403, 404}
+        if forbidden.get("status") in denied and (observations.get("policy_kind") == "authentication"
+                                                   or anonymous.get("status") in denied) \
+                and forbidden.get("protected_value") in (None, "", [], {}) \
+                and (observations.get("policy_kind") == "authentication" or anonymous.get("protected_value") in (None, "", [], {})):
+            return _result("refuted", False, ["Forbidden/anonymous controls were denied for this exact object."])
+        return _result("inconclusive", False, ["Status or length differences alone do not establish an authorization boundary violation."])
     if oracle_type == "unexpected_expression_evaluation":
+        if observations.get("declared_formula_field") is not False:
+            return _result("inconclusive", False, ["No declared non-calculator consumer is bound to this expression test."])
         if any(observations.get(key) in {"reflected", True} for key in ("reflection", "attack_reflected")):
             return _result("refuted", False, ["Attack value was reflected, not evaluated."])
         expected = observations.get("expected_arithmetic_result")
         actual = observations.get("attack_arithmetic_value")
-        normal_ok = _eq(observations.get("normal_plain_value"), observations.get("normal_expected", observations.get("normal_plain_value")))
-        negative_ok = _eq(observations.get("negative_literal_value"), observations.get("negative_expected", observations.get("negative_literal_value")))
-        if _eq(actual, expected) and normal_ok and negative_ok:
-            return _result("supported", True,
-                           ["Arithmetic result observed; proof is limited to expression evaluation, not code execution."])
+        normal_ok = observations.get("normal_expected") is not None and _eq(observations.get("normal_plain_value"), observations["normal_expected"])
+        negative_ok = observations.get("negative_expected") is not None and _eq(observations.get("negative_literal_value"), observations["negative_expected"])
+        if _eq(actual, expected) and normal_ok and negative_ok and observations.get("reflection_exclusion") is True:
+            if observations.get("template_dialect") == "jinja_expression" \
+                    and observations.get("independent_controls") is True \
+                    and _eq(observations.get("sensitivity_value"), observations.get("sensitivity_expected")) \
+                    and not _eq(observations.get("sensitivity_expected"), expected):
+                return _result("supported", True,
+                               ["Two template-delimited expressions evaluated while plain and malformed controls stayed literal; code execution is not proven."])
         return _result("inconclusive", False, ["Controls do not exclude normal calculator behavior or reflection."])
     if oracle_type == "unsafe_type_instantiation":
         marker = observations.get("attack_type_marker")
@@ -218,8 +245,9 @@ def evaluate(oracle_type, observations, controls=None):
         if observations.get("trigger_source") != "application" or observations.get("application_triggered") is not True:
             return _result("inconclusive", False, ["Only application-triggered runtime dialogs count; manual evaluate is not proof."])
         if observations.get("attack_dialog") is True and observations.get("normal_dialog") is False \
+                and observations.get("negative_dialog") is False and observations.get("independent_controls") is True \
                 and observations.get("consumer_page") and observations.get("same_identity") is True \
-                and observations.get("content_version"):
+                and observations.get("content_version") and observations.get("source_binding_verified") is True:
             return _result("supported", True, ["Application-triggered runtime dialog on the real consumer page."])
         return _result("inconclusive", False, ["Runtime dialog is not bound to the consumer and attack content version."])
     if oracle_type == "race":
@@ -250,9 +278,21 @@ def evaluate(oracle_type, observations, controls=None):
             return _result("supported", True, ["DBMS error signature isolated to the attack input."])
         return _result("inconclusive", False, ["Error signature is not isolated or not a DBMS channel."])
     if oracle_type == "sql_metadata":
-        if observations.get("business_count_changed") is True and observations.get("same_identity") is True:
-            return _result("supported", True, ["Bounded business-count change under the same identity."])
-        return _result("inconclusive", False, ["No discriminating business-count change."])
+        return _result("inconclusive", False,
+                       ["Count differences do not distinguish SQL interpretation from secure literal business matching. Prepare mechanism-specific controls."])
+    if oracle_type == "sql_boolean":
+        baseline = observations.get("baseline")
+        values = [observations.get(key) for key in ("true_control", "false_control", "second_true", "second_false")]
+        if type(baseline) not in {int, float} or not math.isfinite(baseline) or baseline <= 0 \
+                or any(type(value) not in {int, float} or not math.isfinite(value) or value < 0 for value in values):
+            return _result("inconclusive", False, ["A complete nonempty numeric baseline and exact response selector are required."])
+        if observations.get("sql_context") != "quoted_string_equality" \
+                or observations.get("independent_controls") is not True \
+                or observations.get("same_identity") is not True or observations.get("controls_complete") is not True:
+            return _result("inconclusive", False, ["SQL context, independent predicates or identity binding is missing."])
+        if values[0] == baseline == values[2] and values[1] == 0 == values[3]:
+            return _result("supported", True, ["Two independent SQL predicate pairs preserved/removed the same real baseline result; no extraction is proven."])
+        return _result("inconclusive", False, ["The paired SQL predicates did not discriminate interpretation from normal data selection."])
     return _result("inconclusive", False, ["No evaluator for this profile."])
 
 

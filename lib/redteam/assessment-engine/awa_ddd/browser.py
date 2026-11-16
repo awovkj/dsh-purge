@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 import re
 import secrets
 import shutil
@@ -43,12 +44,15 @@ _ACTION_TYPES = _INTERACTIONS | {"wait", "waitForSelector", "waitForDialog", "wa
 _STRUCTURAL_SIGNALS = {"hasApp", "forms", "inputs", "buttons", "links", "textLength", "selectorCount"}
 _OBSERVATION_BUDGET = 4 * 1024 * 1024
 
-# Candidate locations for a Node + playwright-core installation. Checked in order;
-# the first one whose chromium can actually launch wins.
-_BROWSER_ROOTS = (
-    Path.home() / ".dsh" / "mcp" / "playwright",
-    Path.home() / ".cache" / "ms-playwright",
-)
+# Operator configuration selects an existing Playwright installation only.
+# Browser caches never stand in for the Node module; nothing is installed here.
+def _browser_roots():
+    configured = os.environ.get("PURGE_PLAYWRIGHT_ROOT", "").strip()
+    if configured:
+        return (Path(configured).expanduser(),)
+    home = Path(os.environ.get("DSH_HOME") or Path.home() / ".dsh").expanduser()
+    return tuple(dict.fromkeys((home / "mcp" / "playwright",
+                               Path.home() / ".dsh" / "mcp" / "playwright")))
 
 
 def _node():
@@ -56,15 +60,13 @@ def _node():
 
 
 def _playwright_module():
-    """Return the directory containing node_modules/playwright-core, if any."""
-    for root in _BROWSER_ROOTS:
-        candidate = root / "node_modules" / "playwright-core"
-        if candidate.is_dir():
-            return root
-        if root.name == "ms-playwright" and root.is_dir():
-            # Browsers installed without a local playwright package; the caller may
-            # still have one elsewhere, so report the browser cache and let the probe decide.
-            return root
+    """Return an installation root and its actual playwright(-core) package."""
+    for root in _browser_roots():
+        candidates = [root] if root.name in {"playwright", "playwright-core"} else []
+        candidates += [root / "node_modules" / name for name in ("playwright-core", "playwright")]
+        for candidate in candidates:
+            if candidate.is_dir() and (candidate / "package.json").is_file():
+                return root, candidate
     return None
 
 
@@ -74,31 +76,41 @@ def available():
     if not node:
         return {"available": False, "reason": "node_not_found",
                 "detail": "Install Node.js to drive a browser; HTTP captures still work."}
-    module_root = _playwright_module()
-    if module_root is None:
+    module = _playwright_module()
+    if module is None:
         return {"available": False, "reason": "playwright_not_found",
-                "detail": "No playwright-core installation was found under ~/.dsh/mcp/playwright.",
+                "detail": "No existing playwright(-core) module was found. Select its installation "
+                          "with operator environment PURGE_PLAYWRIGHT_ROOT or use DSH_HOME/mcp/playwright. "
+                          "A Chromium cache alone is not a Playwright module.",
                 "node": node}
-    return {"available": True, "node": node, "module_root": str(module_root)}
+    return {"available": True, "node": node, "module_root": str(module[0]),
+            "module_path": str(module[1])}
 
 
 _PROBE = r"""
-const path = process.argv[2];
+const modulePath = process.argv[2];
 let chromium;
-try { ({ chromium } = require(path + '/node_modules/playwright-core')); }
+try { ({ chromium } = require(modulePath)); }
 catch (e) { console.log(JSON.stringify({ok:false, reason:'require_failed', detail:String(e.message).slice(0,200)})); process.exit(0); }
 const fs = require('fs');
 const os = require('os');
+const path = require('path');
 // playwright-core pins an exact browser build; a machine may hold a different revision.
 // Try the pinned default first, then any chromium build present in the cache.
 function candidates() {
   const list = [];
   try { list.push(chromium.executablePath()); } catch (e) {}
-  const cache = process.env.PLAYWRIGHT_BROWSERS_PATH || (os.homedir() + '/AppData/Local/ms-playwright');
+  const configuredCache = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  const cache = configuredCache && configuredCache !== '0' ? configuredCache
+    : process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'ms-playwright')
+    : process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright')
+    : path.join(os.homedir(), '.cache', 'ms-playwright');
   try {
-    for (const entry of fs.readdirSync(cache)) {
+    for (const entry of configuredCache === '0' ? [] : fs.readdirSync(cache)) {
       if (!entry.startsWith('chromium-')) continue;
-      for (const rel of ['chrome-win64/chrome.exe', 'chrome-win/chrome.exe', 'chrome-linux/chrome']) {
+      for (const rel of ['chrome-win64/chrome.exe', 'chrome-win/chrome.exe', 'chrome-linux/chrome',
+          'chrome-linux64/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium',
+          'chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium', 'chrome-mac-x64/Chromium.app/Contents/MacOS/Chromium']) {
         const p = cache + '/' + entry + '/' + rel;
         if (fs.existsSync(p)) list.push(p);
       }
@@ -134,7 +146,7 @@ def probe():
         script = Path(tmp) / "probe.cjs"
         script.write_text(_PROBE, encoding="utf-8")
         try:
-            process = subprocess.run([state["node"], str(script), state["module_root"]],
+            process = subprocess.run([state["node"], str(script), state["module_path"]],
                                      capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {"available": False, "reason": "probe_failed", "detail": type(exc).__name__}
@@ -150,7 +162,7 @@ def probe():
 
 
 _VISIT = r"""
-const [moduleRoot, specPath] = process.argv.slice(2);
+const [modulePath, specPath] = process.argv.slice(2);
 const fs = require('fs');
 const { createHash } = require('node:crypto');
 const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
@@ -189,6 +201,46 @@ function allowed(raw) {
       !(spec.exclude || []).some(r => matches(r, u));
   } catch (_) { return false; }
 }
+function stopMatches(rule, u, method) {
+  if (rule.method && rule.method !== method) return false;
+  if (rule.kind === 'host') {
+    const url = new URL(u.origin);
+    return url.hostname.replace(/^\[|\]$/g, '') === rule.host &&
+      (rule.port == null || rule.port === Number(url.port || (url.protocol === 'https:' ? 443 : 80)));
+  }
+  if (rule.kind !== 'url' || rule.origin !== u.origin) return false;
+  const expression = rule.path.split(/(\{[A-Za-z_][\w-]*\})/g).map(part => /^\{[A-Za-z_][\w-]*\}$/.test(part)
+    ? '[^/]+' : part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('');
+  return new RegExp('^' + expression + '$').test(u.path);
+}
+function sourceStops() {
+  if (!spec.sourceStopFile) return [];
+  const info = fs.lstatSync(spec.sourceStopFile);
+  if (!info.isFile() || info.isSymbolicLink() || info.size > 2 * 1024 * 1024) throw new Error('src_stop_snapshot');
+  const document = JSON.parse(fs.readFileSync(spec.sourceStopFile, 'utf8'));
+  if (document.schema !== 'dsh-purge-source-stops/v1' || document.project_id !== 'assessment' ||
+      document.source_engagement_id !== spec.sourceStopIdentity || !Array.isArray(document.rules) || document.rules.length > 10000 ||
+      Object.keys(document).sort().join(',') !== 'project_id,rules,schema,source_engagement_id') throw new Error('src_stop_snapshot');
+  for (const rule of document.rules) {
+    if (!rule || !/^source-[0-9]+-[a-f0-9]{16}$/.test(rule.id) || !Array.isArray(rule.evidence_ids) ||
+        rule.evidence_ids.length > 32 || rule.evidence_ids.some(id => typeof id !== 'string' || !/^ev_[a-f0-9]{64}$/.test(id))) throw new Error('src_stop_snapshot');
+    if (rule.kind === 'url') {
+      if (Object.keys(rule).sort().join(',') !== 'evidence_ids,id,kind,origin,path' || typeof rule.origin !== 'string' ||
+          typeof rule.path !== 'string' || rule.path.length > 8192 || !rule.path.startsWith('/')) throw new Error('src_stop_snapshot');
+      const u = parsedURL(rule.origin + rule.path.split('/').map(part => encodeURIComponent(part)).join('/'));
+      if (u.origin !== rule.origin || u.path !== rule.path) throw new Error('src_stop_snapshot');
+    } else if (rule.kind === 'host') {
+      if (Object.keys(rule).sort().join(',') !== 'evidence_ids,host,id,kind,port' || typeof rule.host !== 'string' ||
+          !rule.host || rule.host.length > 256 || /[\s\\/?#@]/.test(rule.host) ||
+          rule.port !== null && (!Number.isInteger(rule.port) || rule.port < 1 || rule.port > 65535)) throw new Error('src_stop_snapshot');
+    } else throw new Error('src_stop_snapshot');
+  }
+  return document.rules;
+}
+function stopped(raw, method = 'GET') {
+  const u = parsedURL(raw);
+  return [...(spec.stopRules || []), ...sourceStops()].some(rule => stopMatches(rule, u, method));
+}
 // A write is only ever replayed against the origin the visit was aimed at, so an
 // injected form action cannot turn one authorized visit into a cross-site POST.
 function sameOrigin(raw, base) {
@@ -224,6 +276,7 @@ function sameOrigin(raw, base) {
       out.scope_error = 'final_url_out_of_scope';
       throw new Error('final_url_out_of_scope');
     }
+    if (stopped(url)) throw new Error('stopped_at_evidence');
   }
   function attach(p) {
     p.on('console', m => {
@@ -243,7 +296,8 @@ function sameOrigin(raw, base) {
   }
   try {
     if (!allowed(spec.url)) throw new Error('initial_url_out_of_scope');
-    const { chromium } = require(moduleRoot + '/node_modules/playwright-core');
+    if (stopped(spec.url)) throw new Error('stopped_at_evidence');
+    const { chromium } = require(modulePath);
     browser = await chromium.launch({
       headless: out.headless, executablePath: spec.executablePath || undefined,
       args: ['--disable-background-networking'],
@@ -268,6 +322,17 @@ function sameOrigin(raw, base) {
       else out.network_truncated = true;
       if (!allowed(url)) {
         entry.blocked = true; entry.reason = 'out_of_scope';
+        block(url, method, entry.reason, { type: entry.type });
+        await route.abort('blockedbyclient'); return;
+      }
+      try {
+        if (stopped(url, method)) {
+          entry.blocked = true; entry.reason = 'stopped_at_evidence';
+          block(url, method, entry.reason, { type: entry.type });
+          await route.abort('blockedbyclient'); return;
+        }
+      } catch (_) {
+        entry.blocked = true; entry.reason = 'src_stop_snapshot';
         block(url, method, entry.reason, { type: entry.type });
         await route.abort('blockedbyclient'); return;
       }
@@ -483,7 +548,7 @@ def _actions(args):
 
 
 def _browser_identity(project, args, url):
-    from .engine import session_valid
+    from .engine import session_valid, require_session_origin
     extra = headers_map(args.get("headers") or {})
     if any(key not in _SAFE_EXTRA_HEADERS for key in extra):
         raise EngineError("credential_override",
@@ -496,6 +561,7 @@ def _browser_identity(project, args, url):
         raise EngineError("credential_override", "Extra headers cannot replace verified session headers")
     session_origin = None
     if session:
+        require_session_origin(project, session, url)
         evidence = project.get("evidence", session["verification_evidence_id"])
         raw = project.read_artifact(evidence)
         session_origin = origin(raw["request"]["url"])
@@ -1037,7 +1103,7 @@ def _record_observation(project, raw, visit_id, source, *, session=None, actor=N
 def visit(project, args):
     """Drive an isolated browser; guard every request before it reaches the network."""
     url = require_scope(project.config, args["url"])
-    from .assessment_mode import browser_policy
+    from .assessment_mode import browser_policy, browser_stop_rules
     browser_policy(project, url, args)
     actions = _actions(args)
     timeout = _number(args, "timeout", 20, 60, minimum=1)
@@ -1072,6 +1138,7 @@ def visit(project, args):
     html = contained(artifact_dir / (visit_id + ".html"), project.base) if args.get("html") else None
     after = contained(artifact_dir / (visit_id + ".after.html"), project.base) if actions else None
     spec = {
+        **browser_stop_rules(project),
         "url": url, "scope": _scope_descriptors(project.config, "scope"),
         "exclude": _scope_descriptors(project.config, "exclude"),
         "headless": headless, "headers": extra, "sessionHeaders": session_headers,
@@ -1117,7 +1184,7 @@ def visit(project, args):
             project.claim(run)
             claimed = True
             project.event("browser.started", {"run_id": run["id"], "page_visit_id": visit_id, "allow_write": allow_write})
-            process = subprocess.run([state["node"], str(script_path), state["module_root"], str(spec_path)],
+            process = subprocess.run([state["node"], str(script_path), state["module_path"], str(spec_path)],
                                      capture_output=True, text=True, encoding="utf-8", errors="strict",
                                      timeout=deadline)
         if process.returncode != 0:

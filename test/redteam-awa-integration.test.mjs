@@ -16,6 +16,8 @@ import { buildSrcReport } from '../lib/redteam/src-report.js'
 import { EXCHANGE_SCHEMA, awaStatus, awaProject, awaCall, awaSync, awaReviewRows,
   readAwaBinding, buildAwaExchange, assessmentConfigOf, assessmentStatus, ensureNativeAssessment,
   assessmentRun, assessmentImport, assessmentReview } from '../lib/redteam/awa-integration.js'
+import { defaultPythonExecutable } from '../lib/redteam/native-assessment.js'
+import { confirmFinding } from './fixtures/trusted-finding.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const packagePath = path.join(ROOT, 'lib', 'redteam', 'assessment-engine')
@@ -29,7 +31,7 @@ function fixture(t) {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), 'purge-awa-integration-'))
   const root = path.join(container, 'redteam')
   const store = new RedteamStore(root)
-  const pythonExecutable = process.env.AWA_DDD_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
+  const pythonExecutable = process.env.AWA_DDD_TEST_PYTHON || defaultPythonExecutable()
   saveAwaSettings(root, { pythonExecutable, timeoutMs: 15000 })
   t.after(() => {
     store.close()
@@ -117,15 +119,18 @@ integrationTest('metadata push/pull is idempotent and secret-free; scanner confi
   const id = engagement(f.store, '红队脱敏交接')
   const password = 'SYNTHETIC-PRIVATE-CREDENTIAL-ONLY'
   const shellKey = 'SYNTHETIC-PRIVATE-REFERENCE-KEY'
-  f.store.addCredential(id, { host: 'fixture.invalid', username: 'inert-reference', secret_value: password })
+  f.store.addCredential(id, { host: scope[0], username: 'inert-reference', secret_value: password })
   f.store.addWebshell(id, { url: 'https://fixture.invalid/api/inert-reference', pass_key: shellKey, status: 'offline' })
-  const vulnId = addCandidate(f.store, id, { title: `Authorization claim ${password} ${shellKey}`, status: 'confirmed', confidence: 'inferred' })
+  const vulnId = addCandidate(f.store, id, { title: `Authorization claim ${password} ${shellKey}`, confidence: 'inferred' })
+  f.store.db(id).prepare("UPDATE vuln SET status='confirmed' WHERE id=?").run(vulnId)
   f.store.addHttpEvidence(id, { vuln_id: vulnId, url: target, method: 'GET', status: 200,
     request: `GET /api/private HTTP/1.1\r\nAuthorization: Bearer ${password}\r\n\r\n`,
     response: `HTTP/1.1 200 OK\r\nSet-Cookie: fixture=${shellKey}\r\n\r\n${password}` })
   addCandidate(f.store, id, { title: 'private query locator', target: `${target}?token=${password}` })
-  addCandidate(f.store, id, { title: 'outside declared source scope', target: 'https://outside.invalid/' })
-  addCandidate(f.store, id, { title: 'excluded source subtree', target: 'https://fixture.invalid/api/admin' })
+  for (const locator of ['https://outside.invalid/', 'https://fixture.invalid/api/admin']) {
+    assert.throws(() => addCandidate(f.store, id, { title: 'outside declared source scope', target: locator }), /outside scope|excluded/)
+    f.store.db(id).prepare("INSERT INTO vuln(title,target,status) VALUES('Legacy outside source scope',?,'candidate')").run(locator)
+  }
   const exported = buildAwaExchange(f.store, id)
   assert.equal(exported.exchange.candidates.length, 1)
   assert.equal(exported.exchange.candidates[0].source_status, 'confirmed')
@@ -315,13 +320,9 @@ integrationTest('a long known private value is removed before source-title and r
   assert.equal(secret.length, 327)
   assert.throws(() => f.store.addCredential(id, { host: 'fixture.invalid', secret_value: secret }), /SRC policy forbids/)
   f.store.db(id).prepare('INSERT INTO credential(host,secret_value) VALUES(?,?)').run('fixture.invalid', secret)
-  const ledger = new EvidenceLedger(f.store.db(id))
-  const direct = ledger.record({ operation: 'offline_fixture_verification', parameters: { url: target },
-    result: { direct_evidence: true, proof_type: 'http_response', observation: 'fixture '.repeat(125) + secret + ' observed' },
-    confidence: 'observed', authority: 'request-replay', engagement_id: id })
-  assert.equal(direct.ok, true)
   const title = 'Source heading '.repeat(7) + secret + ' public suffix'
-  f.store.addVuln(id, { target, title, severity: 'high', status: 'confirmed', evidence_refs: [direct.ev_id] })
+  const finding = f.store.addVuln(id, { target, title, severity: 'high', status: 'candidate' })
+  confirmFinding(f.store, id, finding, { result: { observation: 'fixture '.repeat(125) + secret + ' observed' } })
   const exported = buildAwaExchange(f.store, id)
   assert(exported.exchange.candidates[0].title.includes('[redacted]'))
   const pushed = await assessmentImport(f.store, id)
@@ -484,12 +485,12 @@ integrationTest('verify closes the SRC evidence loop with an observed verificati
   assert.equal(observation.supporting_ev_ids.length, 1)
   const claim = ledger.get(observation.supporting_ev_ids[0])
   assert.equal(claim.confidence, 'inferred')
-  assert.deepEqual(claim.result.source_claim, sourceClaim)
+  assert.deepEqual(claim.result.source_claim, { ...sourceClaim, gained: null })
   assert.deepEqual(f.store.db(id).prepare('SELECT * FROM evidence_verification WHERE claim_id = ?').get(claim.ev_id),
     Object.assign(Object.create(null), { claim_id: claim.ev_id, observation_id: observation.ev_id }))
   const finding = f.store.db(id).prepare('SELECT title,severity,cve,status,evidence_refs,stop_reason FROM vuln WHERE id = ?').get(vulnId)
   assert.equal(finding.status, 'confirmed')
-  assert.equal(finding.title, 'Fixture authorization evidence')
+  assert.match(finding.title, /^access_control: authorization_boundary \(/)
   assert.equal(finding.severity, 'medium')
   assert.equal(finding.cve, null, 'a scanner CVE claim is not a machine attribution of the independently confirmed finding')
   assert.equal(finding.stop_reason, 'direct_evidence_obtained')
@@ -498,7 +499,7 @@ integrationTest('verify closes the SRC evidence loop with an observed verificati
   const repeated = await awaSync(f.store, id, { mode: 'verify' })
   assert.equal(repeated.reviews[0].evidence_ref, observation.ev_id)
   const receipt = f.store.db(id).prepare('SELECT review_json FROM awa_review WHERE external_id = ?').get('vuln:' + vulnId)
-  assert.deepEqual(JSON.parse(receipt.review_json).source_claim, sourceClaim, 'the first source declaration survives semantic correction and repeat verification')
+  assert.deepEqual(JSON.parse(receipt.review_json).source_claim, { ...sourceClaim, gained: null }, 'the first source declaration survives semantic correction and repeat verification')
   assert.equal(ledger.list({ confidence: 'observed', engagement_id: id }).length, 1)
   await assert.rejects(awaCall(f.store, id, 'http.capture', { operation_id: proof.operation_id, url: target }), /stopped_at_evidence/)
   assert.doesNotMatch(JSON.stringify(verified), /fixture_actor=|synthetic-protected-record/)

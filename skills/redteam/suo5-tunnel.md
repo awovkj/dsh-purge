@@ -4,7 +4,16 @@ description: 用 suo5 通过 WebShell/HTTP 建立 SOCKS5 隧道，把内网流�
 whenToUse: 已拿到一台机器（WebShell/RCE）需要进入内网扫描与横向时
 role: internal
 enabled: true
+metadata:
+  cwe: []
+  class: [connectivity, internal]
+  requires: [shell]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # suo5 内网隧道
 

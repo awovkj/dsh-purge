@@ -164,12 +164,8 @@ def headers_map(headers):
     return result
 
 
-def request(url, method="GET", headers=None, body=None, timeout=15, max_bytes=1024*1024):
-    if type(timeout) not in (int, float) or not 0 < timeout <= 60 or type(max_bytes) is not int or not 1 <= max_bytes <= 4*1024*1024:
-        raise EngineError("budget", "Invalid HTTP timeout or capture budget")
-    method = method.upper()
-    if method not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}:
-        raise EngineError("method", "Unsupported HTTP method")
+def request_parts(url, headers=None, body=None):
+    """The exact executor headers and body, shared with offline control review."""
     u = urlsplit(url)
     hdrs = headers_map(headers or {})
     if any(k in hdrs for k in ("host", "content-length", "transfer-encoding", "connection")):
@@ -190,6 +186,17 @@ def request(url, method="GET", headers=None, body=None, timeout=15, max_bytes=10
     hdrs.update({"host":u.netloc,"accept-encoding":"identity","connection":"close"})
     if data is not None:
         hdrs["content-length"] = str(len(data))
+    return hdrs, data
+
+
+def request(url, method="GET", headers=None, body=None, timeout=15, max_bytes=1024*1024):
+    if type(timeout) not in (int, float) or not 0 < timeout <= 60 or type(max_bytes) is not int or not 1 <= max_bytes <= 4*1024*1024:
+        raise EngineError("budget", "Invalid HTTP timeout or capture budget")
+    method = method.upper()
+    if method not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}:
+        raise EngineError("method", "Unsupported HTTP method")
+    u = urlsplit(url)
+    hdrs, data = request_parts(url, headers, body)
     conn = (http.client.HTTPSConnection(u.hostname, u.port, timeout=timeout, context=ssl.create_default_context())
             if u.scheme == "https" else http.client.HTTPConnection(u.hostname, u.port, timeout=timeout))
     started, stamp, raw = time.monotonic(), now(), bytearray()
@@ -197,10 +204,14 @@ def request(url, method="GET", headers=None, body=None, timeout=15, max_bytes=10
                          "body_base64":base64.b64encode(data or b"").decode()},
               "response":{"status":None,"headers":[],"complete":False},
               "started_at":stamp,"completed_at":None,"complete":False,
-              "transport":"python-http-client","redirect_followed":False}
+              "transport":"python-http-client","redirect_followed":False,
+              "dispatch_attempts": 0, "requests_sent": 0, "responses_received": 0}
     try:
+        result.update(dispatch_attempts=1, requests_sent=None)
         conn.request(method, u.path + ("?"+u.query if u.query else ""), body=data, headers=hdrs)
+        result["requests_sent"] = 1
         response = conn.getresponse()
+        result["responses_received"] = 1
         result["response"].update(status=response.status, headers=response.getheaders())
         expected = response.length
         complete = False

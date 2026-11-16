@@ -4,7 +4,16 @@ description: 用月之暗面 Kimi 浏览器扩展（WebBridge）驱动用户真�
 whenToUse: 需要复用浏览器登录态访问后台/需要 JS 渲染的页面/需要真实浏览器指纹时
 role: recon
 enabled: true
+metadata:
+  cwe: [CWE-79, CWE-352, CWE-942]
+  class: [browser, client-security]
+  requires: [shell, browser]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell, browser。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # Kimi WebBridge（浏览器扩展 + 本地守护进程）
 

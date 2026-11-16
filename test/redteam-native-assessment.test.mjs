@@ -83,13 +83,13 @@ test('a fresh lib installation performs internal SRC initialization, typed verif
   const { name, version, type } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
   fs.writeFileSync(path.join(install, 'package.json'), JSON.stringify({ name, version, type }) + '\n')
   const importInstalled = relative => import(pathToFileURL(path.join(install, relative)).href)
-  const [{ RedteamStore }, api, { EvidenceLedger }, { saveAwaSettings, writeSettings }, { buildSrcReport }] = await Promise.all([
+  const [{ RedteamStore }, api, { EvidenceLedger }, { saveAwaSettings, writeSettings }, { buildSrcReport }, { defaultPythonExecutable }] = await Promise.all([
     importInstalled('lib/redteam/store-core.js'), importInstalled('lib/redteam/awa-integration.js'),
     importInstalled('lib/redteam/evidence-ledger.mjs'), importInstalled('lib/redteam/settings.js'),
-    importInstalled('lib/redteam/src-report.js'),
+    importInstalled('lib/redteam/src-report.js'), importInstalled('lib/redteam/native-assessment.js'),
   ])
   store = new RedteamStore(stateRoot)
-  const pythonExecutable = process.env.AWA_DDD_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
+  const pythonExecutable = process.env.AWA_DDD_TEST_PYTHON || defaultPythonExecutable()
   saveAwaSettings(stateRoot, { pythonExecutable, timeoutMs: 15000 })
   const externalPackage = path.join(container, 'nonexistent-awa-package')
   const externalWorkspace = path.join(container, 'nonexistent-awa-state')
@@ -148,7 +148,7 @@ test('a fresh lib installation performs internal SRC initialization, typed verif
     Object.assign(Object.create(null), { claim_id: claim.ev_id, observation_id: observation.ev_id }))
   const finding = store.db(id).prepare('SELECT status,title,severity,cve,stop_reason FROM vuln WHERE id = ?').get(candidate.id)
   assert.equal(finding.status, 'confirmed')
-  assert.equal(finding.title, 'Embedded authorization fixture')
+  assert.match(finding.title, /^access_control: authorization_boundary \(/, 'the machine predicate supplies its bounded title')
   assert.equal(finding.severity, 'medium')
   assert.equal(finding.cve, null)
   assert.equal(finding.stop_reason, 'direct_evidence_obtained')

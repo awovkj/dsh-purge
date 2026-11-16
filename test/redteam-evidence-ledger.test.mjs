@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from "node:sqlite";
 import {
   EVIDENCE_CONFIDENCE,
@@ -13,6 +14,9 @@ import {
   EvidenceLedger,
   UnknownRegistry,
 } from "../lib/redteam/evidence-ledger.mjs";
+
+const provenance = value => ({ collector: 'operator-verification', invocation_id: 'synthetic-ledger-check',
+  material_sha256: [createHash('sha256').update(JSON.stringify(value)).digest('hex')] });
 
 const withDb = (fn) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ledger-"));
@@ -44,12 +48,14 @@ test("claimed and inferred confidence always require verification", () => {
 test("ledger records, lists and rejects an unknown confidence", () => {
   withDb((db) => {
     const ledger = new EvidenceLedger(db);
-    const rec = ledger.record({
+    const input = {
       operation: "curl_headers",
       parameters: { url: "http://10.0.0.5/" },
       result: { status: 200 },
-      confidence: "observed",
-    });
+      engagement_id: 'fixture',
+    };
+    assert.equal(ledger.record({ ...input, confidence: 'observed' }).ok, false);
+    const rec = ledger.recordObserved(input, provenance(input));
     assert.equal(rec.ok, true);
     assert.match(rec.ev_id, /^ev_[0-9a-f]{64}$/);
     const rows = ledger.list({ operation: "curl_headers" });
@@ -85,14 +91,16 @@ test("claims need an explicit verification, not a citation or copied report", ()
     assert.equal(ledger.upgrade({ claimed_ev_id: claim, verified_result: invalid }).ok, false);
   }
   assert.equal(ledger.countUnresolvedClaims("fixture"), 1);
-  assert.equal(ledger.upgrade({ claimed_ev_id: claim, verified_result: { measured: 1 } }).ok, true);
+  assert.equal(ledger.upgrade({ claimed_ev_id: claim, verified_result: { measured: 1 } }).ok, false);
+  assert.equal(ledger.countUnresolvedClaims('fixture'), 1);
+  assert.equal(ledger.upgradeObserved({ claimed_ev_id: claim, verified_result: { measured: 1 } }, provenance({ measured: 1 })).ok, true);
   assert.equal(ledger.countUnresolvedClaims("fixture"), 0);
   assert.equal(ledger.get(claim).confidence, "inferred");
 }));
 
 test("damaged rows, invalid references and query failures cannot produce a clean ledger", () => withDb(db => {
   const ledger = new EvidenceLedger(db);
-  const args = { operation: "sample", engagement_id: "demo", result: { value: 1 }, confidence: "observed" };
+  const args = { operation: "sample", engagement_id: "demo", result: { value: 1 }, confidence: "inferred" };
   const { ev_id } = ledger.record(args);
   for (const invalid of ['{"value":2}', 'truncated']) {
     db.prepare("UPDATE evidence SET result=? WHERE ev_id=?").run(invalid, ev_id);

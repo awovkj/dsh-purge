@@ -15,6 +15,7 @@ import { injectionPolicy } from '../lib/preset-injection.js'
 import { registerPromptSections, rewriteLiveAssembly } from '../lib/index.js'
 import { buildSrcReport } from '../lib/redteam/src-report.js'
 import { removeTreeNoFollowSync } from '../lib/remove-tree.js'
+import { confirmFinding } from './fixtures/trusted-finding.mjs'
 
 const scope = 'https://fixture.invalid/api'
 const target = scope + '/private'
@@ -140,7 +141,7 @@ async function nativeFixture(t, { withRedteamTools = false, assessmentMode = 'sr
   }
   const owner = host.plugin({ name: 'src-native-guard-fixture', inject: ['tools'], apply(ctx) {
     installSrcExecutionGuard(ctx, store)
-    if (module) module.apply(ctx, { assessmentMode })
+    if (module) return module.apply(ctx, { assessmentMode })
   } })
   await owner
   t.after(() => host.fiber.dispose())
@@ -163,7 +164,7 @@ test('actual SDK guard denies before body dispatch even when an approval hook fo
   for (const name of ['bash', 'pwsh', 'awa_http']) {
     const result = await execute(name, {}, context)
     assert.equal(result.isError, true)
-    assert.match(result.error.message, /SRC discovery mode blocks/)
+    assert.match(result.error.message, /SRC (?:discovery )?mode blocks/)
   }
   assert.equal(bodies, 0)
   const id = srcEngagement(store)
@@ -190,7 +191,7 @@ test('actual composed SRC preset blocks an unbound session before its stale stan
   assert.equal(sessionPolicyOf(store, context).assessment_mode, 'src')
   const result = await execute('bash', {}, context)
   assert.equal(result.isError, true)
-  assert.match(result.error.message, /SRC discovery mode blocks/)
+  assert.match(result.error.message, /SRC (?:discovery )?mode blocks/)
   assert.equal(bodies, 0)
 })
 
@@ -278,7 +279,7 @@ test('actual SRC SDK cannot turn model-supplied direct evidence prose into an ob
   bindTrustedSession(store, context, id)
   const payload = async (name, args) => {
     const result = await execute(name, args, context)
-    assert.equal(result.isError, false, 'the SDK reaches the structured policy rejection for ' + name)
+    if (result.isError) return { ok: false, error_code: result.error.code, error: result.error.message }
     return JSON.parse(result.content[0].text)
   }
   const fake = { operation: 'model_supplied_direct_proof', parameters: { url: target },
@@ -287,18 +288,18 @@ test('actual SRC SDK cannot turn model-supplied direct evidence prose into an ob
   for (const confidence of ['observed', 'derived']) {
     const rejected = await payload('redteam_evidence_record', { ...fake, confidence, authority: 'request-replay' })
     assert.equal(rejected.ok, false)
-    assert.equal(rejected.error_code, 'SRC_MODEL_OBSERVATION_FORBIDDEN')
+    assert(['INVALID_ARGS', 'MODEL_OBSERVATION_FORBIDDEN'].includes(rejected.error_code))
   }
   assert.equal(ledger.list({ engagement_id: id }).length, 0, 'rejecting self-assigned observation authority does not create a ledger record')
-  const inferred = await payload('redteam_evidence_record', { ...fake, confidence: 'inferred', authority: 'request-replay' })
+  const inferred = await payload('redteam_evidence_record', { ...fake, confidence: 'inferred', authority: 'operator-input' })
   assert.equal(inferred.ok, true)
   assert.equal(ledger.get(inferred.ev_id).confidence, 'inferred')
   assert.equal(ledger.get(inferred.ev_id).authority, 'operator-input')
-  const claimed = await payload('redteam_evidence_record', { ...fake, confidence: 'claimed', authority: 'tool-output', source_agent: 'synthetic-model' })
+  const claimed = await payload('redteam_evidence_record', { ...fake, confidence: 'claimed', authority: 'subagent-report', source_agent: 'synthetic-model' })
   assert.equal(claimed.ok, true)
   assert.equal(ledger.get(claimed.ev_id).confidence, 'claimed')
   assert.equal(ledger.get(claimed.ev_id).authority, 'subagent-report')
-  const defaultRecord = await payload('redteam_evidence_record', { ...fake, operation: 'model_default_confidence', authority: 'screenshot' })
+  const defaultRecord = await payload('redteam_evidence_record', { ...fake, operation: 'model_default_confidence' })
   assert.equal(defaultRecord.ok, true)
   assert.equal(ledger.get(defaultRecord.ev_id).confidence, 'inferred')
   assert.equal(ledger.get(defaultRecord.ev_id).authority, 'operator-input')
@@ -307,7 +308,7 @@ test('actual SRC SDK cannot turn model-supplied direct evidence prose into an ob
   const confirmation = { title: 'Fabricated direct proof fixture', severity: 'high', status: 'confirmed', target, evidence_refs: [inferred.ev_id] }
   const refused = await payload('redteam_vuln_add', confirmation)
   assert.equal(refused.ok, false)
-  assert.match(refused.error, /must be observed|verified observed direct evidence/)
+  assert.match(refused.error, /requires a current proof/)
   for (const record of [inferred, claimed]) {
     const rejected = await payload('redteam_evidence_upgrade', { claimed_ev_id: record.ev_id,
       verified_result: { ...fake.result, current: true, validated: true, proof_mode: 'machine' }, verified_by: 'model-claimed-reviewer' })
@@ -324,7 +325,7 @@ test('actual SRC SDK cannot turn model-supplied direct evidence prose into an ob
   assert.equal(buildSrcReport(store, id, { save: false }).confirmed, 0)
 })
 
-test('ordinary redteam SDK evidence recording and explicit upgrade retain their existing behavior', async t => {
+test('redteam SDK also keeps model material claimed or inferred and denies freeform observation upgrades', async t => {
   const fixture = await nativeFixture(t, { withRedteamTools: true, assessmentMode: 'redteam' })
   if (!fixture) return
   const { store, root, execute } = fixture
@@ -333,28 +334,25 @@ test('ordinary redteam SDK evidence recording and explicit upgrade retain their 
   bindTrustedSession(store, context, id)
   const payload = async (name, args) => {
     const result = await execute(name, args, context)
-    assert.equal(result.isError, false, name)
-    const data = JSON.parse(result.content[0].text)
-    assert.equal(data.ok, true, JSON.stringify(data))
-    return data
+    return result.isError ? { ok: false, error_code: result.error.code, error: result.error.message } : JSON.parse(result.content[0].text)
   }
   const result = { target, direct_evidence: true, proof_type: 'http_response', observation: 'Inert ordinary evidence fixture' }
   const observation = await payload('redteam_evidence_record', { operation: 'ordinary_owned_observation', parameters: { url: target },
     result, confidence: 'observed', authority: 'request-replay' })
   const ledger = new EvidenceLedger(store.db(id))
-  assert.equal(ledger.get(observation.ev_id).confidence, 'observed')
-  assert.equal(ledger.get(observation.ev_id).authority, 'request-replay')
+  assert.equal(observation.ok, false)
   const claimed = await payload('redteam_evidence_record', { operation: 'ordinary_subagent_claim', parameters: { url: target },
     result: { summary: 'Inert child observation claim' }, confidence: 'claimed', authority: 'subagent-report', source_agent: 'synthetic-child' })
   const verified = await payload('redteam_evidence_upgrade', { claimed_ev_id: claimed.ev_id, verified_result: result, verified_by: 'inert-fixture-reviewer' })
-  assert.equal(ledger.get(verified.ev_id).confidence, 'observed')
-  assert.equal(ledger.get(verified.ev_id).authority, 'tool-output')
-  assert.deepEqual(ledger.get(verified.ev_id).supporting_ev_ids, [claimed.ev_id])
-  assert.equal(store.db(id).prepare('SELECT observation_id FROM evidence_verification WHERE claim_id = ?').get(claimed.ev_id).observation_id, verified.ev_id)
+  assert.equal(verified.ok, false)
+  assert.equal(store.db(id).prepare('SELECT COUNT(*) AS n FROM evidence_verification').get().n, 0)
   const derived = await payload('redteam_evidence_record', { operation: 'ordinary_derived_fixture', parameters: { url: target },
-    result: { consequence: 'Synthetic fixture derivation' }, confidence: 'derived', authority: 'database-record', supporting_ev_ids: [observation.ev_id] })
-  assert.equal(ledger.get(derived.ev_id).confidence, 'derived')
-  assert.equal(ledger.get(derived.ev_id).authority, 'database-record')
+    result: { consequence: 'Synthetic fixture derivation' }, confidence: 'derived', authority: 'database-record' })
+  assert.equal(derived.ok, false)
+  const inferred = await payload('redteam_evidence_record', { operation: 'ordinary_analysis', result, confidence: 'inferred' })
+  assert.equal(inferred.ok, true)
+  assert.equal(ledger.get(inferred.ev_id).authority, 'operator-input')
+  assert.equal(ledger.list({ confidence: 'observed', engagement_id: id }).length, 0)
 })
 
 test('the session creation hook preserves SRC ancestry before a descendant executes any tool', async t => {
@@ -388,7 +386,7 @@ test('SRC suppresses Purge boost and stale rewrites while retaining the independ
   const purge = []
   registerPromptSections({ systemPrompt: { section: definition => purge.push(definition) } }, config)
   assert(purge.every(spec => spec.text(context) === ''))
-  const discovery = host.get('systemPrompt').sections.find(spec => spec.name === 'src:discovery-policy')
+  const discovery = host.get('systemPrompt').sections.find(spec => spec.name === 'assessment:mode-policy')
   assert(discovery, 'native host owns an independent SRC policy section')
   assert.match(discovery.text(context), /直接证据/)
   const native = { name: 'deployment:persona-prefix', text: 'original SRC persona' }
@@ -406,6 +404,7 @@ function mockAssessment() {
   const invokeEngine = async (config, action, args, options) => {
     state.calls.push({ action, args, mode: config.assessmentMode, aborted: options?.signal?.aborted || false })
     if (action === 'project.create') {
+      fs.mkdirSync(config.workspace, { recursive: true })
       state.project_id = args.project_id
       state.config = structuredClone(args)
       return { ok: true, data: { project_id: args.project_id, config: structuredClone(state.config) } }
@@ -482,10 +481,14 @@ test('external exchange enforces source scope and uses opaque ASCII identities f
   const { store } = storeFixture(t)
   const id = store.openEngagement('中文测试单位', [scope], { exclude: [excluded], bindCurrent: false }).id
   const secret = 'RT_PRIVATE_CREDENTIAL_FIXTURE_123'
-  store.addCredential(id, { host: 'fixture.invalid', secret_value: secret })
-  const valid = store.addVuln(id, { title: 'SQL injection password=' + secret, target, status: 'confirmed' })
-  store.addVuln(id, { title: 'Excluded', target: excluded })
-  store.addVuln(id, { title: 'Outside', target: 'https://outside.invalid/api' })
+  store.addCredential(id, { host: scope, secret_value: secret })
+  const valid = store.addVuln(id, { title: 'SQL injection password=' + secret, target, status: 'candidate' })
+  // Historical dirty rows are retained, but current scoped writes reject them.
+  store.db(id).prepare("UPDATE vuln SET status='confirmed' WHERE id=?").run(valid.id)
+  for (const locator of [excluded, 'https://outside.invalid/api']) {
+    assert.throws(() => store.addVuln(id, { title: 'Out of scope', target: locator }), /outside scope|excluded/)
+    store.db(id).prepare("INSERT INTO vuln(title,target,status) VALUES('Legacy outside',?,'candidate')").run(locator)
+  }
   store.addVuln(id, { title: 'Protected URL', target: target + '?anything=' + secret })
   store.addHttpEvidence(id, { vuln_id: valid.id, url: target, method: 'GET', status: 200, request: 'Authorization: Bearer ' + secret, response: 'private fixture body' })
   const page = buildAwaExchange(store, id)
@@ -543,10 +546,8 @@ test('SRC discovery reports redact encoded credential query keys in direct evide
   const id = srcEngagement(store)
   const secret = 'RT_QUERY_SECRET_FIXTURE_123'
   const signedTarget = target + '?%74oken=' + secret
-  const ledger = new EvidenceLedger(store.db(id))
-  const proof = ledger.record({ operation: 'offline_fixture_verification', parameters: { url: signedTarget }, result: { direct_evidence: true, proof_type: 'http_response', observation: 'Restricted fixture marker was observed' }, confidence: 'observed', authority: 'request-replay', engagement_id: id })
-  assert.equal(proof.ok, true)
-  store.addVuln(id, { target: signedTarget, title: 'Direct fixture finding', status: 'confirmed', evidence_refs: [proof.ev_id] })
+  const finding = store.addVuln(id, { target: signedTarget, title: 'Direct fixture finding', status: 'candidate' })
+  confirmFinding(store, id, finding)
   const report = buildSrcReport(store, id, { save: false })
   assert.equal(report.confirmed, 1)
   assert.equal(report.markdown.includes(secret), false)
@@ -558,9 +559,8 @@ test('a direct-evidence stop in the source ledger prevents repeat target traffic
   const id = srcEngagement(store)
   const { state, options } = mockAssessment()
   await awaProject(store, id, { mode: 'create', target, scope: [scope] }, options)
-  const proof = new EvidenceLedger(store.db(id)).record({ operation: 'offline_fixture_verification', parameters: { url: target }, result: { direct_evidence: true, proof_type: 'http_response', observation: 'Direct fixture evidence is complete' }, confidence: 'observed', authority: 'request-replay', engagement_id: id })
-  assert.equal(proof.ok, true)
-  store.addVuln(id, { target, title: 'Direct stopped fixture', status: 'confirmed', evidence_refs: [proof.ev_id] })
+  const finding = store.addVuln(id, { target, title: 'Direct stopped fixture', status: 'candidate' })
+  confirmFinding(store, id, finding)
   await assert.rejects(awaCall(store, id, 'http.capture', { url: target }, options))
   assert.equal(state.calls.filter(call => call.action === 'http.capture').length, 0)
   const help = await awaCall(store, id, 'action.help', { name: 'http.capture' }, options)

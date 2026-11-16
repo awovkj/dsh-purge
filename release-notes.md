@@ -1,3 +1,61 @@
+# 1.12.0
+
+- SQL Boolean 改为实际基线与两组 true/false 的五控制，模板采用显式 Jinja 方言及四个独立控制；旧 count-only、字面反射、计算器和模型填写的 actual 不授予证明。
+- v2 review 只保存模型草稿，不授予 supported/finding/SRC 停止。当前机器复核重读完整材料、独立控制、精确输入、身份、claim scope 与严重级上限。
+- 冻结 campaign 成员与本活动状态，KnownCase 精确绑定 origin/真实输入；跨活动共享尝试/未知效果但不继承证明或完成率，歧义 disposition 需明确 campaign_id。
+- 明确请求批量使用单个固定 native worker，逐派发重验范围、身份、Cookie 与 live SRC 停止；匿名 Cookie 链仍保留 per-item 门面。计量实际 sent/received/字节/wall time，复用为 0，未知不伪造成零。
+- 新 `tool.route` 把真实消费需求映射到离线发现、Playwright、Yak 或 TscanPlus 只读结果；完善 TLS/profile/file/backend/TTL readiness 和 typed WSL 环境/路径，模型不能选择后端或填写 ready。
+- 增加有界 GET 访问控制与受控反射 XSS provider、有限 JS 模块引用图、CVE/GHSA 情报去重及版本矛盾显示，保留未实现、模式禁止和未完成分母。
+- 版本、逐文件 provenance 与生成物同步；新增优化专项接入 npm test/redteam/assessment 后置门禁，保留既有工作区修改、用户设置、提示词和历史审计材料。
+
+本轮包含隔离真值/模拟 adapter 与真实 localhost HTTP；真实 Playwright/Yak/TscanPlus/WSL、模型选择、宿主/GUI/委派调度未验收，不宣称总体准确率或真实工具均可用。未下载/安装工具、访问第三方目标、打包发布、安装、apply 或重启正式 DSH。[方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md) · [实施](docs/MODE-UPGRADE-1.12.0.md) · [升级后锐评](docs/THREE-MODE-REVIEW-1.12.0.md)。
+
+# 1.11.0
+
+- 新增 `evidence.diff` 和 `surface.from_sourcemap`：复用当前完整证据与哈希核验，离线比较结构/文本、分析真实 map，来源路径不用于任意落盘，差异和静态源码不确认漏洞。
+- 新增 1–20 项的 `http.capture_batch`，逐项复用既有范围、身份、Cookie、停测与原生幂等。精确已预检回执可复用，未知派发、不完整证据和取消停止；保留原 index/E-ID/run，禁止自动重试。
+- 新增固定材料目录的 `workspace.list/read` 和离线 `intel.import/search/get`；分页前完整脱敏，坏缓存/导入保留原文。NVD/KEV/GHSA 只作来源未核实的候选情报，复杂版本/逻辑保持 unknown。
+- 技能 `cwe/class/requires` 接入实际固定目录消费者，补八篇原创专题、CWE 关联与缺失能力提示；角色与模式消费同一证据契约。
+- 失败归因区分平台零发送、目标 401/403/429、运行错误与未知结果；工作建议依据当前精确证明，SRC 停测优先，不自动派单或清空覆盖分母。
+- 修复停止/发现分页 offset 串用，以及缺少可信 no-start 回执时错误释放委派名额。源码与生成界面同步，主包/锁文件/文档版本统一为 1.11.0。
+
+2026-11-14 至 15 结合本机 Pojun 与两份分析，先形成 [方案](docs/MODE-UPGRADE-1.11.0-PLAN.md)，再独立实现并执行本地隔离回归。未复制 Pojun AGPL 代码或技能全文，随包 awa-ddd 仍为 2.2.0。本轮没有发布、安装、apply、退出或重启正式 DSH；宿主/GUI/真实目标/浏览器与实际调度未新增验收，发行 TGZ 待发布。[实施与验证](docs/MODE-UPGRADE-1.11.0.md) · [动作指南](docs/DISCOVERY-WORKFLOW.md) · [版本说明](docs/releases/1.11.0.md)。
+
+# 1.10.0
+
+- 修复红队模式不显示的真实 `list_agents` 合并入口和 fork 子预设兼容问题，统一健康审计、独立重试及代际回收，保留用户 YAML 和原 deny 限制。
+- SRC 按实际漏洞提交流程记录安全缺陷：拒绝纯缺安全头、版本/banner 与配置建议，保留真实低危漏洞；新增规则引用、前提、预期结果、查重和复现/影响/修复草稿，完整有界 Markdown/JSON 保存并脱敏。
+- 声明范围的红队使用持久绑定、显式工具清单和 typed 评估入口；SRC 来源与原生停止贯通 HTTP、身份、间接配方及浏览器发送前检查，坏快照零发送失败。
+- 渗透漏洞与加固建议分别计数，修复测试凭据页签；SRC 草稿、发现查询和分页异步结果防止切靶污染，当前面板与兼容控制台同源生成。
+- 模式政策与中文人设由共享源码生成，bootstrap 按完成步骤计数；导入、复核、交付使用签名 `next.arguments`，保留旧 offset API。
+
+先完成 [完整方案](docs/MODE-UPGRADE-1.10.0-PLAN.md)，再实施升级。[实施与验证](docs/MODE-UPGRADE-1.10.0.md) 记录本轮本地隔离回归及 DSH Desktop 0.2.2-rc.3 专用 Electron 副本的四预设/工具目录验收。86 条宿主补丁源码目标仍为 rc.1，awa-ddd 上游仍为 2.2.0；完整 GUI、实际调度与真实目标未验收。未打包发布、安装、apply、退出或重启正式 DSH，发行包待发布。[版本说明](docs/releases/1.10.0.md)。
+
+# 1.9.0
+
+- 完成三模式评审后的源码优化：可信采集回执与精确发现证明，原生机器表述和严重级别上限，历史标签待复核；模型三模式均不能自授 observed。
+- 完善 v2 结构化基线请求、完整控制/身份复核、真实执行器 framing、SQL/模板有界判据、写预算与失败恢复；provider 未实现和前提缺失分别保留分母。
+- 同靶标共享实际委派 lease、registry/session 关联与恢复复用，执行子会话为叶子；新凭据加密并默认句柄使用，首次身份验证前固定 origin，高价值证据策略新默认开启。
+- 拆出证明、采集、调度、凭据、角色、运行前提和工作流模块；更新双端面板、固定版本/摘要部署、来源清单与明确的上游适配保留规则。awa-ddd 上游继续为 2.2.0。
+- **本轮按用户要求未运行测试、验证、自检、探测或目标请求。** 仅交付源码和生成物，未打包发布、安装、apply 或重启。历史回归不作为本版本验收。[完整说明](docs/MODE-UPGRADE-1.9.0.md) · [版本说明](docs/releases/1.9.0.md)。
+
+# 1.8.1
+
+- 根据另一次渗透模式 session.v4 补齐实际测试链：`value.hash` 计算客户端 SHA-256，`evidence.headers` 与 `cookie_evidence_ids` 保留真实匿名状态，`identity.session_from_evidence` 建未验证会话后仍须真实身份验证。`surface.from_document` 导入完整 OpenAPI/结构化 Spring 映射，JSON 小页支持脱敏标量。新增固定 `redteam_pentest_runbook`；续跑预算只由新实际材料重置，未评估义务先准备安全控制；报告工具返回有界文件回执并保留完整正文及未完成分母。见 [渗透会话诊断](docs/pentest-session-v4-analysis.md)。
+- 处理红队、SRC、渗透模式共同的工具加载失败：移除模块顶层同步 SDK 加载，在异步激活时按当前 profile 加载；本包工具行固定到本安装源码，注册前保留实际导入异常与错误码。预设重试串行、各模式失败次数独立，卸载释放迟到注册；原用户 YAML 保留。依据已有回执修改源码，尚未安装或进行 GUI 验收，见 [模式加载修复](docs/preset-mode-loading.md)。
+- 根据用户提供的 session.v4 SRC 会话修正响应观察链：增加 `evidence.read` 读取真实 JSON 结构/脱敏正文，`surface.from_evidence` 通过内置 AST 解析完整 JS 或严格连续206分片。批量登记保留逐项错误和原索引，证据绑定/selector/frontier 错误给出离线恢复说明，baseline 与漏洞测试明确区分。
+- 新增独立 `pentest` 预设、固定范围和会话绑定的渗透靶标，直接使用随包 awa-ddd 2.2.0 完成评估。新增 `redteam_pentest_report`、面板渗透报告与 CLI `--pentest` 导出，保留原生技术/复现附件或 v2 矩阵和发现详解；预览也创建版本化原生本地快照，不请求目标或自动结项。SRC 原停测边界继续保留。
+- 浏览器定位复用实际 DSH_HOME 或操作者 `PURGE_PLAYWRIGHT_ROOT`，支持已有 playwright/playwright-core，模块与 Chromium 缓存分开判断。随包 browser.py 的本地适配、生成模板与来源记录同步写入；未同步外部 awa-ddd，也未安装或探测浏览器。
+- 基于随包 awa-ddd 2.2.0 补齐宿主评估续跑：门面提供 `next_step`，真实活动回合结束时读取 v1 当前审计或 v2 Campaign 状态。只沿持久靶标绑定推进，尊重取消、新输入、SRC 停止和缺失前提；相同材料失败不因分页或其他任务进展反复重试，无进展保留 unfinished。
+- 挂载 SRC 专用 `src-discovery` 技能根，增加固定资源工具 `redteam_src_runbook`；旧预设注册时只补内存工具行，用户 YAML 保留。清理已不注册的旧 AWA 白名单条目，明确四个 SRC 角色是当前会话阶段稿。
+- 「内置评估」增加 Python/native/WSL/timeout 设置、运行元数据、SRC 注册回执/时间、技能和续跑状态。支持显式本地环境探测及预检，HTTP 与 browser-ready 分开；文件定位不当成可启动证明，Playwright 缺件保留受阻。
+- 增加默认关闭的 `requireAssessmentForHighValueScore`，高价值成果可要求同靶标、同目标/服务、完整哈希和核实关联的 observed `score_outcome` 基础档位；历史文字记录保留并标注证据状态。修正计分共享封顶输入重复应用倍率的计算。
+- SRC 直接证据停止独立持久保存到不可编辑的 `src_source_stop` 台账，后续修复、状态/目标编辑及删除发现不撤销原目标停止。
+- 增加 `redteam_delivery_report`、面板合并交付及 CLI `--delivery`：汇总得分证据、来源发现分母、当前覆盖/剩余与 SRC 停止，保存有界分页 Markdown/JSON。公开引用只保留有界合法 ev_id，历史文字只返回省略数量；未初始化和不可读覆盖保留未知，不自动结项或发目标请求。
+- 补齐独立 AWA 与内置评估的双账本约定、门面能力裁剪、分页和交付边界；保留用户现有源码改动、原提示词/设置与随包 2.2.0 源码/许可/provenance。
+
+初始升级按用户要求没有运行验证或测试，仅生成本地面板交付文件。随后针对新的渗透会话修复运行了本地隔离回归，实际结果与限制见 [渗透会话诊断](docs/pentest-session-v4-analysis.md)。没有执行真实目标评估、浏览器探测、依赖安装、用户原数据库迁移、TGZ 打包发布、安装、apply 或重启 DSH；历史测试与本次隔离回归不代表整版 GUI/宿主已验收。完整改动见 [1.8.1 升级说明](docs/releases/1.8.1.md)、[渗透模式](docs/PENTEST.md) 与 [SRC 会话诊断](docs/src-session-v4-analysis.md)。
+
 # 1.8.0
 
 - 将 awa-ddd 2.2.0 的生产评估核心直接写入 `lib/redteam/assessment-engine`，随 dsh-purge 源码及发行包提供。运行时静态加载项目内入口，不依赖同级 awa-ddd 安装或外部 packagePath。

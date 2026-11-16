@@ -1,0 +1,21 @@
+{
+  "schema": "dsh-purge-tool-lock/v1",
+  "platform": "linux-amd64",
+  "digest_policy": "operator_sha256_or_exact_official_asset_digest",
+  "tools": {
+    "fscan": { "repo": "shadow1ng/fscan", "tag": "v2.2.2", "asset": "fscan-nolocal_2.2.2_linux_x64", "format": "raw", "sha256": null, "files": [{ "target": "fscan/fscan", "executable": true }] },
+    "gogo": { "repo": "chainreactors/gogo", "tag": "v2.15.0", "asset": "gogo_linux_amd64", "format": "raw", "sha256": null, "files": [{ "target": "gogo/gogo", "executable": true }] },
+    "suo5": { "repo": "zema1/suo5", "tag": "v2.2.0", "asset": "suo5-linux-amd64", "format": "raw", "sha256": null, "files": [{ "target": "suo5/suo5-linux-amd64", "executable": true }] },
+    "frp": { "repo": "fatedier/frp", "tag": "v0.72.0", "asset": "frp_0.72.0_linux_amd64.tar.gz", "format": "tar", "sha256": null, "files": [{ "source": "frpc", "target": "frp/frpc", "executable": true }, { "source": "frps", "target": "frp/frps", "executable": true }] },
+    "ksubdomain": { "repo": "knownsec/ksubdomain", "tag": "v0.7", "asset": "ksubdomain_linux.zip", "format": "zip", "sha256": null, "files": [{ "source": "ksubdomain", "target": "ksubdomain/ksubdomain", "executable": true }] },
+    "oneforall": { "repo": "shmilylty/OneForAll", "tag": "v0.4.5", "source_archive": true, "format": "tar", "sha256": null, "files": [{ "tree": "OneForAll-0.4.5", "target": "oneforall/OneForAll-0.4.5", "executable": false }] },
+    "chisel": { "repo": "jpillora/chisel", "tag": null, "asset": null, "format": "gzip", "sha256": null, "files": [{ "target": "chisel/chisel", "executable": true }] },
+    "subfinder": { "repo": "projectdiscovery/subfinder", "tag": null, "asset": null, "format": "zip", "sha256": null, "files": [{ "source": "subfinder", "target": "subfinder/subfinder", "executable": true }] },
+    "dnsx": { "repo": "projectdiscovery/dnsx", "tag": null, "asset": null, "format": "zip", "sha256": null, "files": [{ "source": "dnsx", "target": "dnsx/dnsx", "executable": true }] },
+    "naabu": { "repo": "projectdiscovery/naabu", "tag": null, "asset": null, "format": "zip", "sha256": null, "files": [{ "source": "naabu", "target": "naabu/naabu", "executable": true }] },
+    "httpx": { "repo": "projectdiscovery/httpx", "tag": null, "asset": null, "format": "zip", "sha256": null, "files": [{ "source": "httpx", "target": "httpx/httpx", "executable": true }] },
+    "ligolo-proxy": { "repo": "nicocha30/ligolo-ng", "tag": null, "asset": null, "format": "tar", "sha256": null, "files": [{ "source": "proxy", "target": "ligolo/proxy", "executable": true }] },
+    "ligolo-agent": { "repo": "nicocha30/ligolo-ng", "tag": null, "asset": null, "format": "tar", "sha256": null, "files": [{ "source": "agent", "target": "ligolo/agent", "executable": true }] },
+    "gowitness": { "repo": "sensepost/gowitness", "tag": null, "asset": null, "format": "raw", "sha256": null, "files": [{ "target": "gowitness/gowitness", "executable": true }] }
+  }
+}

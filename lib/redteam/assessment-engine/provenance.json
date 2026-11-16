@@ -27,17 +27,21 @@
       "path": "awa_ddd/__main__.py",
       "origin": "awa-ddd",
       "upstream_sha256": "674a6441b2c589eb2add35b2aa1f9791c96578016a289298db51370757283744",
-      "bundled_sha256": "9da108e3cbf47c1601ef6e1bc060b2f2b918dd07b0d51a5938cdd681cb759bd3",
+      "bundled_sha256": "53d24df7db5d60c7f1c62ab81cc31feb0d0a548d4a9d768c9ac57d18cd76d142",
       "adaptations": [
-        "Dispatches the private owner configuration before public AWA contracts; no new public action."
+        "Dispatches the private owner configuration before public AWA contracts; no new public action.",
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
       ]
     },
     {
       "path": "awa_ddd/assessment.py",
       "origin": "awa-ddd",
       "upstream_sha256": "45cec559bb29457ed5fad63180f59813ac8bcf139c02c04370adc65df336e40e",
-      "bundled_sha256": "45cec559bb29457ed5fad63180f59813ac8bcf139c02c04370adc65df336e40e",
-      "adaptations": []
+      "bundled_sha256": "bbe002854cd02c6a3d83a9a4534b0dc3d40dbb6b03c9ccbc99276a5a20d57c74",
+      "adaptations": [
+        "Local 1.9.0 adaptation: current typed machine decisions generate bounded claim contracts; manual titles/impact remain source claims and severity is capped.",
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/assessment_hints.py",
@@ -50,8 +54,11 @@
       "path": "awa_ddd/assessment_mode.py",
       "origin": "awa-ddd",
       "upstream_sha256": "6fb8571c4f6b817a73742be60800ca843c31df01c5e8a09d2451d2d78137ee5a",
-      "bundled_sha256": "6fb8571c4f6b817a73742be60800ca843c31df01c5e8a09d2451d2d78137ee5a",
-      "adaptations": []
+      "bundled_sha256": "68d58c1e41d4c064c676f6b50d0c5e6429792d8b6119ac78f23d4c6bcb74fc74",
+      "adaptations": [
+        "1.10.0: Reads the fixed package-owned SRC source-stop snapshot before capture, identity, browser entry and recipe execution; binds normalized frozen resources and actual URLs, with zero-send failures.",
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/assessment_preparation.py",
@@ -71,8 +78,24 @@
       "path": "awa_ddd/browser.py",
       "origin": "awa-ddd",
       "upstream_sha256": "0d319cd52efb59a9e59dfc6dda9167445f7038e7f24f9976f8efd238c71917fa",
-      "bundled_sha256": "0d319cd52efb59a9e59dfc6dda9167445f7038e7f24f9976f8efd238c71917fa",
-      "adaptations": []
+      "bundled_sha256": "f1e193a68e161dab5bd6369757421e3e3afdfcd74670ad9f2a31cf75ec4d9003",
+      "adaptations": [
+        "Reads operator browser environment without model-controlled runtime fields; browser source uses UTF-8 LF.",
+        "Uses explicit PURGE_PLAYWRIGHT_ROOT or the actual DSH_HOME and legacy module location, without installation or cache-as-module fallback.",
+        "Supports existing playwright and playwright-core project roots or direct package directories.",
+        "Reports the actual selected module separately from Chromium launch readiness.",
+        "Probe receives an actual package path instead of assuming playwright-core under a fixed project root.",
+        "Probe loads the selected existing Playwright package.",
+        "Uses native path joins for browser cache discovery.",
+        "Honors PLAYWRIGHT_BROWSERS_PATH and native Windows/macOS/Linux caches; package-local mode does not fall back to a global cache.",
+        "Finds existing Chromium layouts on all supported desktop platforms without downloading a browser.",
+        "Passes the selected module path to the isolated local probe.",
+        "Browser visits receive the selected module path.",
+        "Browser visits load the same existing package as the probe; scope and write guards stay intact.",
+        "Passes the chosen package path to the owned browser subprocess.",
+        "Local 1.9.0 adaptation: native browser identity uses the same fixed credential-origin guard, including before first verification.",
+        "1.10.0: Browser routing refreshes the fixed source-stop snapshot before every subrequest, aborting stopped resources or invalid snapshots before fetch."
+      ]
     },
     {
       "path": "awa_ddd/browser_policy.py",
@@ -87,6 +110,15 @@
       "upstream_sha256": "25d6fd909ef5db743adc6953921480a65f5c43414064f01896e98f498345a0b3",
       "bundled_sha256": "25d6fd909ef5db743adc6953921480a65f5c43414064f01896e98f498345a0b3",
       "adaptations": []
+    },
+    {
+      "path": "awa_ddd/capture_batch.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "adaptations": [
+        "Bounded single worker with per-dispatch live engagement, source-stop and Cookie guards and actual cost receipts."
+      ],
+      "bundled_sha256": "44b661a598acde4355e0bf082fcd176c0495ade420b26678df7c5fd9fa7e5217"
     },
     {
       "path": "awa_ddd/completeness.py",
@@ -106,8 +138,11 @@
       "path": "awa_ddd/contracts.py",
       "origin": "awa-ddd",
       "upstream_sha256": "4faa32362c6bdb73a62d4d7a98c4f060390cc128eb11f03440bb0936266be31a",
-      "bundled_sha256": "4faa32362c6bdb73a62d4d7a98c4f060390cc128eb11f03440bb0936266be31a",
-      "adaptations": []
+      "bundled_sha256": "02753e6eec5e7bf57d407043bc808bce8813152f60bac1dbc3826d63f37e6e1b",
+      "adaptations": [
+        "Local 1.9.0 adaptation: documents exact credential-origin, native claim and frozen offline verification fields without adding arbitrary execution.",
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/discovery.py",
@@ -127,8 +162,10 @@
       "path": "awa_ddd/domain/campaign.py",
       "origin": "awa-ddd",
       "upstream_sha256": "d509d736cc58cfc11a7677a5445dfcbbd9a071aaa5d053c6ee812c78dc34afc3",
-      "bundled_sha256": "d509d736cc58cfc11a7677a5445dfcbbd9a071aaa5d053c6ee812c78dc34afc3",
-      "adaptations": []
+      "bundled_sha256": "958bd4544199c60be75ad0bc81b85295806b4fcbff725c88cb66bbb2c353d6bc",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/common.py",
@@ -141,15 +178,19 @@
       "path": "awa_ddd/domain/coverage_claim.py",
       "origin": "awa-ddd",
       "upstream_sha256": "94a95b697f8bfb0a74302bf038abeefea13ad7bc7217fde346a8c7ee32c2e774",
-      "bundled_sha256": "94a95b697f8bfb0a74302bf038abeefea13ad7bc7217fde346a8c7ee32c2e774",
-      "adaptations": []
+      "bundled_sha256": "33abfd28b4dc885f1d8e2ab2bc4635be195ee9437ad9cd1dff8ae0c7acf373b0",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/finding.py",
       "origin": "awa-ddd",
       "upstream_sha256": "b0dfcf996aa63686b25c216166b46b8dc0ea098cdacca8161de95ab76efe8461",
-      "bundled_sha256": "b0dfcf996aa63686b25c216166b46b8dc0ea098cdacca8161de95ab76efe8461",
-      "adaptations": []
+      "bundled_sha256": "01d04edb5af15300c916c38fc35662c03d2830ea950fd527e462fe1d80e4343f",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/gap.py",
@@ -162,50 +203,66 @@
       "path": "awa_ddd/domain/hypothesis.py",
       "origin": "awa-ddd",
       "upstream_sha256": "2010e95e89860bb349b9081747370d79e654fa402258f35493a54251e1419f6d",
-      "bundled_sha256": "2010e95e89860bb349b9081747370d79e654fa402258f35493a54251e1419f6d",
-      "adaptations": []
+      "bundled_sha256": "2d8161c9e497745b17ce0339830244b9c6cf8bf10de1fca93c6ac74f2c527b71",
+      "adaptations": [
+        "Local 1.9.0 adaptation: preserves execution blockers, attempts and unknown-effect state rather than treating failed preparation as completed work.",
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/known_case.py",
       "origin": "awa-ddd",
       "upstream_sha256": "d9cadc973de2a974b78a5834a316da68b6814d53ff268a3daa6f66122b39fdd6",
-      "bundled_sha256": "d9cadc973de2a974b78a5834a316da68b6814d53ff268a3daa6f66122b39fdd6",
-      "adaptations": []
+      "bundled_sha256": "cac72f8b2581ad1f757ff43d7a9078da7b6a16e2ab4dc0c29e01673bd71387f3",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/repository.py",
       "origin": "awa-ddd",
       "upstream_sha256": "a0b235e0624b172458a44cc61c4e5b11f77368a35e34a818a271fcd66f205ed4",
-      "bundled_sha256": "a0b235e0624b172458a44cc61c4e5b11f77368a35e34a818a271fcd66f205ed4",
-      "adaptations": []
+      "bundled_sha256": "a30fa8af1e7af23a63f7ae6c97e769c7fd241547e4bf0beeb0248a329e452f9e",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/review.py",
       "origin": "awa-ddd",
       "upstream_sha256": "5b41fed29d7e939bf0d420140781b5cd800b5b805ef6e41a0d7a455b4fe43bd5",
-      "bundled_sha256": "5b41fed29d7e939bf0d420140781b5cd800b5b805ef6e41a0d7a455b4fe43bd5",
-      "adaptations": []
+      "bundled_sha256": "361866579725cf2fc55dfac8e630bfe016404ce18bc2b5259899cbd6b1403359",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/test_recipe.py",
       "origin": "awa-ddd",
       "upstream_sha256": "4df737ea50b4571f0177979384fd3144da95c8f441d075edd186e6dfc576ddad",
-      "bundled_sha256": "4df737ea50b4571f0177979384fd3144da95c8f441d075edd186e6dfc576ddad",
-      "adaptations": []
+      "bundled_sha256": "7ff641ff5207618a5937b8210fb76576b64857325a6bbd5b9bad48d12e105f3b",
+      "adaptations": [
+        "Local 1.9.0 adaptation: frozen write budgets must equal actual write-control counts and read-only recipes cannot contain write controls.",
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/test_run.py",
       "origin": "awa-ddd",
       "upstream_sha256": "e73170d126e807aa663476cd8fa30d827f83940f3b8feecaf80c43b0818dc174",
-      "bundled_sha256": "e73170d126e807aa663476cd8fa30d827f83940f3b8feecaf80c43b0818dc174",
-      "adaptations": []
+      "bundled_sha256": "f37e3c0f70382b530d34342a688422fe7afcf5c7e6c5d840a79cbab5ead05229",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/domain/universe.py",
       "origin": "awa-ddd",
       "upstream_sha256": "e34818252167a9f9041c355c0bd3c5e06e3b2f34df802c70c3fc726fc8dbf9a6",
-      "bundled_sha256": "e34818252167a9f9041c355c0bd3c5e06e3b2f34df802c70c3fc726fc8dbf9a6",
-      "adaptations": []
+      "bundled_sha256": "dedd50883ef611d0f7907a5c0bfd098b512dc79bfb21d3025b90b006980fe334",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/dsh_context.py",
@@ -220,8 +277,11 @@
       "path": "awa_ddd/engine.py",
       "origin": "awa-ddd",
       "upstream_sha256": "d3aced46f59c231b825e69231eb25fd17a94a60630d5fe294a1b5600e6670126",
-      "bundled_sha256": "d3aced46f59c231b825e69231eb25fd17a94a60630d5fe294a1b5600e6670126",
-      "adaptations": []
+      "bundled_sha256": "489aac20df14a4388cd8d69d14438b1ef02f88e37fa2ccf7434039c0503c0fb3",
+      "adaptations": [
+        "Local 1.9.0 adaptation: credential sessions fix their origin before first verification; signatures, renewal and subsequent request guards retain that origin.",
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/execution/__init__.py",
@@ -231,25 +291,41 @@
       "adaptations": []
     },
     {
+      "path": "awa_ddd/execution/authorization_provider.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "adaptations": [
+        "Independent verified principals and exact protected resource controls; status/length alone never confirms access."
+      ],
+      "bundled_sha256": "270f8427066fdebc9d02a2ff5093f77d8e5e77190364ee201f242a1bb9162f49"
+    },
+    {
       "path": "awa_ddd/execution/browser_provider.py",
       "origin": "awa-ddd",
       "upstream_sha256": "1cba1c55d1f1d8352fe1e601f5f8f2579deb0dc5a8b098d2839818cc73729223",
-      "bundled_sha256": "1cba1c55d1f1d8352fe1e601f5f8f2579deb0dc5a8b098d2839818cc73729223",
-      "adaptations": []
+      "bundled_sha256": "cbdf8d80fa91e892052fa4fd8c08c8b07201aff2d2aa7b6e22f5090477e42751",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/execution/capabilities.py",
       "origin": "awa-ddd",
       "upstream_sha256": "f6836cb4143f137ee4b8e61d2b338930493ab91d4ba6e012ab556a9a6bbaf87a",
-      "bundled_sha256": "f6836cb4143f137ee4b8e61d2b338930493ab91d4ba6e012ab556a9a6bbaf87a",
-      "adaptations": []
+      "bundled_sha256": "df1cfece2dad0d77d149c0adfeacf8d87370118447427f1dc20d6cb637c34a09",
+      "adaptations": [
+        "Local 1.9.0 adaptation: implemented automatic providers and missing execution prerequisites are reported separately.",
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/execution/external_provider.py",
       "origin": "awa-ddd",
       "upstream_sha256": "a9306e20a219070784bfc1d73b0be4c1ece26ede73caa673d114b88d2cab21a5",
-      "bundled_sha256": "a9306e20a219070784bfc1d73b0be4c1ece26ede73caa673d114b88d2cab21a5",
-      "adaptations": []
+      "bundled_sha256": "aebdc3376029637242e66a90e913b292bdcdf4f9c33ea09367e84d4d84e8aaf2",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: typed backend, executable/profile binding, operator-only environment and current readiness receipts; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/execution/fixtures.py",
@@ -259,39 +335,81 @@
       "adaptations": []
     },
     {
+      "path": "awa_ddd/execution/input_contract.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "adaptations": [
+        "Actual baseline input and explicit SQL/template context; independent mechanism controls and bounded proof."
+      ],
+      "bundled_sha256": "95b7e4ff3729b0b9ef8fe993d0413d9c5ae635c79f98be0d8e3834e967bca074"
+    },
+    {
       "path": "awa_ddd/execution/oracle_profiles.py",
       "origin": "awa-ddd",
       "upstream_sha256": "3d1846d4c57628aa5b8d5580c05c2b67cef9c675596e01d7facc056180264b8c",
-      "bundled_sha256": "3d1846d4c57628aa5b8d5580c05c2b67cef9c675596e01d7facc056180264b8c",
-      "adaptations": []
+      "bundled_sha256": "d75e0284fc3cbafe9bf35af2773259b052927903bc2cc231cea76d4700686c67",
+      "adaptations": [
+        "Local 1.9.0 adaptation: exact three-control SQL observation schema, bounded business-count proof, explicit non-calculator template controls and oracle severity caps.",
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/execution/recipe_builder.py",
       "origin": "awa-ddd",
       "upstream_sha256": "c0277408ad289e744aeef6d2d43ed54f5c5c6c3d7a679192ccfd1897a26836b1",
-      "bundled_sha256": "c0277408ad289e744aeef6d2d43ed54f5c5c6c3d7a679192ccfd1897a26836b1",
-      "adaptations": []
+      "bundled_sha256": "81917f649d3a805cd2ee6c8a5eec1b3ec9e2aa0932ad5a6a8fc9565e78048acb",
+      "adaptations": [
+        "Local 1.9.0 adaptation: structured same-operation/identity baseline requests, explicit provider gaps and semantic prerequisite refresh preserve attempt/cooldown history.",
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
+    },
+    {
+      "path": "awa_ddd/execution/request_builder.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "bundled_sha256": "411f9855af483767b15bfa64876d887ea7d2829552992c1433b7e7252c474dfb",
+      "adaptations": [
+        "Owned by dsh-purge 1.9.0: structured baseline-preserving query/JSON/path/header controls and exact current request/identity/resource evidence review; no upstream counterpart.",
+        "Exact structured input request construction, preserving unrelated baseline fields and transport framing."
+      ]
     },
     {
       "path": "awa_ddd/execution/review_engine.py",
       "origin": "awa-ddd",
       "upstream_sha256": "0d014ef9fc015ce83d8b78181ddc91f5631d0a940b96d498b5a8b1f738615f62",
-      "bundled_sha256": "0d014ef9fc015ce83d8b78181ddc91f5631d0a940b96d498b5a8b1f738615f62",
-      "adaptations": []
+      "bundled_sha256": "6157a87469b5ec0fde941164f918e97dd5f394b0b98da92a6a7ce48f57216869",
+      "adaptations": [
+        "Local 1.9.0 adaptation: binding rechecks and reuses the run-owned machine finding rather than copying manual claim titles, impact or severity.",
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/execution/test_runner.py",
       "origin": "awa-ddd",
       "upstream_sha256": "e5070c675ea7d0ae3809d65d45ca2ad84ded912296fc2659ebe7bb908d6f93f6",
-      "bundled_sha256": "e5070c675ea7d0ae3809d65d45ca2ad84ded912296fc2659ebe7bb908d6f93f6",
-      "adaptations": []
+      "bundled_sha256": "9e0f64465aef72c853a7f69b79a4e0c4268b33887c708bb88e4c588a855fad80",
+      "adaptations": [
+        "Local 1.9.0 adaptation: complete distinct exact controls, execution preconditions, durable partial failures and unknown writes; offline verify is request-free and native findings use bounded claims.",
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
+    },
+    {
+      "path": "awa_ddd/execution/tool_router.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "adaptations": [
+        "Zero-request demand-driven routes from actual context, supported profiles and current runtime receipts."
+      ],
+      "bundled_sha256": "d5a48b23e75b489d0f30ed0fb8b065b0762078698fc45d691551863ada9839e9"
     },
     {
       "path": "awa_ddd/external.py",
       "origin": "awa-ddd",
       "upstream_sha256": "b8f21ef968a3dd3c72672306b94778f0aab65db4bb62d44fe2f226f3340aa317",
-      "bundled_sha256": "b8f21ef968a3dd3c72672306b94778f0aab65db4bb62d44fe2f226f3340aa317",
-      "adaptations": []
+      "bundled_sha256": "0de26b89ba3bf7f24aeb8f06cf20e7d92312ec887afe58e36772312ded7e2aa0",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: typed backend, executable/profile binding, operator-only environment and current readiness receipts; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/finding_binding.py",
@@ -318,8 +436,11 @@
       "path": "awa_ddd/integration.py",
       "origin": "awa-ddd",
       "upstream_sha256": "513fe1552db5b7500faf6bf8372116fe6d3e9af1415376a0e7ea3808384c3685",
-      "bundled_sha256": "513fe1552db5b7500faf6bf8372116fe6d3e9af1415376a0e7ea3808384c3685",
-      "adaptations": []
+      "bundled_sha256": "2043c798496608f0db8ceead3ad1246e51eb8863b6d4c0ec11b858b2ddac2451",
+      "adaptations": [
+        "Local 1.9.0 adaptation: export rechecks exact current controls and oracle-generated native claim contracts before granting machine proof.",
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/lineage.py",
@@ -346,8 +467,10 @@
       "path": "awa_ddd/oracle_contracts.py",
       "origin": "awa-ddd",
       "upstream_sha256": "10cdd86b0ff3939cb22922587f122d4615765e8d821c7111b7b5f9f7a4991b87",
-      "bundled_sha256": "10cdd86b0ff3939cb22922587f122d4615765e8d821c7111b7b5f9f7a4991b87",
-      "adaptations": []
+      "bundled_sha256": "2ecb9b9e29eaf2fd485ca6f872f8b1b1aa7360390055f4c5fd04d9269153c3f4",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: independent actual controls, current bounded machine proof and draft-only model review authority; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/parameter_coverage.py",
@@ -367,29 +490,48 @@
       "path": "awa_ddd/planning/campaign.py",
       "origin": "awa-ddd",
       "upstream_sha256": "fe1bf2d019d2fd1fb6fbb4eca412af33fabd35c20d840b791fd2d24d2281faa6",
-      "bundled_sha256": "fe1bf2d019d2fd1fb6fbb4eca412af33fabd35c20d840b791fd2d24d2281faa6",
-      "adaptations": []
+      "bundled_sha256": "60c338ba037b257205bc9b9d3d778a1f30e119b80cc7164322b511bbe988a85b",
+      "adaptations": [
+        "Local 1.9.0 adaptation: campaign preparation refreshes blocked automatic work only after relevant actual prerequisite changes.",
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/planning/coverage.py",
       "origin": "awa-ddd",
       "upstream_sha256": "9bd37322fabd5acd969291dcefdcddba534126ea556739e86833e9029c888924",
-      "bundled_sha256": "9bd37322fabd5acd969291dcefdcddba534126ea556739e86833e9029c888924",
-      "adaptations": []
+      "bundled_sha256": "ff698915d6508dcbce5d9b59a2ba6f06eeb6be4d0dcb6153eceb6db7e7f5bd75",
+      "adaptations": [
+        "Local 1.9.0 adaptation: current machine claim quality and pending proof dependencies remain in delivery denominators.",
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/planning/hypotheses.py",
       "origin": "awa-ddd",
       "upstream_sha256": "2d25f7320895e8d2e1b15d42437c0c5e700050135932cd7018580856ec80c09f",
-      "bundled_sha256": "2d25f7320895e8d2e1b15d42437c0c5e700050135932cd7018580856ec80c09f",
-      "adaptations": []
+      "bundled_sha256": "0b6568ef8b88508109f0cb8e227b61396f071cafac4e96fe43a29a240d9d64e7",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/planning/known_cases.py",
       "origin": "awa-ddd",
       "upstream_sha256": "d3aa776e5e32455628e86c77327553ce04e5b88b02b02f922ad35080a5486235",
-      "bundled_sha256": "d3aa776e5e32455628e86c77327553ce04e5b88b02b02f922ad35080a5486235",
-      "adaptations": []
+      "bundled_sha256": "1ff9c2535cc728c7fdc04d56ba91d7849f9ccac7f809c7b21acdf453fa9fb45c",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
+    },
+    {
+      "path": "awa_ddd/planning/membership.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "adaptations": [
+        "Frozen campaign membership and independent campaign state with shared execution/unknown-effect guards."
+      ],
+      "bundled_sha256": "c102b6fb555d6afcc5cf1e88ac04dddf673d98d8ed781a5ace458397c49f4750"
     },
     {
       "path": "awa_ddd/planning/migration.py",
@@ -409,15 +551,30 @@
       "path": "awa_ddd/planning/scheduler.py",
       "origin": "awa-ddd",
       "upstream_sha256": "0884857aa8d6577501c009ac91b34c10849631e781fa124a83b7bcf091029032",
-      "bundled_sha256": "0884857aa8d6577501c009ac91b34c10849631e781fa124a83b7bcf091029032",
-      "adaptations": []
+      "bundled_sha256": "a88608a47eb34843f3cd29523fb697e2b4d8df06ac14682f709cc83dcbdc055e",
+      "adaptations": [
+        "Local 1.9.0 adaptation: persistent task attempts, cooldown and unknown effects survive administrative or pagination changes.",
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
+    },
+    {
+      "path": "awa_ddd/proof_claim.py",
+      "origin": "dsh-purge",
+      "upstream_sha256": null,
+      "bundled_sha256": "60539bb52f4a4e66e827d4ee8c977a50bdd11a1d8edc6de8c3dac6bd51280e0f",
+      "adaptations": [
+        "Owned by dsh-purge 1.9.0: oracle-generated bounded native finding claims, proof scope, limitations and severity-cap enforcement; no upstream counterpart.",
+        "Current machine-only claim contracts reverify artifacts, exact inputs, oracle scope and severity caps."
+      ]
     },
     {
       "path": "awa_ddd/publication.py",
       "origin": "awa-ddd",
       "upstream_sha256": "8a937a13b73de9f96c6c9cb2d8c45596538d6cb6573af0e60f687fcdeefd9d1d",
-      "bundled_sha256": "8a937a13b73de9f96c6c9cb2d8c45596538d6cb6573af0e60f687fcdeefd9d1d",
-      "adaptations": []
+      "bundled_sha256": "d1805db946bdad08ae9c7fb39e6c027989a976d2f8fdcfb3c7d92cb3d04c4ead",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/recon_parsing.py",
@@ -444,15 +601,20 @@
       "path": "awa_ddd/reporting/matrix.py",
       "origin": "awa-ddd",
       "upstream_sha256": "156f70416f55f47974a2b7161a140b62460e6674c4709cd5edad1658a85da933",
-      "bundled_sha256": "156f70416f55f47974a2b7161a140b62460e6674c4709cd5edad1658a85da933",
-      "adaptations": []
+      "bundled_sha256": "4e98e24289d81b6b1e0aea87af96bbfb89768b92432f053c859fcae362a1b4ba",
+      "adaptations": [
+        "Local 1.9.0 adaptation: reports expose current proof state and pending machine claims; final delivery retains unfinished proof prerequisites.",
+        "Local 1.12.0 reviewed adaptation: frozen campaign membership, independent state, exact input/origin attribution and measured coverage; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/reporting_legacy.py",
       "origin": "awa-ddd",
       "upstream_sha256": "4b69b4dba697f7431324ddd630d59bf0c081585b3fc34740f34174bba0d6d09f",
-      "bundled_sha256": "4b69b4dba697f7431324ddd630d59bf0c081585b3fc34740f34174bba0d6d09f",
-      "adaptations": []
+      "bundled_sha256": "c36fcd86b85d4659a60b4e6552c156e851a534c87eac3b7d67fecfb05f2081d8",
+      "adaptations": [
+        "Local 1.9.0 adaptation: legacy machine labels without current claim contracts are unverified and pending proof remains explicit in draft/final delivery."
+      ]
     },
     {
       "path": "awa_ddd/reproduction.py",
@@ -465,8 +627,10 @@
       "path": "awa_ddd/runtime.py",
       "origin": "awa-ddd",
       "upstream_sha256": "d69ef31029e1f7e4f91f25427e6227079842e3b203d15f59b44271c5564d99a4",
-      "bundled_sha256": "d69ef31029e1f7e4f91f25427e6227079842e3b203d15f59b44271c5564d99a4",
-      "adaptations": []
+      "bundled_sha256": "8842d559efa69ab945b8e6329fdb20fac6ac461813a2f69602be0ed4961d528f",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: typed backend, executable/profile binding, operator-only environment and current readiness receipts; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/scenario.py",
@@ -500,22 +664,29 @@
       "path": "awa_ddd/transport.py",
       "origin": "awa-ddd",
       "upstream_sha256": "150699beccab81d2a68a901142dfdf0f28142411612492ccdc92e10ce947441b",
-      "bundled_sha256": "150699beccab81d2a68a901142dfdf0f28142411612492ccdc92e10ce947441b",
-      "adaptations": []
+      "bundled_sha256": "367bc83d3f9647ee37730dfd08d3ac3b8d05b599ebe9d91548031b670d63a484",
+      "adaptations": [
+        "Local 1.9.0 adaptation: execution and exact-control review share deterministic request framing and body serialization.",
+        "Local 1.12.0 reviewed adaptation: actual bounded dispatch, sent/received counts and uncertain-request preservation; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/tscanplus.py",
       "origin": "awa-ddd",
       "upstream_sha256": "0b8dd33f17cca3eb06935cca92943ec8087cad81ee183480bd214e754833ec78",
-      "bundled_sha256": "0b8dd33f17cca3eb06935cca92943ec8087cad81ee183480bd214e754833ec78",
-      "adaptations": []
+      "bundled_sha256": "7732fccf5eb23918f1d1b3b8552e97dc794fa696a78d5c73329a28a5198e38d7",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: typed backend, executable/profile binding, operator-only environment and current readiness receipts; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/v2api.py",
       "origin": "awa-ddd",
       "upstream_sha256": "41f382b74cf604bc4c4780e435a9b65c3e2eae13bdc1887bb27408fd70e1279d",
-      "bundled_sha256": "41f382b74cf604bc4c4780e435a9b65c3e2eae13bdc1887bb27408fd70e1279d",
-      "adaptations": []
+      "bundled_sha256": "33e03c181bd6b407cd2b13ef9b612d8ea1c166dc79b611aa3dad295ddd65bca4",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/workflow.py",
@@ -528,8 +699,10 @@
       "path": "awa_ddd/wsl_runner.py",
       "origin": "awa-ddd",
       "upstream_sha256": "14f04bbcd2ff976795a5b05651e45fa8b9478804d3e86305ee79e3f11fc81747",
-      "bundled_sha256": "14f04bbcd2ff976795a5b05651e45fa8b9478804d3e86305ee79e3f11fc81747",
-      "adaptations": []
+      "bundled_sha256": "22e142ec37f3c5ec1f014aa68cc893b690cacbb7b58bdae6dbb32cca9de5552c",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: typed backend, executable/profile binding, operator-only environment and current readiness receipts; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "awa_ddd/xss_consumption.py",
@@ -542,17 +715,20 @@
       "path": "src/actions.mjs",
       "origin": "awa-ddd",
       "upstream_sha256": "930642ff535e83ded03497a260b6c5d601c0a21a5010e9a002382fed7187bfa6",
-      "bundled_sha256": "930642ff535e83ded03497a260b6c5d601c0a21a5010e9a002382fed7187bfa6",
-      "adaptations": []
+      "bundled_sha256": "1baeea516968d7549e906989f6dd02b1005c3c0f38deb25dddf16a2cd371ba60",
+      "adaptations": [
+        "Local 1.12.0 reviewed adaptation: fixed public action contracts and current evidence guards; upstream attribution and hashes are retained."
+      ]
     },
     {
       "path": "src/bridge.mjs",
       "origin": "awa-ddd",
       "upstream_sha256": "bb48445116739de73f7310273621ba5b08edadbbbad9b8740466a4e56bb1c8dd",
-      "bundled_sha256": "840051982d9f0662dff5783ca4b3db8f435c32f099f1dfcc1025120fa303a84c",
+      "bundled_sha256": "ff66c9e84c8e83d9dd1ed9bb97d5e22116da575642b339dcf34a8c7dd1e32d9e",
       "adaptations": [
         "Default state directory belongs to dsh-purge; engagement runtime supplies its own explicit workspace.",
-        "Transport accepts the private owner context action; public action catalogs and help remain unchanged."
+        "Transport accepts the private owner context action; public action catalogs and help remain unchanged.",
+        "Local 1.12.0 reviewed adaptation: typed backend, executable/profile binding, operator-only environment and current readiness receipts; upstream attribution and hashes are retained."
       ]
     },
     {
@@ -562,5 +738,6 @@
       "bundled_sha256": "4aa9efac3d5d93bc422d79780da50cd6b6fecbef883e46452dcab44fb3763ef6",
       "adaptations": []
     }
-  ]
+  ],
+  "dshPurgeAdaptationVersion": "1.12.0"
 }

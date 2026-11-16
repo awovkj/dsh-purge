@@ -1,6 +1,18 @@
 import { apiUrl } from "../api/client.js";
 import React from "react";
-import { AssessmentTab, SrcDiscoveryReport } from "../community/awa-evidence.js";
+import {
+  AssessmentTab,
+  SrcDiscoveryReport,
+  PentestReport,
+  AssessmentReportHub,
+  assessmentModeLabel,
+  assessmentModeOptions,
+  assessmentTabsForMode,
+  isScopedAssessmentMode,
+  FindingSubmission,
+  useRequestGeneration,
+  isCurrent,
+} from "../community/awa-evidence.js";
 // UI derived from YuJunZhiXue/dsh-purge 1.1.71 (MIT). See LICENSE.
 
 export const __dshPurgeDrill = (() => {
@@ -1367,6 +1379,26 @@ export const __dshPurgeDrill = (() => {
     const conclusion = h(
       "div",
       { className: "rt-concl" },
+      h(
+        "span",
+        { className: "rt-tag" },
+        "漏洞 " + (stats.vulnerabilities || 0),
+      ),
+      !isSrc &&
+        h(
+          "span",
+          { className: "rt-tag" },
+          "加固建议 " +
+            (stats.hardening || 0) +
+            " · 信息项 " +
+            (stats.informational || 0),
+        ),
+      isSrc &&
+        h(
+          "span",
+          { className: "rt-tag" },
+          "已排除历史配置项 " + (stats.excluded_hardening || 0),
+        ),
       conclItem("all", "台资产", snapStats.assets, noFilter, () => {
         setTestStatus("");
         setPriority("");
@@ -3224,10 +3256,17 @@ export const __dshPurgeDrill = (() => {
 
   function FindingsTab(props) {
     const eng = props.engagement;
+    const queryApi = props.api || api;
     const isSrc = props.assessmentMode === "src";
-    const refsOf = value => {
-      try { const refs = typeof value === "string" ? JSON.parse(value) : value; return Array.isArray(refs) ? refs : []; }
-      catch { return []; }
+    const isPentest = props.assessmentMode === "pentest";
+    const hideRedteamCollections = isScopedAssessmentMode(props.assessmentMode);
+    const refsOf = (value) => {
+      try {
+        const refs = typeof value === "string" ? JSON.parse(value) : value;
+        return Array.isArray(refs) ? refs : [];
+      } catch {
+        return [];
+      }
     };
     const refreshKey = props.refreshKey || 0;
     const [sev, setSev] = React.useState("");
@@ -3246,6 +3285,29 @@ export const __dshPurgeDrill = (() => {
     const [files, setFiles] = React.useState([]);
     const [openId, setOpenId] = React.useState(null);
     const [msg, setMsg] = React.useState(null);
+    const [copyingCredential, setCopyingCredential] = React.useState(null);
+    const credentialRequest = React.useRef({ engagement: eng, sequence: 0 });
+    credentialRequest.current.engagement = eng;
+    const { owner, captured } = useRequestGeneration(
+      eng + ":" + props.assessmentMode,
+      queryApi,
+    );
+    React.useLayoutEffect(() => {
+      setState({
+        loading: false,
+        error: null,
+        total: 0,
+        items: [],
+        stats: null,
+      });
+      setCreds([]);
+      setAccesses([]);
+      setFiles([]);
+      setOpenId(null);
+      setMsg(null);
+      setCopyingCredential(null);
+      credentialRequest.current.sequence++;
+    }, [captured]);
     /* 子页签：漏洞 / 凭据 / 访问会话（凭据不再铺在漏洞页底部） */
     const [subTab, setSubTab] = React.useState("vulns");
     /* 默认按目标聚合：322 条平铺没法读，先看"哪台被打下什么" */
@@ -3253,8 +3315,14 @@ export const __dshPurgeDrill = (() => {
     const collapse = useCollapse("findings:" + eng);
 
     const load = () => {
-      if (!eng) return;
-      api({
+      if (!eng || !isCurrent(owner, captured)) return;
+      const sequence = ++captured.readSequence,
+        generation = captured.generation;
+      const current = () =>
+        isCurrent(owner, captured, generation) &&
+        sequence === captured.readSequence;
+      setState((previous) => ({ ...previous, loading: true, error: null }));
+      queryApi({
         op: "vulns",
         engagement: eng,
         severity: sev || undefined,
@@ -3263,6 +3331,7 @@ export const __dshPurgeDrill = (() => {
         limit: 200,
       }).then(
         (r) => {
+          if (!current()) return;
           if (!r || r.ok === false) {
             setState({
               loading: false,
@@ -3282,6 +3351,7 @@ export const __dshPurgeDrill = (() => {
           });
         },
         (e) =>
+          current() &&
           setState({
             loading: false,
             error: String((e && e.message) || e),
@@ -3290,30 +3360,52 @@ export const __dshPurgeDrill = (() => {
             stats: null,
           }),
       );
-      if (!isSrc) api({ op: "credentials", engagement: eng }).then(
-        (r) => setCreds((r && r.items) || []),
-        () => {},
-      );
-      if (!isSrc) api({ op: "access", engagement: eng }).then(
-        (r) => setAccesses((r && r.items) || []),
-        () => {},
-      );
-      if (!isSrc) api({ op: "attackFiles", engagement: eng }).then(
-        (r) => setFiles((r && r.items) || []),
-        () => {},
-      );
+      if (!isSrc)
+        queryApi({ op: "credentials", engagement: eng }).then(
+          (r) => current() && setCreds((r && r.items) || []),
+          () => {},
+        );
+      if (!hideRedteamCollections)
+        queryApi({ op: "access", engagement: eng }).then(
+          (r) => current() && setAccesses((r && r.items) || []),
+          () => {},
+        );
+      if (!hideRedteamCollections)
+        queryApi({ op: "attackFiles", engagement: eng }).then(
+          (r) => current() && setFiles((r && r.items) || []),
+          () => {},
+        );
     };
-    React.useEffect(load, [eng, sev, status, qApplied, refreshKey]);
+    React.useEffect(load, [captured, sev, status, qApplied, refreshKey]);
+    React.useEffect(() => {
+      if (
+        (isSrc && subTab !== "vulns") ||
+        (isPentest && !["vulns", "creds"].includes(subTab))
+      )
+        setSubTab("vulns");
+    }, [eng, hideRedteamCollections, subTab]);
 
     const setVulnStatus = (id, next) => {
+      if (!isCurrent(owner, captured)) return;
+      const generation = captured.generation;
       setMsg(null);
-      api({
+      queryApi({
         op: "updateVuln",
         engagement: eng,
         id: id,
-        patch: { status: next, ...(isSrc ? { evidence_refs: refsOf(state.items.find(item => item.id === id)?.evidence_refs) } : {}) },
+        patch: {
+          status: next,
+          ...(isSrc
+            ? {
+                evidence_refs: refsOf(
+                  state.items.find((item) => item.id === id)?.evidence_refs,
+                ),
+              }
+            : {}),
+        },
       }).then(
         (r) => {
+          if (!isCurrent(owner, captured, generation)) return;
           if (!r || r.ok === false) {
             setMsg({ err: (r && r.error) || "更新失败" });
             return;
@@ -3321,8 +3413,56 @@ export const __dshPurgeDrill = (() => {
           setMsg({ ok: "已更新为「" + (STATUS_LABEL[next] || next) + "」" });
           load();
         },
-        (e) => setMsg({ err: String((e && e.message) || e) }),
+        (e) =>
+          isCurrent(owner, captured, generation) &&
+          setMsg({ err: String((e && e.message) || e) }),
       );
+    };
+
+    const copyCredential = async (credential) => {
+      if (!isCurrent(owner, captured)) return;
+      const generation = captured.generation;
+      const sequence = ++credentialRequest.current.sequence;
+      setCopyingCredential(credential.id);
+      setMsg(null);
+      try {
+        const result = await queryApi({
+          op: "credentialReveal",
+          engagement: eng,
+          credential_handle: credential.credential_handle,
+          purpose: "面板复制当前选中单条凭据，用于当前靶标任务",
+        });
+        if (
+          !isCurrent(owner, captured, generation) ||
+          credentialRequest.current.sequence !== sequence
+        )
+          return;
+        if (
+          result?.ok !== true ||
+          typeof result.credential?.secret_value !== "string"
+        )
+          throw new Error(result?.error || "当前凭据实际值不可用");
+        if (!(await copyText(result.credential.secret_value)))
+          throw new Error("剪贴板写入失败");
+        if (
+          !isCurrent(owner, captured, generation) ||
+          credentialRequest.current.sequence !== sequence
+        )
+          return;
+        setMsg({ ok: "已复制当前单条凭据" });
+      } catch (error) {
+        if (
+          isCurrent(owner, captured, generation) &&
+          credentialRequest.current.sequence === sequence
+        )
+          setMsg({ err: error.message || "复制失败" });
+      } finally {
+        if (
+          isCurrent(owner, captured, generation) &&
+          credentialRequest.current.sequence === sequence
+        )
+          setCopyingCredential(null);
+      }
     };
 
     const stats =
@@ -3373,18 +3513,19 @@ export const __dshPurgeDrill = (() => {
       { className: "rt-concl" },
       concl(
         "conf",
-        "已确认",
-        stats.byStatus.confirmed || 0,
+        "当前证明确认",
+        stats.byProof?.confirmed || 0,
         status === "confirmed",
         () => setStatus((v) => (v === "confirmed" ? "" : "confirmed")),
       ),
-      !isSrc && concl(
-        "exp",
-        "已利用",
-        stats.byStatus.exploited || 0,
-        status === "exploited",
-        () => setStatus((v) => (v === "exploited" ? "" : "exploited")),
-      ),
+      !hideRedteamCollections &&
+        concl(
+          "exp",
+          "当前证明利用",
+          stats.byProof?.exploited || 0,
+          status === "exploited",
+          () => setStatus((v) => (v === "exploited" ? "" : "exploited")),
+        ),
       concl(
         "crit",
         "严重",
@@ -3398,7 +3539,8 @@ export const __dshPurgeDrill = (() => {
       concl("med", "中危", stats.bySeverity.medium || 0, sev === "medium", () =>
         setSev((v) => (v === "medium" ? "" : "medium")),
       ),
-      !isSrc && concl("gain", "拿到权限", stats.withGained || 0, false, () => {}),
+      !hideRedteamCollections &&
+        concl("gain", "拿到权限", stats.withGained || 0, false, () => {}),
       h("div", { className: "rt-spacer" }),
       h(
         "span",
@@ -3462,6 +3604,12 @@ export const __dshPurgeDrill = (() => {
             { title: v.title || "" },
             h("span", { className: "rt-sec-caret" }, open ? "▾" : "▸"),
             (v.cve ? v.cve + " " : "") + (v.title || ""),
+            v.finding_kind !== "vulnerability" &&
+              h(
+                "span",
+                { className: "rt-tag" },
+                v.finding_kind === "hardening" ? "加固建议" : "信息项",
+              ),
           ),
           compact
             ? null
@@ -3502,8 +3650,13 @@ export const __dshPurgeDrill = (() => {
             null,
             h(
               "span",
-              { className: "rt-tag" },
-              STATUS_LABEL[v.status] || v.status,
+              {
+                className: "rt-tag",
+                title: (v.proof_pending || []).join("；"),
+              },
+              v.confirmation_state === "pending_proof"
+                ? "标签待复核"
+                : STATUS_LABEL[v.status] || v.status,
             ),
           ),
           compact
@@ -3529,31 +3682,48 @@ export const __dshPurgeDrill = (() => {
           h(
             "div",
             { className: "rt-vdetail" },
+            isSrc &&
+              h(FindingSubmission, {
+                finding: v,
+                engagement: eng,
+                api: queryApi,
+                onSaved: load,
+              }),
             h(
               "div",
               { className: "rt-kv" },
-              h("b", null, isSrc ? "停止记录" : "拿到什么"),
-              isSrc ? h("span", null, v.stop_reason || "待直接证据核实") : gainedList.length
-                ? h(
-                    "span",
-                    null,
-                    gainedList.map((g, gi) =>
-                      h(
+              h(
+                "b",
+                null,
+                isSrc ? "停止记录" : isPentest ? "影响分析" : "拿到什么",
+              ),
+              isSrc
+                ? h("span", null, v.stop_reason || "待直接证据核实")
+                : isPentest
+                  ? h("span", null, v.impact || "待依据当前证明整理影响")
+                  : gainedList.length
+                    ? h(
+                        "span",
+                        null,
+                        gainedList.map((g, gi) =>
+                          h(
+                            "span",
+                            {
+                              key: "g" + gi,
+                              className: "rt-gain",
+                              style: { marginRight: 6 },
+                            },
+                            g,
+                          ),
+                        ),
+                      )
+                    : h(
                         "span",
                         {
-                          key: "g" + gi,
-                          className: "rt-gain",
-                          style: { marginRight: 6 },
+                          style: { color: "var(--dsw-alias-label-secondary)" },
                         },
-                        g,
+                        "未记录 —— 拿到权限/成果后请用 redteam_vuln_update 补 gained（例：服务器权限、内网隧道、后台管理员账号）",
                       ),
-                    ),
-                  )
-                : h(
-                    "span",
-                    { style: { color: "var(--dsw-alias-label-secondary)" } },
-                    "未记录 —— 拿到权限/成果后请用 redteam_vuln_update 补 gained（例：服务器权限、内网隧道、后台管理员账号）",
-                  ),
             ),
             h(
               "div",
@@ -3590,47 +3760,50 @@ export const __dshPurgeDrill = (() => {
               ),
             ),
             detailEvidence(v),
-            (() => {
-              const mine = filesByVuln.get(Number(v.id)) || [];
-              return h(
-                "div",
-                { className: "rt-kv" },
-                h("b", null, "攻击文件"),
-                mine.length
-                  ? h(
-                      "span",
-                      null,
-                      mine.map((f, fi) =>
-                        h(
-                          "div",
-                          { key: "af" + fi, style: { marginBottom: 3 } },
-                          "· " +
-                            (f.kind ? "[" + f.kind + "] " : "") +
-                            (f.name || "(未命名)") +
-                            (f.description ? " — " + f.description : ""),
+            !isPentest &&
+              (() => {
+                const mine = filesByVuln.get(Number(v.id)) || [];
+                return h(
+                  "div",
+                  { className: "rt-kv" },
+                  h("b", null, "攻击文件"),
+                  mine.length
+                    ? h(
+                        "span",
+                        null,
+                        mine.map((f, fi) =>
                           h(
                             "div",
-                            {
-                              className: "rt-mono",
-                              style: {
-                                fontSize: 11,
-                                marginLeft: 12,
-                                color: "var(--dsw-alias-label-secondary)",
-                                overflowWrap: "anywhere",
+                            { key: "af" + fi, style: { marginBottom: 3 } },
+                            "· " +
+                              (f.kind ? "[" + f.kind + "] " : "") +
+                              (f.name || "(未命名)") +
+                              (f.description ? " — " + f.description : ""),
+                            h(
+                              "div",
+                              {
+                                className: "rt-mono",
+                                style: {
+                                  fontSize: 11,
+                                  marginLeft: 12,
+                                  color: "var(--dsw-alias-label-secondary)",
+                                  overflowWrap: "anywhere",
+                                },
                               },
-                            },
-                            f.path || "",
+                              f.path || "",
+                            ),
                           ),
                         ),
+                      )
+                    : h(
+                        "span",
+                        {
+                          style: { color: "var(--dsw-alias-label-secondary)" },
+                        },
+                        "（无）用 redteam_attack_file_add 把这条漏洞打通的脚本/马/EXP 归档，并带上 vuln_id",
                       ),
-                    )
-                  : h(
-                      "span",
-                      { style: { color: "var(--dsw-alias-label-secondary)" } },
-                      "（无）用 redteam_attack_file_add 把这条漏洞打通的脚本/马/EXP 归档，并带上 vuln_id",
-                    ),
-              );
-            })(),
+                );
+              })(),
             h(
               "div",
               { className: "rt-actions" },
@@ -3638,7 +3811,9 @@ export const __dshPurgeDrill = (() => {
                 "button",
                 {
                   className: "rt-btn",
-                  disabled: isSrc && !refsOf(v.evidence_refs).length,
+                  disabled:
+                    hideRedteamCollections &&
+                    v.confirmation_state !== "verified",
                   onClick: (e) => {
                     e.stopPropagation();
                     setVulnStatus(v.id, "confirmed");
@@ -3646,17 +3821,18 @@ export const __dshPurgeDrill = (() => {
                 },
                 "确认",
               ),
-              !isSrc && h(
-                "button",
-                {
-                  className: "rt-btn",
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    setVulnStatus(v.id, "exploited");
+              !hideRedteamCollections &&
+                h(
+                  "button",
+                  {
+                    className: "rt-btn",
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      setVulnStatus(v.id, "exploited");
+                    },
                   },
-                },
-                "已利用",
-              ),
+                  "已利用",
+                ),
               h(
                 "button",
                 {
@@ -3817,9 +3993,7 @@ export const __dshPurgeDrill = (() => {
       h(
         "div",
         { className: "rt-section" },
-        "凭据 · " +
-          creds.length +
-          (creds.length ? "（明文直显，注意屏幕分享/录屏）" : ""),
+        "凭据 · " + creds.length + "（默认隐藏实际值）",
       ),
       creds.length
         ? h(
@@ -3854,25 +4028,27 @@ export const __dshPurgeDrill = (() => {
                     {
                       className: "rt-btn",
                       style: { padding: "0 6px", fontSize: 11 },
+                      disabled:
+                        !c.secret_available || copyingCredential !== null,
                       onClick: (e) => {
                         e.stopPropagation();
-                        copyText(String(c.secret_value || ""));
+                        copyCredential(c);
                       },
                     },
-                    "复制",
+                    copyingCredential === c.id ? "读取中…" : "复制实际值",
                   ),
                 ),
-                c.secret_value
-                  ? h(
-                      "div",
-                      { className: "rt-secret", title: "点击可全选" },
-                      c.secret_value,
-                    )
-                  : h(
-                      "div",
-                      { className: "rt-secret-none" },
-                      "未记明文 —— 请用 redteam_credential_add 的 secret_value 补上，面板才能直显",
-                    ),
+                h(
+                  "div",
+                  { className: "rt-secret-none" },
+                  (c.credential_handle || "—") +
+                    " · " +
+                    (c.secret_state === "vault_unavailable"
+                      ? "本地密钥或私有材料不可用"
+                      : c.secret_available
+                        ? "实际值已保存，按需读取"
+                        : "仅有引用，未保存实际值"),
+                ),
                 h(
                   "div",
                   { className: "rt-cred-meta" },
@@ -3965,9 +4141,12 @@ export const __dshPurgeDrill = (() => {
         "div",
         { className: "rt-subtabs" },
         subTabBtn("vulns", "漏洞", state.total || 0),
-        !isSrc && subTabBtn("files", "攻击文件", allFiles.length),
-        !isSrc && subTabBtn("creds", "凭据", creds.length),
-        !isSrc && subTabBtn("access", "访问会话", accesses.length),
+        !hideRedteamCollections &&
+          subTabBtn("files", "攻击文件", allFiles.length),
+        !isSrc &&
+          subTabBtn("creds", isPentest ? "测试凭据" : "凭据", creds.length),
+        !hideRedteamCollections &&
+          subTabBtn("access", "访问会话", accesses.length),
         h("div", { className: "rt-spacer" }),
         grouped
           ? h(
@@ -4028,7 +4207,7 @@ export const __dshPurgeDrill = (() => {
       state.error && !needRestart
         ? h("div", { className: "rt-err" }, state.error)
         : null,
-      !isSrc && subTab === "files"
+      !hideRedteamCollections && subTab === "files"
         ? h(
             "div",
             { className: "rt-body", style: { overflow: "auto" } },
@@ -4050,7 +4229,7 @@ export const __dshPurgeDrill = (() => {
               { className: "rt-body", style: { overflow: "auto" } },
               credSection,
             )
-          : !isSrc && subTab === "access"
+          : !hideRedteamCollections && subTab === "access"
             ? h(
                 "div",
                 { className: "rt-body", style: { overflow: "auto" } },
@@ -4914,6 +5093,30 @@ export const __dshPurgeDrill = (() => {
               h("span", null, String(x.evidence).replace(/\n+/g, " ")),
             )
           : null,
+        h(
+          "div",
+          {
+            className: "rt-rep-meta",
+            "data-score-evidence": x.evidence_state || "legacy_text",
+          },
+          h("b", null, "证据关联 "),
+          h(
+            "span",
+            null,
+            x.evidence_state === "observed"
+              ? "observed 引用"
+              : x.evidence_state === "pending"
+                ? "待补成果关联"
+                : "历史文字说明",
+          ),
+          (x.evidence_refs || []).length
+            ? h(
+                "span",
+                { className: "rt-mono", style: { overflowWrap: "anywhere" } },
+                " · " + x.evidence_refs.join("、"),
+              )
+            : null,
+        ),
         x.recorded_at
           ? h(
               "div",
@@ -8845,7 +9048,7 @@ export const __dshPurgeDrill = (() => {
         },
       );
       /* 并发名额按"当前跑着的子智能体"算；host 侧读 subagents 注册表 */
-      api({ op: "agentsStatus" }).then(
+      api({ op: "agentsStatus", engagement: eng || undefined }).then(
         (r) => {
           if (r && r.ok !== false) setConcurrency(r);
         },
@@ -9534,14 +9737,29 @@ export const __dshPurgeDrill = (() => {
       );
     }, []);
 
+    const newModeNeedsScope = isScopedAssessmentMode(newMode);
+    const hasNewScope = newScope
+      .split(/[\r\n,]+/)
+      .some((value) => value.trim());
     const openEngagement = (nameArg) => {
       const name = String(nameArg || newName).trim();
-      if (!name) return;
+      if (!name || (newModeNeedsScope && !hasNewScope)) return;
       setCreating(true);
-      const scope = newScope.split(/[\r\n,]+/).map(value => value.trim()).filter(Boolean);
-      const exclude = newExclude.split(/[\r\n,]+/).map(value => value.trim()).filter(Boolean);
-      api({ op: "openEngagement", name: name, assessment_mode: newMode,
-        ...(scope.length || newMode === "src" ? { scope } : {}), exclude }).then(
+      const scope = newScope
+        .split(/[\r\n,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const exclude = newExclude
+        .split(/[\r\n,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      api({
+        op: "openEngagement",
+        name: name,
+        assessment_mode: newMode,
+        ...(scope.length || newModeNeedsScope ? { scope } : {}),
+        exclude,
+      }).then(
         (r) => {
           setCreating(false);
           if (!r || r.ok === false) {
@@ -9719,23 +9937,31 @@ export const __dshPurgeDrill = (() => {
     };
 
     const stats = (snapshot && snapshot.stats) || {};
-    const isSrc = engagements.find(item => item.id === eng)?.assessment_mode === "src";
-    const tabs = [
+    const currentMode =
+      engagements.find((item) => item.id === eng)?.assessment_mode || "redteam";
+    const isSrc = currentMode === "src";
+    const isPentest = currentMode === "pentest";
+    const tabs = assessmentTabsForMode(currentMode, [
       ["assets", "资产测绘"],
       ["evidence", "内置评估"],
       ["env", "环境适配"],
       ["agents", "智能体"],
       ["sessions", "会话隧道"],
-      ["findings", isSrc ? "漏洞发现" : "漏洞战果"],
+      ["findings", isSrc ? "漏洞发现" : isPentest ? "渗透发现" : "漏洞战果"],
       ["chain", "攻击链"],
       ["scores", "得分目标"],
       ["report", "报告"],
       ["knowledge", "知识库"],
       ["skills", "技能库"],
-    ].filter(item => !isSrc || !["env", "sessions", "chain", "scores", "knowledge", "skills"].includes(item[0]));
+    ]);
+    const activeTab =
+      isScopedAssessmentMode(currentMode) &&
+      !tabs.some((item) => item[0] === st.tab)
+        ? "assets"
+        : st.tab;
     React.useEffect(() => {
-      if (isSrc && !tabs.some(item => item[0] === st.tab)) setUI({ tab: "assets" });
-    }, [isSrc, st.tab]);
+      if (activeTab !== st.tab) setUI({ tab: activeTab });
+    }, [activeTab, st.tab]);
     const full = isFullWindow();
     const openFull = () => {
       try {
@@ -9775,18 +10001,35 @@ export const __dshPurgeDrill = (() => {
 
     let body;
     if (err) body = h("div", { className: "rt-err" }, err);
-    else if (st.tab === "evidence") body = h(AssessmentTab, { engagement: eng, api });
+    else if (activeTab === "evidence")
+      body = h(AssessmentTab, { engagement: eng, api });
     /* 全局页：没有靶标也能看（知识库 / 环境适配 / 技能库 / 智能体概览） */
-    else if (st.tab === "knowledge")
+    else if (activeTab === "knowledge")
       body = h(KnowledgeTab, { refreshKey: refreshKey });
-    else if (st.tab === "env") body = h(EnvTab, { refreshKey: refreshKey });
-    else if (st.tab === "skills")
+    else if (activeTab === "env") body = h(EnvTab, { refreshKey: refreshKey });
+    else if (activeTab === "skills")
       body = h(SkillsTab, { refreshKey: refreshKey });
-    else if (st.tab === "agents" || st.tab === "prompts")
-      body = isSrc ? h("div", { className: "rt-pane" }, h("div", { className: "rt-card" },
-        h("h4", null, "SRC 发现与复核"),
-        h("p", null, "先整理明确范围内资产和已有证据，通过项目内置评估核心验证候选。直接证据确认后停止该目标的后续请求，整理报告与修复建议。"),
-        h("p", null, "SRC 预设提供发现、证据和报告工具；项目模式和范围在创建时固定。")))
+    else if (activeTab === "agents" || activeTab === "prompts")
+      body = isSrc
+        ? h(
+            "div",
+            { className: "rt-pane" },
+            h(
+              "div",
+              { className: "rt-card" },
+              h("h4", null, "SRC 发现与复核"),
+              h(
+                "p",
+                null,
+                "先整理明确范围内资产和已有证据，通过项目内置评估核心验证候选。直接证据确认后停止该目标的后续请求，整理报告与修复建议。",
+              ),
+              h(
+                "p",
+                null,
+                "SRC 预设提供发现、证据和报告工具；项目模式和范围在创建时固定。",
+              ),
+            ),
+          )
         : h(AgentsTab, { engagement: eng, refreshKey: refreshKey });
     else if (!eng) {
       body = h(
@@ -9805,15 +10048,48 @@ export const __dshPurgeDrill = (() => {
                 marginBottom: 8,
               },
             },
-            "创建红队或 SRC 靶标。SRC 在明确范围内发现漏洞，取得直接证据后停止该项验证。",
+            "创建红队、SRC 或渗透靶标。SRC 与渗透模式必须在明确授权范围内工作。",
           ),
-          h("select", { className: "rt-input", value: newMode, onChange: event => setNewMode(event.target.value) },
-            h("option", { value: "redteam" }, "红队模式"), h("option", { value: "src" }, "SRC 漏洞发现模式")),
-          h("textarea", { className: "rt-textarea", rows: 3, value: newScope,
-            placeholder: "明确授权范围，每行一项 URL / 域名 / IP / CIDR；SRC 必填",
-            onChange: event => setNewScope(event.target.value) }),
-          newMode === "src" ? h("textarea", { className: "rt-textarea", rows: 2, value: newExclude,
-            placeholder: "排除范围，每行一项；可留空", onChange: event => setNewExclude(event.target.value) }) : null,
+          h(
+            "select",
+            {
+              className: "rt-input",
+              value: newMode,
+              onChange: (event) => setNewMode(event.target.value),
+            },
+            assessmentModeOptions.map((option) =>
+              h("option", { key: option[0], value: option[0] }, option[1]),
+            ),
+          ),
+          h("textarea", {
+            className: "rt-textarea",
+            rows: 3,
+            value: newScope,
+            placeholder:
+              "明确授权范围，每行一项 URL / 域名 / IP / CIDR；SRC 与渗透模式必填",
+            onChange: (event) => setNewScope(event.target.value),
+          }),
+          newModeNeedsScope
+            ? h("textarea", {
+                className: "rt-textarea",
+                rows: 2,
+                value: newExclude,
+                placeholder: "排除范围，每行一项；没有排除项时也可留空",
+                onChange: (event) => setNewExclude(event.target.value),
+              })
+            : null,
+          newMode === "pentest"
+            ? h(
+                "p",
+                {
+                  style: {
+                    fontSize: 12,
+                    color: "var(--dsw-alias-label-secondary)",
+                  },
+                },
+                "渗透模式使用随插件提供的内置评估核心和预设，无需选择外部项目。",
+              )
+            : null,
           h(
             "div",
             { style: { display: "flex", gap: 8 } },
@@ -9831,7 +10107,10 @@ export const __dshPurgeDrill = (() => {
               "button",
               {
                 className: "rt-btn rt-btn-primary",
-                disabled: creating,
+                disabled:
+                  creating ||
+                  !newName.trim() ||
+                  (newModeNeedsScope && !hasNewScope),
                 onClick: () => openEngagement(),
               },
               creating ? "创建中…" : "创建靶标",
@@ -9839,7 +10118,7 @@ export const __dshPurgeDrill = (() => {
           ),
         ),
       );
-    } else if (st.tab === "assets")
+    } else if (activeTab === "assets")
       body = h(AssetsTab, {
         engagement: eng,
         snapshot: snapshot,
@@ -9847,7 +10126,7 @@ export const __dshPurgeDrill = (() => {
         onRefresh: refreshAll,
         onData: () => loadSnapshot(eng),
       });
-    else if (st.tab === "testing")
+    else if (activeTab === "testing")
       body = h(AssetsTab, {
         engagement: eng,
         snapshot: snapshot,
@@ -9855,18 +10134,29 @@ export const __dshPurgeDrill = (() => {
         onRefresh: refreshAll,
         onData: () => loadSnapshot(eng),
       });
-    else if (st.tab === "sessions")
+    else if (activeTab === "sessions")
       body = h(SessionTab, { engagement: eng, refreshKey: refreshKey });
-    else if (st.tab === "findings")
-      body = h(FindingsTab, { engagement: eng, refreshKey: refreshKey, assessmentMode: isSrc ? "src" : "redteam" });
-    else if (st.tab === "chain")
+    else if (activeTab === "findings")
+      body = h(FindingsTab, {
+        engagement: eng,
+        refreshKey: refreshKey,
+        assessmentMode: currentMode,
+      });
+    else if (activeTab === "chain")
       body = h(ChainTab, { engagement: eng, refreshKey: refreshKey });
-    else if (st.tab === "report")
-      body = isSrc ? h(SrcDiscoveryReport, { engagement: eng, api })
-        : h(ReportTab, { engagement: eng, refreshKey: refreshKey });
-    else if (st.tab === "attackfiles")
+    else if (activeTab === "report")
+      body = isPentest
+        ? h(PentestReport, { engagement: eng, api })
+        : h(AssessmentReportHub, {
+            engagement: eng,
+            api,
+            src: isSrc,
+            detail: isSrc ? SrcDiscoveryReport : ReportTab,
+            detailProps: { refreshKey },
+          });
+    else if (activeTab === "attackfiles")
       body = h(FindingsTab, { engagement: eng, refreshKey: refreshKey });
-    else if (st.tab === "scores")
+    else if (activeTab === "scores")
       body = h(ScoreTab, { engagement: eng, refreshKey: refreshKey });
     else body = h("div", { className: "rt-empty" }, "未知页签");
 
@@ -9971,11 +10261,32 @@ export const __dshPurgeDrill = (() => {
             engagements.length ? "选择靶标" : "暂无靶标",
           ),
           engagements.map((x) =>
-            h("option", { key: x.id, value: x.id }, (x.assessment_mode === "src" ? "[SRC] " : "") + (x.name || x.id || "未命名")),
+            h(
+              "option",
+              { key: x.id, value: x.id },
+              assessmentModeLabel(x.assessment_mode) +
+                (x.name || x.id || "未命名"),
+            ),
           ),
         ),
-        isSrc ? h("span", { className: "rt-tag" }, "直接证据即停止") : null,
-        h("button", { className: "rt-btn", onClick: () => { setEng(null); setSnapshot(null); setErr(null); setUI({ tab: "assets" }); } }, "新建靶标"),
+        isSrc
+          ? h("span", { className: "rt-tag" }, "直接证据即停止")
+          : isPentest
+            ? h("span", { className: "rt-tag" }, "内置评估 · 完整报告")
+            : null,
+        h(
+          "button",
+          {
+            className: "rt-btn",
+            onClick: () => {
+              setEng(null);
+              setSnapshot(null);
+              setErr(null);
+              setUI({ tab: "assets" });
+            },
+          },
+          "新建靶标",
+        ),
         h("div", { className: "rt-spacer" }),
         embedded ? null : h(VersionBar, null),
         full
@@ -10039,9 +10350,9 @@ export const __dshPurgeDrill = (() => {
             "div",
             Object.assign({}, clickable(activate, { label: t[1] }), {
               key: t[0],
-              className: "rt-tab" + (st.tab === t[0] ? " on" : ""),
+              className: "rt-tab" + (activeTab === t[0] ? " on" : ""),
               role: "tab",
-              "aria-selected": st.tab === t[0] ? "true" : "false",
+              "aria-selected": activeTab === t[0] ? "true" : "false",
               title: unreadOf(t[0])
                 ? t[1] + "：有新内容，点开看过红点就会消失"
                 : t[1],
@@ -10056,8 +10367,8 @@ export const __dshPurgeDrill = (() => {
       ),
       h(
         "div",
-        { className: "rt-body", key: "body-" + st.tab },
-        h(RtBoundary, { key: st.tab }, body),
+        { className: "rt-body", key: "body-" + activeTab },
+        h(RtBoundary, { key: activeTab }, body),
       ),
       h(
         "div",
@@ -10167,6 +10478,10 @@ export const __dshPurgeDrill = (() => {
       useUI: useUI,
       isFullWindow: isFullWindow,
       setDockWidth: setDockWidth,
+      SidebarButton,
+      HeaderButton,
+      FullButton,
+      FindingsTab,
     };
   }
 

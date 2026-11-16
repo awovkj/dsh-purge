@@ -1,8 +1,12 @@
 # 安装、升级与故障排查
 
-当前版本 **1.8.0**。面向用户与协助安装的 Agent。支持的安装器环境：Linux CLI/Web；macOS Desktop；Windows 11 的 PowerShell 5.1/7。完整 Windows 宿主补丁及界面验收与安装器测试分开，不能因安装通过就宣称全部功能正常。
+当前源码版本 **1.12.0**。面向用户与协助安装的 Agent。历史安装器支持 Linux CLI/Web、macOS Desktop、Windows 11 的 PowerShell 5.1/7；本次为三模式源码/生成物、隔离回归与真实 localhost HTTP，没有打包发布或安装正式实例。1.12.0 的固定发行 URL 待正式发布后使用。实际 Playwright/Yak/TscanPlus/WSL、模型选择、宿主与 GUI 未验收；已有 rc.3 Loader/工具目录验收来自 1.10.0，86 条补丁源码目标仍为 rc.1。[本轮范围与验证](MODE-UPGRADE-1.12.0.md)。
 
 内置评估源码随主包的 `lib/redteam/assessment-engine/` 提供，运行时无需安装或绑定独立 awa-ddd。评估使用 Node ≥22.19、Python ≥3.10，以及当前靶标自己的 `assessment` 台账；普通 Purge 功能的运行条件见 README。升级保留旧外部 settings/binding、原提示词和用户设置，不自动初始化目标评估或重启 DSH。首次按真实 HTTP URL 准备评估的流程见 [红队/内置评估/SRC](REDTEAM-AWA-SRC.md)。
+
+1.10.0 修复红队 `list_agents` 与 fork 的真实加载阻塞，统一受控注册重试、回收及健康审计。SRC 按 [漏洞提交流程](SRC-SUBMISSION.md) 记录具体安全缺陷，纯缺安全头、版本/banner 与配置建议不进入漏洞表；渗透保留独立建议和本范围测试凭据句柄。高价值可信记分策略默认开启，操作者明确保存的 false 保留。内置评估页继续由操作者保存本机/WSL Python 与超时设置；旧预设仅在内存适配，用户 YAML 原文保留。文件定位不代表可启动，历史注册回执不代表 GUI 已重载。本次没有安装 Playwright 或运行真实浏览器，浏览器缺件继续保留受阻原因。
+
+工具部署附件随源码分发，但安装插件不执行下载助手。需要工具时复用已有路径或显式选择固定版本与 SHA256 锁，缺 pin/摘要保持受阻；不自动改系统源、代理、环境值或用户配置。[部署与回执](TOOLKIT-PINS.md)。新凭据采用本地加密，默认只返回句柄；备份、迁移凭据数据时同时保留对应 vault key 与 engagement 身份。当前源码工作没有迁移实际用户数据。
 
 ## 安装前
 
@@ -176,7 +180,7 @@ try {
 
 历史版本在真实 Windows 11 专业版（build 26300）使用签名有效的官方 Desktop 0.2.1-rc.2 运行时、独立应用副本、DSH_HOME 和 user-data-dir 验证下载校验、安装、快照、回滚及设置保留，PowerShell 5.1/7 回归通过。该证据不代表登录、完整 UI 或全部宿主补丁已经验收。详见 [1.6.10 记录](releases/1.6.10.md)。
 
-1.6.14 修复 macOS CLI 执行位丢失，并增加只读 host-status。当前版本的测试范围见 [1.6.14 验收记录](releases/1.6.14.md)，不要将历史 Windows 桌面验收写成本版重新进行了完整界面验收。
+1.6.14 修复 macOS CLI 执行位丢失，并增加只读 host-status。该历史版本的测试范围见 [1.6.14 验收记录](releases/1.6.14.md)，不要将历史 Windows 桌面验收写成本版重新进行了完整界面验收。
 
 ## 1.6.29：回滚与网络
 

@@ -9,8 +9,9 @@ import { createServer } from 'node:http';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { checkEmbeddedAssessment } from '../scripts/sync-assessment-engine.mjs';
+import { checkEmbeddedAssessment, recordReviewedLocalAssessment } from '../scripts/sync-assessment-engine.mjs';
 import { removeTreeNoFollowSync } from '../lib/remove-tree.js';
+import { defaultPythonExecutable } from '../lib/redteam/native-assessment.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EMBEDDED = path.join(ROOT, 'lib', 'redteam', 'assessment-engine');
@@ -19,7 +20,7 @@ const PROJECT_ID = 'assessment';
 const TARGET = 'https://fixture.invalid/api/private';
 const SCOPE = ['https://fixture.invalid/api'];
 const EXCLUDE = ['https://fixture.invalid/api/admin'];
-const PYTHON = process.env.AWA_DDD_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+const PYTHON = process.env.AWA_DDD_TEST_PYTHON || defaultPythonExecutable();
 const SNAPSHOT = String.raw`
 import json, sys
 from awa_ddd.store import Project
@@ -102,12 +103,35 @@ test('embedded provenance checks work offline and detect changed shipped source'
   const fixture = isolatedPackage(t);
   const files = fixture.provenance.files;
   assert(files.some(file => file.path === 'awa_ddd/execution/test_runner.py'));
-  assert.equal(files.filter(file => file.origin === 'dsh-purge').length, 1);
+  assert.deepEqual(files.filter(file => file.origin === 'dsh-purge').map(file => file.path).sort(),
+    ['awa_ddd/capture_batch.py', 'awa_ddd/dsh_context.py', 'awa_ddd/execution/authorization_provider.py',
+      'awa_ddd/execution/input_contract.py', 'awa_ddd/execution/request_builder.py', 'awa_ddd/execution/tool_router.py',
+      'awa_ddd/planning/membership.py', 'awa_ddd/proof_claim.py']);
   assert(files.some(file => file.path === 'awa_ddd/dsh_context.py' && file.origin === 'dsh-purge' && file.upstream_sha256 === null));
   assert(files.every(file => !/node_modules|__pycache__|\.pyc$|\/tests_[^/]+\.py$|sdk|plugin\.mjs|\.sqlite3$/.test(file.path)));
   assert.equal(checkEmbeddedAssessment(fixture.repository).source_sha256, metadata.source_sha256);
   fs.appendFileSync(path.join(fixture.component, 'awa_ddd', 'engine.py'), '\n# fixture tampering\n');
   assert.throws(() => checkEmbeddedAssessment(fixture.repository), /integrity mismatch: awa_ddd\/engine\.py/);
+});
+
+test('explicit local adaptation recording rejects unreviewed bytes and preserves upstream attribution', t => {
+  const fixture = isolatedPackage(t);
+  fs.writeFileSync(path.join(fixture.repository, 'package.json'), JSON.stringify({ type: 'module', version: '1.12.0' }) + '\n');
+  const original = fs.readFileSync(path.join(fixture.component, 'provenance.json'), 'utf8');
+  const unreviewed = path.join(fixture.component, 'awa_ddd', '__init__.py');
+  fs.appendFileSync(unreviewed, '\n');
+  assert.throws(() => recordReviewedLocalAssessment({ repositoryRoot: fixture.repository }), /Unreviewed changed assessment source/);
+  assert.equal(fs.readFileSync(path.join(fixture.component, 'provenance.json'), 'utf8'), original);
+  fs.copyFileSync(path.join(EMBEDDED, 'awa_ddd', '__init__.py'), unreviewed);
+  fs.appendFileSync(path.join(fixture.component, 'awa_ddd', 'engine.py'), '\n');
+  const recorded = recordReviewedLocalAssessment({ repositoryRoot: fixture.repository });
+  const next = JSON.parse(fs.readFileSync(path.join(fixture.component, 'provenance.json'), 'utf8'));
+  assert.equal(next.upstream.source_sha256, fixture.provenance.upstream.source_sha256);
+  assert.deepEqual(next.files.map(file => file.upstream_sha256), fixture.provenance.files.map(file => file.upstream_sha256));
+  assert.equal(recorded.runtime_probed, false);
+  assert.equal(recorded.source_verification_performed, false);
+  assert.equal(recorded.adaptation_version, '1.12.0');
+  assert.equal(checkEmbeddedAssessment(fixture.repository).source_sha256, fixture.provenance.upstream.source_sha256);
 });
 
 test('a standalone embedded package enforces SRC before traffic and preserves imported claims as unverified', { timeout: 60000 }, async t => {

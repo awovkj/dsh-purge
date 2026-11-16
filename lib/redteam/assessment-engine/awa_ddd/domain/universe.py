@@ -67,11 +67,16 @@ def new_universe(*, scope_epoch, origins, routes, pages, functions, operations, 
 
 def route_record(*, path_template, source_kind, source_ref, dynamic_params=None,
                  page_ids=None, operation_ids=None, limitations=None, aliases=None,
-                 redirect=None, catch_all=False, lazy=False, unresolved=False):
+                 redirect=None, catch_all=False, lazy=False, unresolved=False, origin=None,
+                 method=None, protocol=None, operation_name=None, content_type=None):
     enum(source_kind, "route_source_kind", SOURCE_KINDS)
     path_template = text(path_template, "path_template", maximum=2048)
     record = {
-        "route_id": stable_id("R", {"path": path_template, "source": source_kind, "ref": source_ref}),
+        "route_id": stable_id("R", {"path": path_template, "source": source_kind, "ref": source_ref,
+                                    "origin": origin, "method": method, "protocol": protocol,
+                                    "operation_name": operation_name, "content_type": content_type}),
+        "origin": origin, "method": method, "protocol": protocol,
+        "operation_name": operation_name, "content_type": content_type,
         "path_template": path_template,
         "dynamic_params": sequence(dynamic_params or [], "dynamic_params", maximum=64),
         "source_kind": source_kind,
@@ -109,6 +114,8 @@ def operation_record(operation, consumers=None):
             "consumer": consumer or None,
             "consumer_status": status,
             "test_families": list(entry.get("test_families") or []),
+            "schema_type": entry.get("schema_type"), "required": entry.get("required"),
+            "test_contract": entry.get("test_contract"),
             "source_kind": "registered_operation",
         })
         consumers.append({
@@ -118,12 +125,18 @@ def operation_record(operation, consumers=None):
             "source": "registered_operation",
         })
     template, dynamic = _route_template(operation["url"])
+    from ..scope import origin
     return {
         "operation_id": operation["id"],
+        "url": operation["url"], "origin": origin(operation["url"]),
         "method": operation.get("method"),
         "url_template": template,
         "protocol": operation.get("protocol", "http"),
         "auth": operation.get("auth"),
+        "ownership": operation.get("ownership", False),
+        "allowed_roles": list(operation.get("allowed_roles") or []),
+        "operation_name": operation.get("operation_name", ""),
+        "content_type": operation.get("content_type", ""),
         "operation_signature": None,
         "dynamic_segments": dynamic,
         "inputs": inputs,

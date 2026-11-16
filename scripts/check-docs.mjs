@@ -14,7 +14,8 @@ const agents = read("AGENTS.md");
 const problems = [];
 if (read("README.zh-CN.md") !== readme) problems.push("README.zh-CN.md 必须与 README.md 保持一致");
 for (const file of ["docs/MAINTENANCE.md", "docs/INSTALLATION.md"]) {
-  if (!read(file).includes(`当前版本 **${version}**`)) problems.push(`${file} 当前版本未同步到 ${version}`);
+  if (!["当前版本", "当前源码版本"].some(label => read(file).includes(`${label} **${version}**`)))
+    problems.push(`${file} 当前版本未同步到 ${version}`);
 }
 for (const [file, needles] of [
   ["README.md", ["scripts/install.ps1", "issue #7", "插件加载前", "不修改全局 npm 源"]],
@@ -31,17 +32,17 @@ if (!readme.includes(`**${version}**`)) {
 if (!readme.includes("raw.githubusercontent.com/kingcharleslzy-ai/dsh-purge/master/scripts/install.sh")) {
   problems.push("README.md 缺少安装器下载命令");
 }
-if (!readmeEn.includes(`Current version ${version}`)) {
-  problems.push(`docs/README.en.md 缺少 "Current version ${version}"`);
+if (!["Current version", "Current source version"].some(label => readmeEn.includes(`${label} ${version}`))) {
+  problems.push(`docs/README.en.md 缺少当前版本或源码版本 ${version}`);
 }
-if (!agents.includes(`当前版本：**${version}**`)) {
-  problems.push(`AGENTS.md 缺少 "当前版本：**${version}**"`);
+if (!["当前版本", "当前源码版本"].some(label => agents.includes(`${label}：**${version}**`))) {
+  problems.push(`AGENTS.md 缺少当前版本或源码版本 **${version}**`);
 }
 if (!agents.includes(`\`dsh-purge-community\` ${version}`)) {
   problems.push(`AGENTS.md §9 版本表未同步到 ${version}`);
 }
-const hostLine = readme.match(/适配 \*\*DSH Desktop ([0-9a-z.\-]+)\*\*/i);
-if (!hostLine) problems.push("README.md 缺少「适配 DSH Desktop …」的版本行");
+const hostLine = readme.match(/(?:适配|宿主目标) \*\*DSH Desktop ([0-9a-z.\-]+)\*\*/i);
+if (!hostLine) problems.push("README.md 缺少 DSH Desktop 适配或宿主目标版本行");
 
 // Copyable release commands must move with the package version, not retain an old TGZ.
 for (const file of ["README.md", "docs/README.en.md"]) {

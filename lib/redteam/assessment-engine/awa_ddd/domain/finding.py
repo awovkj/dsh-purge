@@ -1,11 +1,10 @@
-"""Findings: machine-confirmed and reviewed-confirmed detection are equal detections
-but unequal evidence quality.  A hint is never a finding."""
+"""Machine verdicts and analyst drafts have distinct factual authority."""
 from __future__ import annotations
 
 from .common import digest, enum, optional_text, sequence, stable_id, string_list, text, utc_now
 
 MODES = {"machine", "reviewed"}
-STATUSES = {"machine_confirmed", "reviewed_confirmed", "rejected", "withdrawn"}
+STATUSES = {"machine_confirmed", "reviewed_confirmed", "reviewed_draft", "rejected", "withdrawn"}
 SEVERITIES = {"critical", "high", "medium", "low", "info"}
 
 
@@ -26,7 +25,7 @@ def new_finding(*, hypothesis_id, run_id=None, review_id=None, mode, severity, t
     if mode == "reviewed" and not review_id:
         from .common import fail
         fail("v2_finding_review", "reviewed finding requires an accepted review contract")
-    status = "machine_confirmed" if mode == "machine" else "reviewed_confirmed"
+    status = "machine_confirmed" if mode == "machine" else "reviewed_draft"
     identity = {"hypothesis": hypothesis_id, "run": run_id, "review": review_id,
                 "title": title, "category": category}
     return {
@@ -80,7 +79,8 @@ def summary(findings):
     return {
         "current_total": len(current),
         "machine_confirmed": sum(row.get("mode") == "machine" for row in current),
-        "reviewed_confirmed": sum(row.get("mode") == "reviewed" for row in current),
+        "reviewed_confirmed": 0,
+        "reviewed_drafts": sum(row.get("mode") == "reviewed" for row in current),
         "legacy_unlinked": sum(bool(row.get("legacy_unlinked")) for row in current),
         "all_total": len(findings),
     }

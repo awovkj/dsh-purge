@@ -16,14 +16,14 @@ PROVIDERS = {"http", "browser", "scenario", "external"}
 EFFECTS = {"read_only", "test_resource_write"}
 ORACLE_TYPES = {
     "baseline", "authorization", "semantic_negative", "state_invariant", "state_transition",
-    "extraction", "error_channel", "sql_metadata", "expression_evaluation",
+    "extraction", "error_channel", "sql_metadata", "sql_boolean", "expression_evaluation",
     "parser_identification", "unexpected_expression_evaluation", "unsafe_type_instantiation",
     "bounded_side_effect", "upload_path_escape", "browser_runtime", "race", "token_lifecycle",
 }
 PROOF_SCOPES = {
     "baseline_observation", "authorization_boundary", "semantic_refutation",
     "state_invariant_observation", "state_transition", "extraction_observation",
-    "error_channel_observation", "sql_metadata_observation", "parser_identification",
+    "error_channel_observation", "sql_metadata_observation", "sql_boolean_difference", "parser_identification",
     "unexpected_expression_evaluation", "unsafe_type_instantiation", "bounded_side_effect",
     "upload_path_escape", "browser_runtime_xss", "race_condition", "token_lifecycle",
 }
@@ -71,14 +71,16 @@ def new_recipe(*, hypothesis, provider, bindings, control_groups, oracle, steps,
     limits = mapping(limits, "limits")
     integer(limits.get("step_total", len(steps)), "step_total", minimum=1, maximum=25)
     integer(limits.get("time_ms", 120000), "time_ms", minimum=100, maximum=600000)
-    writes = integer(limits.get("max_writes", 0), "max_writes", minimum=0, maximum=1)
+    writes = integer(limits.get("max_writes", 0), "max_writes", minimum=0, maximum=25)
+    actual_writes = sum(str(control["request"].get("method", "GET")).upper() not in {"GET", "HEAD", "OPTIONS"}
+                        for group in groups for control in group.get("controls", []))
     effect = enum(limits.get("effect", "read_only"), "effect", EFFECTS)
     if effect == "test_resource_write":
-        if writes != 1:
-            fail("v2_recipe_effect", "Write recipes require max_writes:1")
+        if writes < 1 or writes != actual_writes:
+            fail("v2_recipe_effect", "Write budget must exactly match the frozen mutating controls")
         if not bindings.get("fixture"):
             fail("v2_recipe_fixture", "Write recipes require a frozen fixture binding")
-    elif writes != 0:
+    elif writes != 0 or actual_writes != 0:
         fail("v2_recipe_effect", "Read-only recipes cannot declare writes")
     variables = mapping(variables or {}, "variables")
     for name, rule in variables.items():
@@ -228,6 +230,10 @@ def assert_current(recipe, context):
             fail("v2_recipe_stale", f"Recipe binding {binding_key} is stale; recompile the recipe",
                  binding=binding_key)
     session = bindings.get("session")
+    if bindings.get("sessions") is not None and bindings["sessions"] != current.get("sessions"):
+        fail("v2_recipe_stale", "An independent control principal, credential or verification changed")
+    if bindings.get("resource_signature") != current.get("resource_signature"):
+        fail("v2_recipe_stale", "The exact owned resource binding changed")
     if session:
         actual = current.get("session") or {}
         for key in ("session_id", "generation", "actor_id"):

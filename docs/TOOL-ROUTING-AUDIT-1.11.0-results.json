@@ -1,0 +1,132 @@
+{
+  "schema": "dsh-purge-tool-routing-audit-capture/v1",
+  "recorded_date": "2026-11-15",
+  "command": "node scripts/audit-tool-routing.mjs",
+  "exit_code": 0,
+  "capture_note": "Native handlers run against temporary state and synthetic MCP/browser inputs. This tests call-chain and routing behavior, not installed tool execution, real browser observations, WSL startup, network topology or actual model tool-selection recall.",
+  "source_sha256": {
+    "scripts/audit-tool-routing.mjs": "00bdabf3d0e7f4c343c1048a32486a2d56d2e361cbe974980d27fecc51fb81ed",
+    "lib/redteam/assessment-engine/awa_ddd/execution/capabilities.py": "c4157991736fed338beeaa06ac71fa29d958715598f8e9bd3e85e8bfa0fa5e82",
+    "lib/redteam/assessment-engine/awa_ddd/execution/browser_provider.py": "1cba1c55d1f1d8352fe1e601f5f8f2579deb0dc5a8b098d2839818cc73729223",
+    "lib/redteam/assessment-engine/awa_ddd/execution/oracle_profiles.py": "33317dab4da6df369d43a4c7930f5c673b24d47161d79d2f3cfeb7a9dbab30f4",
+    "lib/redteam/assessment-engine/awa_ddd/runtime.py": "d69ef31029e1f7e4f91f25427e6227079842e3b203d15f59b44271c5564d99a4",
+    "lib/redteam/assessment-engine/awa_ddd/tscanplus.py": "0b8dd33f17cca3eb06935cca92943ec8087cad81ee183480bd214e754833ec78"
+  },
+  "regression_checks": {
+    "command": "node --test --test-concurrency=2 test/platform-wsl.test.mjs test/redteam-skill-catalog.test.mjs",
+    "tests": 12,
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "note": "Existing catalogue and mocked WSL routing tests; not live tool or model-selection acceptance."
+  },
+  "result": {
+    "schema": "dsh-purge-tool-routing-audit/v1",
+    "package_version": "1.11.0",
+    "isolation": {
+      "synthetic_tool_transports": true,
+      "target_network_disabled": true,
+      "temporary_state_only": true,
+      "real_browser_launched": false,
+      "real_yak_executed": false,
+      "real_wsl_started": false,
+      "model_selection_test_performed": false
+    },
+    "native": {
+      "playwright": {
+        "synthetic_probe_available": true,
+        "capability_catalog_verified": false,
+        "capability_ready": false,
+        "capability_reasons": [
+          "runtime_probe_required",
+          "host_mcp_catalog_not_verified"
+        ],
+        "xss_evaluation": {
+          "evaluation": {
+            "outcome": "inconclusive",
+            "proof_scope": "browser_runtime_xss",
+            "missing": [
+              "application_triggered_dialog",
+              "attack_controls",
+              "normal_control_no_dialog",
+              "same_identity_control_group"
+            ],
+            "finding_allowed": false,
+            "limitations": [
+              "missing required observations: application_triggered_dialog, attack_controls, normal_control_no_dialog, same_identity_control_group"
+            ],
+            "observations": {
+              "trigger_source": "application",
+              "application_triggered": true,
+              "attack_dialog": true,
+              "normal_dialog": false,
+              "consumer_page": "https://tool.audit.invalid/api/consumer",
+              "same_identity": true,
+              "content_version": "6e0f1c3eab1b8b041babab47321b23d14790a68da87772b036467f2f48760fae",
+              "writer_attack_evidence": "E-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "writer_normal_evidence": "E-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "finding_allowed": false,
+          "notice": "Only an application-triggered runtime dialog on the real consumer page satisfies browser_runtime."
+        },
+        "v2_findings_created": 0,
+        "v2_runs_created": 0,
+        "multi_role_readiness_reasons": [
+          "host_mcp_catalog_not_verified",
+          "requires_independent_provider_owned_contexts",
+          "runtime_probe_required"
+        ]
+      },
+      "yakit": {
+        "synthetic_probe_available": true,
+        "catalog_tools": ["codec"],
+        "capability_ready": true,
+        "actual_profile_status": "failed",
+        "actual_profile_error": "mcp_capability",
+        "mcp_tool_calls": 0,
+        "post_readiness_for_public_get_profile": true
+      },
+      "yakit_protocol": {
+        "catalog_has_https_control": false,
+        "http_and_https_mcp_arguments_equal": true,
+        "synthetic_replay_states": ["succeeded", "succeeded"],
+        "mcp_tool_calls": 2
+      },
+      "tscanplus": {
+        "synthetic_probe_available": true,
+        "existing_summary_profile_status": "succeeded",
+        "native_configuration_saved": true,
+        "capability_configured": false,
+        "capability_ready": false,
+        "capability_reasons": ["unconfigured", "loopback_mcp_required"],
+        "mcp_tool_calls": 1
+      },
+      "wsl_translation": {
+        "scenario_run_translates_step_body_file": true,
+        "test_run_scenario_translates_step_body_file": false,
+        "tool_sqlmap_translates_executable_path": true,
+        "test_run_external_translates_executable_path": false
+      }
+    },
+    "browser_facade_guidance": {
+      "workflow_phase": "remaining_work",
+      "next_action": "campaign.status"
+    },
+    "top_level_assessment_description_mentions": {
+      "playwright": false,
+      "yakit": false,
+      "tscanplus": false,
+      "browser.visit": false,
+      "test.run_browser": false,
+      "tool.yakit_replay": false,
+      "tool.tscanplus_request": false
+    },
+    "windows_configured_linux_path": {
+      "source": "missing",
+      "wsl_resolution_calls": 0,
+      "executable_found": false
+    }
+  }
+}

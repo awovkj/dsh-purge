@@ -27,8 +27,10 @@ KINDS = {
     "legacy_evaluation": "v2_legacy_evaluation",
     "route_source": "v2_route_source",
     "event": "v2_event",
+    "membership": "v2_membership",
+    "campaign_hypothesis": "v2_campaign_hypothesis",
 }
-IMMUTABLE = {"universe", "recipe", "review", "checkpoint", "migration", "legacy_evaluation", "event"}
+IMMUTABLE = {"universe", "recipe", "review", "checkpoint", "migration", "legacy_evaluation", "event", "membership"}
 INDEX_KEYS = {
     "campaign": ("state", "model"),
     "known_case": ("source_group", "track", "status"),
@@ -101,6 +103,11 @@ class Repository:
         entity_kind = self._kind(kind)
         keys = index if index is not None else INDEX_KEYS.get(kind, ())
         with self.project.transaction():
+            if kind == "hypothesis" and record.get("_campaign_id"):
+                from ..planning.membership import state_record
+                state = state_record(self.project, record)
+                self.project.put(KINDS["campaign_hypothesis"], state, create_only=False)
+                record = {key: value for key, value in record.items() if key != "_campaign_id"}
             # Drop old index entries for fields that may have changed (status,
             # lease, family), then insert the current values atomically.
             self.connection.execute("DELETE FROM v2_entity_index WHERE kind=? AND id=?", (entity_kind, record["id"]))

@@ -36,14 +36,17 @@ _FIELD_RULES = [
 
 
 def _field_text(entry):
-    return " ".join(str(entry.get(key) or "") for key in ("name", "selector", "consumer")).lower()
+    values = [str(entry.get(key) or "") for key in ("name", "selector", "consumer")]
+    tokens = [re.sub(r"[^\w\u4e00-\u9fff]+|_", " ", re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", value)).lower()
+              for value in values]
+    return " ".join(tokens + [value.lower() for value in values])
 
 
 def _semantic_rules(entry):
     text = _field_text(entry)
     matches = []
     for pattern, family, prop, missing in _FIELD_RULES:
-        if re.search(pattern, text):
+        if re.search(r"(?<!\w)(?:" + pattern + r")(?!\w)", text):
             matches.append((family, prop, list(missing)))
     return matches
 
@@ -53,12 +56,44 @@ def _operation_lookup(universe):
 
 
 def _known_case_operation(case, operations):
+    from ..scope import origin
+    from ..domain.universe import _route_template
+    from ..store import EngineError
+    try:
+        case_origin = origin(case.get("url", ""))
+    except (EngineError, TypeError, ValueError):
+        return stable_id("OPX", {"url": case.get("url"), "method": case.get("method")})
+    matches = []
     for operation in operations.values():
         if operation.get("method") != case.get("method"):
             continue
-        if operation.get("url_template") and operation["url_template"] == _template_suffix(case.get("url", "")):
-            return operation["operation_id"]
+        if operation.get("origin") != case_origin:
+            continue
+        if any(case.get(key) is not None and case[key] != operation.get(key)
+               for key in ("protocol", "operation_name", "content_type")):
+            continue
+        if operation.get("url_template") == _route_template(case.get("url", ""))[0]:
+            matches.append(operation["operation_id"])
+    if len(matches) == 1:
+        return matches[0]
     return stable_id("OPX", {"url": case.get("url"), "method": case.get("method")})
+
+
+def _known_case_input(case, operation):
+    params = case.get("params") or []
+    if len(params) != 1:
+        return None
+    parameter = params[0]
+    if isinstance(parameter, str):
+        parameter = {"name": parameter}
+    if not isinstance(parameter, dict) or not any(parameter.get(key) for key in ("name", "selector")):
+        return None
+    allowed = {"name", "location", "selector", "schema_branch"}
+    if set(parameter) - allowed:
+        return None
+    matches = [entry for entry in (operation or {}).get("inputs", [])
+               if all(entry.get(key) == value for key, value in parameter.items())]
+    return matches[0] if len(matches) == 1 else None
 
 
 def _template_suffix(url):
@@ -144,6 +179,13 @@ def generate_hypotheses(universe, known_cases=None):
                 statement=f"{operation.get('method')} {operation.get('url_template')} 的资源访问是否受主体/租户边界约束。",
                 missing_context=["verified_principal_and_roles", "verified_tenant_membership", "owned_test_fixture"],
                 status="blocked"))
+        if auth == "restricted":
+            _push(hypothesis_rows, seen, new_hypothesis(
+                family="access_control", security_property="role_authorization",
+                operation_id=op_id, scope_epoch=scope_epoch, target_build=target_build,
+                source_kind="access_policy",
+                statement=f"{operation.get('method')} {operation.get('url_template')} 是否拒绝已核实且不具有允许角色的独立主体。",
+                missing_context=["verified_principal_and_roles", "normal_business_assertion"], status="blocked"))
         if operation.get("method") not in {"GET", "HEAD", "OPTIONS"}:
             for prop in ("state_transition_authorization", "operation_idempotency"):
                 _push(hypothesis_rows, seen, new_hypothesis(
@@ -175,17 +217,20 @@ def generate_hypotheses(universe, known_cases=None):
     for case in known_cases or []:
         case = case if isinstance(case, dict) else {}
         op_id = _known_case_operation(case, operations)
+        entry = _known_case_input(case, operations.get(op_id))
+        missing = ["exact_authorized_url"] if op_id not in operations else ["exact_input_request_binding"] if entry is None \
+                  else ["actual_input_consumer"] if str(entry.get("consumer") or "").lower() in UNKNOWN_CONSUMERS else []
         _push(hypothesis_rows, seen, new_hypothesis(
             family=case.get("family") or "generic",
             security_property=case.get("mechanism") or "known_case_mechanism",
             operation_id=op_id,
-            input_key=case.get("dedupe_key"),
+            input_key=entry.get("input_key") if entry else None,
             scope_epoch=scope_epoch, target_build=case.get("build") or target_build,
             source_kind="known_case", source_ref=case.get("source_ref"),
             known_case_id=case.get("id"),
             statement=f"已知案例 {case.get('id')}：{case.get('mechanism')} 在 {case.get('method')} {case.get('url')} 是否真实存在；案例只作选题。",
-            missing_context=["exact_authorized_url"] if not operations else [],
-            status="ready" if operations else "blocked"))
+            missing_context=missing,
+            status="blocked" if missing else "ready"))
 
     hypothesis_rows.sort(key=lambda row: (row["family"], row["operation_id"], row.get("input_key") or "", row["id"]))
     limited = len(hypothesis_rows) >= MAX_HYPOTHESES
@@ -207,6 +252,7 @@ def family_applicability(hypotheses):
             "status": "not_planned" if not rows else
                       "planned" if counts.get("ready") or counts.get("unplanned") or counts.get("running") else
                       "blocked" if counts.get("blocked") else
+                      "inconclusive" if counts.get("inconclusive") else
                       "not_applicable" if counts.get("not_applicable") == len(rows) else "completed",
             "counts": counts,
         })

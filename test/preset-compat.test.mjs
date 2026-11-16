@@ -77,7 +77,6 @@ test("ambiguous or unrepresentable policies stop without broadening the child to
     assert.deepEqual(before, snapshot);
   }
   for (const patch of [
-    { provider: "fork" },
     { agentPreset: "custom-child" },
     { allowedAgentPresets: ["custom-child"] },
   ]) {
@@ -88,6 +87,28 @@ test("ambiguous or unrepresentable policies stop without broadening the child to
       /configuration retained/,
     );
   }
+});
+
+test('filtered fork retains history and enforces denied child capabilities without independent preset selection', async () => {
+  const before = readPresetDefinition('redteam', path.resolve('presets/redteam'));
+  const original = structuredClone(before);
+  const { definitions: [child, parent] } = migratePresetDefinition(before);
+  assert.deepEqual(before, original);
+  const fork = walk(parent.plugins).find(row => row.config?.provider === 'fork');
+  assert.equal(fork.config.agentPreset, undefined);
+  assert.equal(fork.config.toolFilter, undefined);
+  assert.equal(fork.config.backgroundMode, 'continuable');
+  assert.equal(fork.config.maxDepth, 1);
+  assert.equal(spawn(parent).config.agentPreset, child.id);
+  assert(!walk(child.plugins).some(row => ['subagent', 'subagent_fork', 'workflow', 'ralph'].includes(row.config?.toolName)
+    || ['tool-workflow', 'tool-ralph'].includes(row.id)));
+  const policy = parent.plugins.find(row => row.id.startsWith('dsh-purge-child-policy-'));
+  const { childPolicyDenial, apply } = await import('../lib/preset-child-policy.js');
+  const deny = new Set(policy.config.deny);
+  assert.equal(childPolicyDenial(deny, { name: 'subagent', agent: { session: { header: {} } } }), undefined);
+  assert.equal(childPolicyDenial(deny, { name: 'read', agent: { session: { header: { parentSession: 'parent' } } } }), undefined);
+  assert.equal(childPolicyDenial(deny, { name: 'subagent', agent: { session: { header: { parentSession: 'parent' } } } }).code, 'PRESET_CHILD_TOOL_DENIED');
+  assert.throws(() => apply({ tools: {}, effect() {} }, policy.config), /tools.guard/);
 });
 
 test("backup is byte-exact, idempotent, private, and refuses corrupt snapshots", (t) => {
@@ -172,7 +193,7 @@ test("list_agents is adapted only for the verified merged provider in the same g
   const dir = path.join(root, "node_modules", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({name, version: "0.2.2-rc.1", exports: {".": "./index.js", "./package.json": "./package.json"}}));
-  fs.writeFileSync(path.join(dir, "index.js"), "");
+  fs.writeFileSync(path.join(dir, "index.js"), 'function registerListAgents(ctx) { const definition = defineTool({name:"list_agents"}); ctx.tools.register(definition); return definition; } export function apply(ctx) { const tool = registerListAgents(ctx); }');
   const anchor = path.join(root, "package.json");
   const main = {id:"control", name, disabled:false};
   const legacy = {id:"tool-subagent-list-agents", name:name + "/list-agents", disabled:false};

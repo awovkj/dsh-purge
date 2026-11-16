@@ -11,9 +11,10 @@ from ..domain.coverage_claim import hypothesis as hypothesis_claim
 from ..domain.coverage_claim import known_case as known_case_claim
 from ..domain.coverage_claim import machine_proof as machine_claim
 from ..domain.repository import Repository
+from ..store import EngineError
 from .hypotheses import family_applicability
 
-TERMINAL_HYPOTHESIS = {"supported", "refuted", "inconclusive", "not_applicable"}
+TERMINAL_HYPOTHESIS = {"supported", "refuted"}
 
 
 def _page_visited(page):
@@ -24,12 +25,41 @@ def compute(project, campaign_id):
     repository = Repository(project)
     campaign = repository.get("campaign", campaign_id)
     universe = repository.get("universe", campaign.get("universe_id"))
-    hypotheses, _ = repository.list("hypothesis", limit=None)
+    from .membership import rows as member_rows, view as membership_view
+    membership = membership_view(project, campaign)
+    hypotheses = member_rows(project, campaign, "hypothesis")
     hypotheses = [row for row in hypotheses if not row.get("superseded")]
-    known_cases, _ = repository.list("known_case", limit=None)
-    findings, _ = repository.list("finding", limit=None)
-    gaps, _ = repository.list("gap", limit=None)
-    runs, _ = repository.list("run", limit=None)
+    known_cases = member_rows(project, campaign, "known_case")
+    findings = member_rows(project, campaign, "finding")
+    gaps = member_rows(project, campaign, "gap")
+    runs = member_rows(project, campaign, "run")
+    current_runs = {}
+    for run in runs:
+        if run.get("mode") == "test":
+            current_runs[run["hypothesis_id"]] = run
+    projected = []
+    pending_results = []
+    from ..execution.test_runner import verify_saved_run
+    for row in hypotheses:
+        run = current_runs.get(row["id"])
+        if row.get("status") == "not_applicable":
+            row = {**row, "status": "blocked", "declared_status": "not_applicable",
+                   "state_reason": "unverified_applicability", "applicability_review_required": True}
+        if row.get("status") in TERMINAL_HYPOTHESIS or run and run.get("outcome") in TERMINAL_HYPOTHESIS:
+            try:
+                outcome = verify_saved_run(project, run)["outcome"] if run else None
+                if outcome not in TERMINAL_HYPOTHESIS:
+                    raise ValueError()
+                row = {**row, "status": outcome}
+            except (EngineError, ValueError, OSError, KeyError, TypeError):
+                row = {**row, "status": "inconclusive"}
+                pending_results.append(row["id"])
+        projected.append(row)
+    hypotheses = projected
+    known_cases = [{**case, "status": "reported" if any(row.get("known_case_id") == case["id"] and row.get("status") == "supported" for row in hypotheses)
+                   else "verified" if any(row.get("known_case_id") == case["id"] and row.get("status") == "refuted" for row in hypotheses)
+                   else "planned" if case.get("status") in {"verified", "reported"} else case.get("status")}
+                  for case in known_cases]
     from ..domain.known_case import summary as known_summary
     case_summary = known_summary(known_cases)
     known_claims = []
@@ -53,8 +83,13 @@ def compute(project, campaign_id):
     dispositioned = [row for row in hypotheses if row.get("status") not in {"unplanned", "ready", "running"}]
     outcomes = Counter(row.get("status") for row in hypotheses)
     hypothesis = hypothesis_claim(total=len(hypotheses), applicable=len(applicable), tested=len(tested),
-                                  dispositioned=len(dispositioned), outcomes=dict(outcomes))
-    current_findings = [row for row in findings if row.get("current")]
+                                  dispositioned=len(dispositioned), outcomes=dict(outcomes),
+                                  attempted=sum(row["id"] in current_runs for row in applicable))
+    from ..proof_claim import finding_proof_state
+    classified = [{**row, **finding_proof_state(project, row, model="v2")} for row in findings if row.get("current")]
+    pending_machine = [row for row in classified if row.get("proof_pending")]
+    reviewed_drafts = [row for row in pending_machine if row.get("mode") != "machine"]
+    current_findings = [row for row in classified if not row.get("proof_pending")]
     machine = machine_claim(current_findings=len(current_findings),
                             machine_confirmed=sum(row.get("mode") == "machine" for row in current_findings))
     family_matrix = family_applicability(hypotheses)
@@ -115,10 +150,34 @@ def compute(project, campaign_id):
     inconclusive_count = sum(row.get("status") == "inconclusive" for row in hypotheses)
     if inconclusive_count:
         remaining.append({"kind": "inconclusive", "count": inconclusive_count})
+    if pending_machine:
+        remaining.append({"kind": "finding_proof", "count": len(pending_machine)})
+    if pending_results:
+        remaining.append({"kind": "result_proof", "count": len(pending_results)})
+    unverified_applicability = [row for row in hypotheses if row.get("applicability_review_required")]
+    if unverified_applicability:
+        remaining.append({"kind": "unverified_applicability", "count": len(unverified_applicability)})
+    if membership["state"] != "frozen":
+        remaining.append({"kind": "legacy_membership_unknown", "count": 1})
+    recovery = []
+    for row in hypotheses:
+        if row.get("applicability_review_required"):
+            recovery.append({"hypothesis_id": row["id"], "status": "blocked", "reason": "unverified_applicability",
+                             "next": {"action": "surface.inspect", "input": {"operation_id": row["operation_id"]}},
+                             "offline_only": True, "automatic_retry_allowed": False, "denominator_retained": True})
+            continue
+        if row.get("status") != "inconclusive":
+            continue
+        run_id = (current_runs.get(row["id"]) or {}).get("id")
+        recovery.append({"hypothesis_id": row["id"], "run_id": run_id, "status": "inconclusive",
+                         "reason": "current_result_proof_required" if row["id"] in pending_results else (row.get("attempt") or {}).get("blocked_reason"),
+                         "next": {"action": "test.inspect", "input": {"run_id": run_id}} if run_id else
+                                 {"action": "surface.inspect", "input": {"operation_id": row["operation_id"]}},
+                         "offline_only": True, "automatic_retry_allowed": False, "denominator_retained": True})
     exhausted = bool(hypotheses) and not remaining and tested_count > 0 and inconclusive_count == 0
     delivery = delivery_claim(exhausted=exhausted, partial_accepted=campaign.get("state") == "delivered_partial",
                               remaining=remaining)
-    tool_yield = _tool_yield(project)
+    tool_yield = _tool_yield(project, campaign, hypotheses, runs, current_findings)
     dependency = {"scope_epoch": universe.get("scope_epoch"),
                   "universe_snapshot_hash": universe.get("snapshot_hash"),
                   "target_build": universe.get("target_build")}
@@ -150,27 +209,53 @@ def compute(project, campaign_id):
             "current_total": len(current_findings),
             "machine": sum(row.get("mode") == "machine" for row in current_findings),
             "reviewed": sum(row.get("mode") == "reviewed" for row in current_findings),
+            "pending_machine": len(pending_machine),
+            "reviewed_drafts": len(reviewed_drafts), "pending_results": len(pending_results),
         },
         "computed_by": "engine",
+        "membership": {"state": membership["state"], "membership_hash": membership.get("membership_hash"),
+                       "hypothesis_total": len(hypotheses)},
+        "recovery": recovery,
         "dimension_order": list(DIMENSIONS),
     }
 
 
-def _tool_yield(project):
-    runs = project.list("run")
+def _tool_yield(project, campaign, hypotheses, runs, findings):
+    inventory = project.list("run")
     adapters = Counter()
-    for run in runs:
+    for run in inventory:
         adapter = run.get("adapter")
         if adapter:
             adapters[adapter] += 1
-    candidates = project.list("candidate")
+    operations = {row["operation_id"] for row in hypotheses}
+    candidates = [row for row in project.list("candidate") if row.get("operation_id") in operations]
+    candidate_ids = {row["id"] for row in candidates}
+    promoted = {row["id"] for row in hypotheses if row.get("candidate_id") in candidate_ids or row.get("source_ref") in candidate_ids}
+    tests = [row for row in runs if row.get("mode") == "test"]
+    receipts = [row.get("execution_receipt") for row in tests]
+    calls = Counter()
+    for run in tests:
+        recipe = Repository(project, read_only=True).get("recipe", run.get("recipe_id"), required=False) or {}
+        provider = recipe.get("provider", {}).get("name")
+        if provider:
+            calls["playwright" if provider == "browser" else provider] += 1
+    def measured(name):
+        values = [row.get(name) if isinstance(row, dict) else None for row in receipts]
+        return sum(values) if all(type(value) in {int, float} and value >= 0 for value in values) else None
     return {
-        "calls": {adapter: adapters.get(adapter, 0) for adapter in ("yakit", "tscanplus", "sqlmap", "playwright")},
+        "calls": {adapter: calls.get(adapter, 0) for adapter in ("http", "yakit", "tscanplus", "sqlmap", "playwright")},
+        "project_inventory_calls": {adapter: adapters.get(adapter, 0) for adapter in ("yakit", "tscanplus", "sqlmap")},
+        "attribution": "campaign_test_runs_only; unrelated project tools are inventory, not attributed yield",
+        "campaign_id": campaign["id"], "attempted_tests": len(tests),
         "candidates": len(candidates),
-        "promoted_hypotheses": 0,
-        "findings": None,
-        "unavailable_reasons": [],
-        "note": "Tool calls alone are not coverage; candidates must be promoted through explicit typed work.",
+        "promoted_hypotheses": len(promoted) if promoted or not candidates else None,
+        "explicit_candidate_promotions": len(promoted),
+        "findings": len(findings),
+        "measured_http_requests": measured("requests_sent"), "measured_http_responses": measured("responses_received"),
+        "measured_response_bytes": measured("response_bytes"), "measured_execution_ms": measured("elapsed_ms"),
+        "all_target_requests_known": all(isinstance(row, dict) and row.get("all_target_requests_known") is True for row in receipts),
+        "tokens": None, "unavailable_reasons": ["candidate_promotion_linkage_unknown"] if candidates and not promoted else [],
+        "note": "Current proof yield is not precision. Legacy/missing receipts, browser subrequests, unlinked promotions and host tokens remain unknown.",
     }
 
 

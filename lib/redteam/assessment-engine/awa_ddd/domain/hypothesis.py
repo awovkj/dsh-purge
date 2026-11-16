@@ -35,6 +35,7 @@ MISSING_CONTEXT = {
     "replay_semantics", "state_readback", "token_issuance_context", "lifecycle_policy",
     "required_factor_policy", "retry_window_policy", "exact_authorized_url", "current_http_observation",
     "normal_business_assertion", "property_specific_controls", "scope_epoch", "target_build",
+    "dedicated_control_provider", "exact_input_request_binding", "authorized_test_account",
 }
 
 
@@ -49,6 +50,8 @@ def identity(**kwargs):
     row = {key: kwargs[key] for key in required}
     row["protocol"] = kwargs.get("protocol", "http")
     row["input_key"] = kwargs["input_key"]
+    if kwargs["source_kind"] == "known_case":
+        row["known_case_id"] = kwargs.get("known_case_id")
     return row
 
 
@@ -67,7 +70,7 @@ def new_hypothesis(*, family, security_property, operation_id, input_key=None, r
         family=family, security_property=security_property, operation_id=operation_id,
         input_key=input_key, relation=relation_row,
         business_precondition=business_precondition, scope_epoch=scope_epoch,
-        target_build=target_build, source_kind=source_kind, protocol=protocol)
+        target_build=target_build, source_kind=source_kind, protocol=protocol, known_case_id=known_case_id)
     hypothesis_id = stable_id("HYP", identity_row)
     return {
         "id": hypothesis_id,

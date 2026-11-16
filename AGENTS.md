@@ -1,8 +1,13 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.8.0** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.1 / rc.2 / rc.3 / rc.5 同样通过）
+> 当前源码版本：**1.12.0** · 宿主补丁源码目标 DSH Desktop **0.2.2-rc.1**（历史版本已适配 0.2.1-rc.1 / rc.2 / rc.3 / rc.5）
+> 2026-11-15 按三模式锐评方案实施正确性、活动隔离、单 worker 批量、实际成本回执和需求驱动工具路由升级，补有限源码引用图及离线情报去重。本轮包含本地隔离回归和真实 localhost HTTP；实际 Playwright、Yakit/Yak、TscanPlus、WSL Kali、模型工具选择、宿主/GUI 和委派调度仍未验收。没有发布、安装、apply 或重启正式 DSH。见 [方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md)、[实施](docs/MODE-UPGRADE-1.12.0.md) 与 [升级后复审](docs/THREE-MODE-REVIEW-1.12.0.md)。
+> 2026-11-14 至 15 结合 Pojun 与两份对照分析，独立实现证据发现、受控批量采集、离线情报、技能导航和工作反馈，并进行本地隔离回归。当前源码和生成物升级为 1.11.0；没有新增真实 GUI、宿主补丁、目标、浏览器或委派调度验收，没有发布、安装、apply、退出或重启正式 DSH。见 [方案](docs/MODE-UPGRADE-1.11.0-PLAN.md)、[实施与验证](docs/MODE-UPGRADE-1.11.0.md) 和 [新动作使用](docs/DISCOVERY-WORKFLOW.md)。
+> 2026-11-14 先形成三模式完整方案，再优化源码与生成物，并进行本地隔离回归。DSH Desktop 0.2.2-rc.3 的专用 Electron 副本已核实预设 Loader 与空白 Agent 工具目录；完整 GUI、86 条补丁、真实目标和实际委派调度未验收。未打包发布、安装、apply、退出或重启正式 DSH，见 [完整方案](docs/MODE-UPGRADE-1.10.0-PLAN.md) 与 [实施和验证](docs/MODE-UPGRADE-1.10.0.md)。
+> 同日先前 1.9.0 源码升级按当时要求没有测试或验证，其历史边界保留在 [1.9.0 优化说明](docs/MODE-UPGRADE-1.9.0.md)，不代替本轮验收。
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
+> 2026-11-12 初始红队/SRC/渗透模式升级按用户要求未运行验证或测试；随后针对新的渗透会话修复进行了本地隔离回归，见 [渗透会话诊断](docs/pentest-session-v4-analysis.md)。未打包发布、安装、应用补丁或重启，原靶标与整版 GUI 验收仍未完成。
 
 ---
 
@@ -86,7 +91,7 @@ purge-community probe new
 
 | 症状 | 先跑 | 判读 | 动作 |
 | --- | --- | --- | --- |
-| 补丁数不是 73/76（全量 84） | `selfcheck --json` | 看 `layers[].state` | pending → 点应用；broken → `diagnose` |
+| 补丁层 applied 少于当前 required | `selfcheck --json` | 看 `layers[].state` | pending → 点应用；broken → `diagnose` |
 | 全部 `missing_file` | `status` | `ai_base` 为空 | 宿主未解包：点应用 → 重开 |
 | 模型开始推脱/要求确认 | `probe new` | 回显否 | 回显：调人设/强化段；不回显：检查注入层 |
 | 工具被拒绝执行 | `selfcheck` | 沙箱/审批层是否绿 | 绿 → 属工具自身限制；红 → 点应用 |
@@ -102,10 +107,21 @@ purge-community probe new
 | `$DSH_HOME/dsh-purge/probe.json` | 探针 nonce（30 分钟 TTL） |
 | `$DSH_HOME/dsh-purge/anchor-overrides.json` | 本地重锚覆盖（不改插件源码；删掉即恢复出厂锚点） |
 | `$DSH_HOME/dsh-purge-community/audit.jsonl` | 动作审计（1MB 轮转，保留 2 份）；面板「维护 → 最近动作」 |
+| `$DSH_HOME/dsh-purge-community/preset-declare.json` | 内置预设（含 `src` / `pentest`）最近一次注册结果；`phase/error/error_code/at` 可定位模式下拉缺失 |
+| `$DSH_HOME/redteam/preset-declare.json` | 红队预设的独立注册回执，包含 `phase/error/error_code/broken/at` |
 | `$DSH_HOME/dsh-purge/applied.json` · `installed-rev` | 上次应用的插件版本 |
 | `$DSH_HOME/dsh-purge-community/backups/<id>/` | 快照（`manifest.json` + 小文件；大文件在 `objects/`） |
 | `$DSH_HOME/.agent-presets/unrestricted/` | 无限制模式预设（升级保留原文；首行模板标记不代表用户授权覆盖） |
 | `$DSH_HOME/prompt-inject.md` | **用户的注入正文**，插件只读不改（除非用户点保存） |
+| `$DSH_HOME/redteam/settings.json` | 操作者的运行后端、Python 与评估偏好；两项默认开，明确保存的 `requireAssessmentForHighValueScore:false` 保留 |
+| `$DSH_HOME/redteam/.credential-vault-key` | 新凭据本地加密密钥；私密文件权限，不回显；备份凭据需同时保留此密钥 |
+| `$DSH_HOME/redteam/toolkit/.receipts/` | 固定版本/资产/摘要部署回执；`runtime_probed:false`，不是工具运行证明 |
+| `$DSH_HOME/redteam/src-skills/src-discovery/` | SRC 专用技能同步副本；原生技能根只加载这个包内目录 |
+| `<当前靶标目录>/assessment/discovery/sourcemaps/<maphash>/` | 已采集 map 的派生私有源码与来源 manifest；固定哈希文件名，不按声明路径落盘 |
+| `<当前靶标目录>/intel/catalogue.json` | 本地 NVD/KEV/GHSA 元数据缓存；用 intel 动作读取，源 SHA256 不代表来源已验证或本目标受影响 |
+| `<当前靶标目录>/reports/assessment-delivery.md` · `.json` | 合并交付首页；后续明细使用各自得分/发现/停止游标，不与导入或复核游标串用 |
+| `<当前靶标目录>/reports/pentest-report.md` · `.json` | 渗透模式完整报告，使用本靶标随包核心；预览也会创建版本化原生本地快照 |
+| `<当前靶标目录>/reports/src-findings.md` · `.json` | SRC 提交草稿、当前证明、候选、待复核、停止和未完成分母；只读本地材料，不自动提交 |
 
 **不变量**：`prompt-inject.md`、规则集、其他插件配置，任何时候都不该被「应用」或「回滚」覆盖。
 
@@ -133,31 +149,96 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.8.0 |
-| 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.12.0 |
+| 历史已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5；1.8.1 渗透会话修复已做隔离回归，整版/GUI 尚未验收 |
+| 既有宿主验收 | DSH Desktop 0.2.2-rc.3：1.10.0 专用 Electron 副本的预设 Loader 与空白工具目录通过；完整 GUI、补丁及实际调度未验收 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
-| Node | ≥18（桌面版自带运行时即可）；**红队工具需 ≥22.5**（依赖 `node:sqlite`，低版本会在加载红队工具时失败） |
+| Node | Purge 基础 ≥18；**红队工具需 ≥22.5**，不满足时返回明确运行前提；内置评估还需 ≥22.19 |
 | 内置评估 | Node ≥22.19、Python ≥3.10；实际浏览器观察需现有 Playwright 运行时 |
 
-### 内置评估核心与 SRC（1.8.0）
+### 内置评估核心、SRC 与渗透模式（1.12.0）
+
+工具选择先用 `redteam_assessment_run action:tool.route input:{operation_id:"实际 O-ID",purpose:"auto"}`；可另给当前完整 `evidence_id`、本活动 `campaign_id` 与 1–10 的 limit。purpose 还支持 frontend/browser/request_replay/scanner_results/sql_verification。动作只读已有内置上下文，不初始化、不探测、不发送目标请求；模型不能填写 mode/backend/ready/tools。已采集 JS/map 优先离线发现，实际 DOM 消费需求才推荐 Playwright；公开 GET 的 Yak 重放需要当前 fuzzer/TLS/no-follow profile，认证或写入不能丢弃身份凑适配。TscanPlus 仅复用本靶标已绑定 namespace 的只读结果。WSL 使用操作者已配置后端，不是模型可选 shell。优先使用返回的 next/fallback 准确参数，缺前提先准备，SRC 禁止项不调用。真实模型“需要时想到并选对”的效果仍须单独基准，路由单元通过不代替模型选择验收。
+
+技能和 runbook 使用当前真实 agent 的工具 schema 及有时效的原生能力回执；缺注册或未探测保持 unknown，明确模式禁止/未实现/失败保持 blocked。cached readiness 绑定 backend、profile、采集回执和工具文件 stat；旧回执、过期、后端切换或二进制替换不能继续 ready。浏览器原生 provider 不因 MCP 名称缺失而假受阻；模块、浏览器文件与实际 launch 分开核对。工具部署回执仍不是运行证明。
+
+五项 SQL Boolean 需要真实非空 quoted_string_equality 基线、两组独立 true/false 及实际计数 selector；旧 count-only 不确认。模板需要明确 jinja_expression、非计算器消费点和字面/语法/阴性/第二算式控制。受控 GET 访问边界使用实际已核实的不同主体、角色/租户与具体受保护数据；仅状态/长度不确认。反射 XSS 需独立 native browser 控制、实际消费字节与精确 dialog/文档回执；浏览器真实运行未验收时不能以模拟测试宣称可用。模型 review 只记 reviewed_draft，自称 human_independent 或自填 actual 不授予 supported、finding 或 SRC 停止。
+
+v2 campaign 冻结 HYP/case/gap 成员与初始状态；本活动状态、run、finding 和覆盖分开投影。多个活动共用 HYP 时 review.disposition 必须给 campaign_id，不选择“最近活动”。实际尝试、冷却、未知效果和 SRC 停止继续全靶标共享，新活动不自动重放旧任务。同活动离线 verify 沿真实 run 选取配方；多配方必须给精确 recipe_id/run_id，不用不存在的 recipe.campaign_id 推断。
+
+无匿名 cookie_evidence_ids 的 http.capture_batch 使用一个固定原生 worker，逐派发读取固定靶标台账，重新检查 scope、身份、SRC 停止和 captured-cookie origin/path/Secure/expiry。匿名证据 Cookie 链保留 per_item_facade，不能宣称所有批量都只启动一次。间接 Cookie 会话测试需 campaign.next 返回的显式 frozen recipe_id，逐控制检查目的地；run_id 恢复也读取原配方。真实 sent/received/dispatch/字节与 wall time 分别计量，复用为 0 新请求，未知为 null；浏览器子请求总数和可信宿主 tokens 缺回执仍 unknown，不用尝试数冒充发送数或扫描量冒充准确率。
+
+surface.from_sourcemap 的源码引用图仅对随 map 提供的 JS 做有界常量/相对导入/局部 query-hash→DOM sink 线索分析；动态表达式、shadowing、循环、缺失模块、TS/其他语言与 indexed map 保留 gap，不是完整污点分析或运行证明。intel.search 默认按 CVE/GHSA 去重，保留各源 SHA256、版本结论与冲突；intel.get 仍读取单个原始源记录，不把 KEV/CVSS/版本命中当本目标漏洞。
+
+本轮新增能力仍通过 `redteam_assessment_run`，先 `action:action.help input:{name:"确切动作名"}` 读取契约。`evidence.diff` 对比两个当前完整 E-ID，支持明确 JSON Pointer 忽略项与分页脱敏预览；相等、差异或忽略字段不确认漏洞。`surface.from_sourcemap` 只分析当前、完整、HTTP 200 GET 的 map 或含真实 inline map 的 JavaScript 证据，外链必须另给匹配 URL/身份的 map E-ID，不自动请求；源码仅保存到固定哈希目录，声明来源路径不用于落盘。
+
+`http.capture_batch` 接受 1–20 个明确请求，每项独立 `idempotency_key`，实际 operation 为 GET/HEAD/OPTIONS，每项走既有 preflight/capture、scope、身份、Cookie 和 SRC 停测。原生 `already_preflighted` 只沿精确恢复契约复用，capture 再核实全部前提；同键可返回原 E-ID。取消、不完整证据或未知派发立即停止，不自动重试，`capture_attempts` 不冒充出站请求数量。
+
+`workspace.list/read` 只读本靶标 `incoming`、`reports`、`assessment/discovery` 的有界非私密 UTF-8 材料，保留换行并在分页前完整脱敏；拒绝链接、凭据、原生数据库和任意路径。`intel.import/search/get` 只从本靶标 incoming JSON 导入 NVD/KEV/GHSA 元数据，保存源 SHA256，来源声明未验证；数字版本和简单范围只能给候选，复杂逻辑保持 unknown，不创建漏洞、运行 PoC 或改严重级。缓存损坏或导入失败保留原文件。
+
+`skill.index` 消费随包 `cwe/class/requires`，按实际固定模式显示 available/unknown/blocked；调用者不能填写模式、工具可见性或运行就绪。公开入口不探测运行时或读取实际工具注册表，所需运行前提保留 unknown；模式不提供、尚未实现能力或元数据错误为 blocked。SRC/渗透 runbook 均可按 `resource:index/authorization/input-controls/frontend/browser/evidence-levels/failure-triage/reporting/component-intelligence` 读取原创专题。`workflow.advice` 只读已有候选、当前精确证明和不可撤销 SRC 停止，返回离线复核/报告建议，不自动派单、不以摘要清空剩余项。平台拒绝的零发送与目标 401/403/429 分别记录；目标响应不自动解释为 WAF。完整参数见 [发现动作指南](docs/DISCOVERY-WORKFLOW.md)。
+
+SRC 按 [漏洞提交流程](docs/SRC-SUBMISSION.md) 发现和记录具体安全缺陷。开始先读取当前安装的 `redteam_src_runbook resource:skill/workflow/submission`：核对实际项目规则与固定 scope/exclude、最小真实验证、查重、整理提交草稿，再由操作者提交及平台复核。纯缺安全头、版本/banner 和配置建议返回 `SRC_NOT_SUBMITTABLE`，不写入漏洞表；历史信息项保留并排除 SRC 漏洞分母。真实低危漏洞保留，严重级或自填影响不能代替当前安全证明。
+
+`redteam_vuln_add/update` 的 `submission` 包含 `program/policy_reference/policy_basis/prerequisites/expected_result/duplicate_check/duplicate_reference`；`reproduction/impact/remediation` 保存复现、影响边界和修复。面板可编辑这些草稿，当前证明与提交材料分别检查。`submission_ready` 只表示本地草稿与当前证明检查通过，始终 `submitted:false/platform_acceptance:not_assessed`；`checked_local` 不宣称查过平台全库。`redteam_src_report` 保存完整有界 Markdown/JSON，每种上限 16 MiB，已确认标签/停止各上限 10,000，Markdown 上限 100,000 行；超限保留原文件并报错。候选、待复核、停止和未完成项继续显示。
+
+渗透保留漏洞和独立的 hardening/informational 建议，漏洞计数只统计 vulnerability；允许本范围测试凭据句柄，按普通 assessment 策略完成测试与完整交付。有 scope/exclude 的红队使用持久绑定、父子继承和范围断言；实际执行沿显式工具清单与 typed 评估入口，通用 shell、任意代码或未知执行体不能证明范围时拒绝派发。空范围历史红队保持兼容，不宣称目标围栏。
+
+导入、复核和交付优先复用返回的 `next.arguments`。签名 token 绑定当前服务、靶标、模式、流、limit 与 verify，错流/错靶/篡改或与旧 offset 混用均拒绝；旧 offset 仅作为兼容或恢复读取。模式正文和样板由共享源码生成，`check:modes` 核对人设、技能和政策文档，当前面板与兼容控制台同源生成。完整变化见 [1.10.0 实施记录](docs/MODE-UPGRADE-1.10.0.md)。
+
+三模式模型统一只登记 claimed/inferred；observed 来自固定可信代码采集器的不可编辑来源回执，普通 record 与自由 verified_result 不授予观察状态。通用工具采集 `direct_evidence:false`，不独立证明漏洞或权限；历史 observed 保留并标 legacy_unattested。
+
+来源 confirmed/exploited、查询和报告共用 `finding-proof.js`，逐项绑定本靶标、发现 id、具体目标、operation/input/category、原生 finding/decision、完整哈希、机器标题、proof_scope、limitations 和严重级别上限。编辑被证明语义或同 URL 复用其他命题的材料须重新核实，旧确认标签显示待复核。v1/v2 原生机器表述也由判据生成，不能用人工标题/impact 或 review.bind 将影响膨胀转移到原生层。
+
+v2 自动控制保留完整实际基线的非测试字段，query/JSON Pointer/真实路径统一构造，过滤认证与 framing；实际结果、离线 verify 与 native review 共用完整请求和身份核验。SQL 仅提供有界计数差异，模板需明确非计算器消费点与正常/阴性控制，级别受 proof cap 限制。其他自动 provider 未实现项保留受阻；相关实际前提补齐才重新准备，失败历史/冷却不因时间戳和行政处置清空，未知写入不能自动重放。
+
+红队同靶标全部根会话共享实际委派 lease；slot 预留与派发自动占位共用计数，registry/session ID 显式关联，恢复已运行任务复用名额，执行子会话禁止继续委派。缺少完成回执的 dispatch 保留占位。默认 3，实际以上限设置为准；此轮没有真实宿主调度验收。
+
+新凭据默认本地 AES-256-GCM 保存，列表/报告返回 cred_<id> 句柄。identity.session 使用 credential_handle/credential_url/credential_auth 私下应用，native credential_origin 在第一次 identity.verify 前固定，并约束后续 HTTP/场景/浏览器。会话仍须核实实际服务端主体/角色；旧明文不批量迁移。明确单条读取及用途由受模式限制的 reveal 入口处理，SRC 凭据禁用规则保留。
+
+工具部署按随包固定版本锁与摘要助手执行；未知 pin/digest 保持受阻，现有文件保留，不追 latest、不删疑似坏文件、不改源/代理或安装浮动依赖。setup 完成标记只表示文件部署元数据。历史 1.9.0 的证明/工具变化见 [源码优化说明](docs/MODE-UPGRADE-1.9.0.md)，当前部署契约见 [固定工具部署](docs/TOOLKIT-PINS.md)。
+
+模式缺失时先读取上表两处已有回执。共同 `redteam-tools: never started` 表示共用工具行导入失败；`tool-subagent-list-agents: never started` 需核对当前 control 主模块是否已登记 `list_agents`。当前 profile Loader 的确定性 AST 兼容只在证明旧行冗余且没有配置冲突时移除它。rc.3 的 fork 继承父预设，原 deny 在 `tools.guard` 派发前执行；spawn 使用等价子预设。注册代码把本包工具行固定到本安装源码，提前保留实际导入异常；SDK 在异步 `apply` 中从当前安装锚点加载，不扫描其他 profile。各模式独立重试、服务代际回收与卸载取消保留，用户 YAML 原文不改。已有回执不等于当前 GUI 验收，历史共享入口见 [加载修复](docs/preset-mode-loading.md)，1.10.0 的实际 Loader 验收见 [实施记录](docs/MODE-UPGRADE-1.10.0.md)。
 
 SRC 使用独立 `src` 预设与创建时固定的 `assessment_mode:src` 靶标；scope 必须非空，exclude 必须明确（可为空）。禁止通过普通 open/update 或换 preset 降级。会话绑定及父子关系持久保存，SRC 不回退到其他会话的全局 current。
 
+渗透模式使用独立 `pentest` 预设与 `assessment_mode:pentest` 靶标，同样固定非空 scope、明确 exclude 和会话绑定。它直接调用随包 awa-ddd 的普通 `assessment` 策略，保留测试、身份、fixture 与变更前提，不采用 SRC 直接证据停测。既有 SRC 会话/靶标不能改为渗透模式；新建独立任务。模型文本仍只能登记 claimed/inferred，不能自填 observed 或自由升级证据；不提供通用 shell、独立 AWA、任意文件或委派入口。
+
+渗透会话先用 `redteam_pentest_runbook resource:skill/workflow` 加载本安装固定指引，认证和测试分别用 `resource:authentication/verification`。`value.hash input:{value:"明确测试值"}` 离线计算客户端 SHA-256，不回显/保存原值。`evidence.headers` 读取脱敏响应头；`http.capture/http.preflight` 的 `cookie_evidence_ids` 私下延续同 origin、完整/current 的实际匿名 Cookie 链，不能与 session_id 或显式 Cookie 混用。`identity.session_from_evidence` 仅建未验证会话，后续须 `identity.verify` 核实实际服务端主体/角色；登录成功和 Cookie 不等于身份验证。Cookies 的 origin/path/Secure/expiry/覆盖/删除在首次验证与后续请求中保留限制。`surface.from_document` 从完整 OpenAPI 3 或结构化 Spring mappings 离线导入明确路由；声明不能代替安全测试。JSON 小页可加 `evidence.read include_values:true`，私有标量仍脱敏。v1 按义务 `assessment.prepare` 后执行真实控制，v2 使用实际配方 `test.run`；匿名401、baseline、N/A和报告均不覆盖未完成安全测试。
+
 awa-ddd 2.2.0 的生产评估源码已写入 `lib/redteam/assessment-engine/` 并随 dsh-purge 包提供，保留 MIT 许可证、版权、NOTICE 与 `provenance.json` 的逐文件来源/哈希清单。独立 awa-ddd 2.2.0 升级继续保留。维护者使用 `node scripts/sync-assessment-engine.mjs --check` 离线核对随包源码；明确选择已审阅源码后才用 `--source` 同步写入，运行时不搜索或同步外部 AWA 项目。
 
-使用 `redteam_assessment_status/start/run/import/review` 与 `redteam_src_report`，面板入口为「内置评估」。每个 engagement 使用 `<当前靶标目录>/assessment` 工作区，内部项目固定为 `assessment`；代码来自本安装，模型不能指定 code/packagePath、workspace、backend 或 project_id。有真实 HTTP(S) URL scope 或范围内已登记的实际 URL 时首次操作可直接初始化，否则用 start 提供本范围的真实 target/URL scope，无需绑定外部工程。初始化继承 SRC 与来源排除项，首次选定的 v1/v2 评估模型保持固定。
+使用 `redteam_assessment_status/start/run/import/review`、`redteam_src_runbook`、`redteam_src_report` 与 `redteam_delivery_report`，面板入口为「内置评估」。每个 engagement 使用 `<当前靶标目录>/assessment` 工作区，内部项目固定为 `assessment`；代码来自本安装，模型不能指定 code/packagePath、workspace、backend 或 project_id。有真实 HTTP(S) URL scope 或范围内已登记的实际 URL 时首次操作可直接初始化，否则用 start 提供本范围的真实 target/URL scope，无需绑定外部工程。初始化继承 SRC 与来源排除项，首次选定的 v1/v2 评估模型保持固定。
 
-`assessment_import` 只导入候选，来源页上限 200；`assessment_review` 对同靶标全部已纳入候选统一分页，复核页上限 100，无需指定 import_id。两种分页默认 50 条，分别使用返回的 `page_kind/next_offset`，不串用 offset；切换靶标时归零。`verify:false` 保存 inferred 回执；`verify:true` 重新核验当前 machine 判据、finding、完整哈希和精确输入关联后确认。既有 confirmed 标签或人工文字不升级为机器证明。
+陌生动作先 `redteam_assessment_run action:action.help input:{name:"确切动作名"}`；省略 name 查看目录，不传 `actions` 作为名称。`evidence.inspect` 是元数据，不用 include_body/max_bytes 猜正文参数。新增 `evidence.read input:{evidence_id:"实际 E-ID"}` 离线读取真实 JSON 结构/脱敏文本，根 Pointer 为空字符串；JSON 默认50、上限100行，文本默认4096、上限8192字符。截断与旧 lineage 保留，不能用于确认。新增 `surface.from_evidence input:{evidence_ids:["实际 E-ID"]}` 通过内置 AST 解析完整 JS 或严格连续206分片，最多32个/2 MiB，同URL、operation、身份、强ETag与identity编码，无重叠和缺口；缺片只返回提示，不自动请求。
+
+SRC 单次响应上限65536字节、超时15秒；scenario.run、test.run_scenario、主动外部适配器和业务写入继续拒绝。surface.batch 上限50，逐项检查原始索引与 rejected，不因一项模糊编码路径丢弃合法项。正常 baseline、HTTP 200、响应长度和零候选均不证明漏洞不存在或覆盖完成。原会话问题与剩余分母见 [session.v4 脱敏诊断](docs/src-session-v4-analysis.md)。
+
+SRC 开始发现前用 `redteam_src_runbook resource:skill/workflow` 加载当前安装的固定技能/文档；原生 `skill` 仅允许 `src-discovery` 及其固定参考资源。四个 SRC 角色是当前会话的阶段稿，不派生子会话。旧预设的技能行只在注册时补入内存，用户 YAML 原文保留。
+
+门面返回 `next_step`，宿主在当前真实回合的 `agent/turn-stopping` 读取本地 v1 `plan.audit` 或 v2 `campaign.status`。续跑只沿当前靶标持久绑定，用户取消、新输入、SRC 停止与缺失前提优先；无新实际请求/响应控制材料、身份验证或安全测试闭环时最多三次提醒，声明/consumer/N/A/baseline/checkpoint 的 semantic key 变化不重置预算。仅换时间戳的重复捕获不算新材料；元数据建议关联未评估义务时先 `assessment.prepare`。同任务失败历史忽略分页与行政处置变化，不因其他任务进展清空；离线回执不由提示安排新目标请求。钩子已登记不等于真实 GUI 已执行，矛盾或缺失结项契约保留 unknown/unfinished。
+
+`assessmentStatus` 显示本地运行元数据、Python 配置、SRC 注册回执/时间、技能及续跑状态；文件定位和历史回执不是运行证明。操作者在面板保存本插件 Python/native/WSL/timeout 设置和偏好，模型动作不能修改。显式本地探测与 `redteam_preflight assessment_runtime:true` 不访问目标、不创建评估工程；本次源码升级没有调用。Playwright 缺件保留浏览器受阻，HTTP 与 browser-ready 分别返回。
+
+浏览器复用操作者的 `PURGE_PLAYWRIGHT_ROOT` 或实际 `DSH_HOME/mcp/playwright` 与旧默认位置，支持已有 playwright/playwright-core。Chromium 缓存不等于模块；初始升级只修正定位代码、源码适配模板与 browser.py 的 bundled 哈希/说明。本轮隔离回归包含随包来源核对，没有安装、下载、探测或运行真实浏览器。
+
+红队 `requireAssessmentForHighValueScore` 新默认开启，操作者明确保存的关闭偏好保留；开启后 server-host/central-system/domain-control 需要同靶标、同具体目标/服务的可信 observed ev_id、完整哈希、核实关联和 collector 认证的实际 `score_outcome` 基础档位。该策略仅表示台账关联，不能宣称独立机器证明权限。历史文字记录保留，报告标注 legacy_text/pending/observed。
+
+`assessment_import` 只导入候选，来源页上限 200；`assessment_review` 对同靶标全部已纳入候选统一分页，复核页上限 100，无需指定 import_id。两种分页默认 50 条，优先直接调用返回的 `next.arguments`；旧 `page_kind/next_offset` 兼容，不串用 offset，切换靶标时清空游标。`verify:false` 保存 inferred 回执；`verify:true` 重新核验当前 machine 判据、finding、完整哈希和精确输入关联后确认。既有 confirmed 标签或人工文字不升级为机器证明。
 
 旧外部 `settings.json` 路径/工作区字段和 `awa-binding.json` 原样保留，不选择或执行外部引擎。旧 AWA JavaScript API 与 HTTP `awa*` 操作兼容调用内置核心；模型评估工具只注册五个 `redteam_assessment_*` 入口，不再注册旧 `redteam_awa_*`。
 
 SRC 模型只能把材料登记为 claimed/inferred，不能自行声明 observed、工具输出权威或用自由填写的 verified_result/evidence_upgrade 升级。文本声明和哈希一致不等于核实。确认必须经过 native review `verify:true` 的真实机器证明，或可信操作员/代码路径核实实际观察；随后需要本靶标 observed ev_id、同具体目标及直接证据类型/观察。确认后停止该项；Shell、隧道、凭据、主动外部适配器、业务写入和深度利用入口被拒绝。普通 Purge 注入在 SRC 会话关闭，独立 SRC 指引保留。未测/受阻保留分母，发现报告不声明整个范围耗尽。
 
+来源停止独立写入不可编辑的 `src_source_stop` 台账；fixed/candidate、标题或目标编辑、删除发现都不撤销原目标停止。`redteam_delivery_report` 合并全量得分汇总、来源发现分母、当前引擎覆盖/剩余与 SRC 停止。明细默认 50、上限 100，得分用 offset，发现用 finding_offset，停止用独立 stop_offset；保存本地 Markdown/JSON，不初始化、不发目标请求、不自动结项。公开引用每项最多 32 个合法 ev_id，历史非账本文字只统计省略数，原材料保留。SRC 不声明全部范围耗尽，内置与独立 awa_* 的证据不能跨账本确认。
+
+渗透模式使用 `redteam_pentest_report {save:true}`，调用当前内置核心 `report.build profile:full stage:draft` 并合并资产、发现、复现、影响、修复、覆盖和未完成项。保存 reports/pentest-report.md/.json；模型工具返回有界回执、文件路径和剩余计数，完整正文由文件与面板 API 提供，避免大 JSON 被宿主截断。save:false 仍创建版本化原生本地快照，仅省略合并文件保存。v1保留原生摘要/复现附件，v2保留矩阵和配方/控制详解；报告不初始化、不请求目标、不自动结项。源码内导出脚本 --pentest 携带有界、哈希匹配附件并使用相对链接；报告预算与具体用法见 [渗透模式](docs/PENTEST.md)。
+
 完整流程、源码来源、模式边界、导入/复核参数及验证口径见 [红队/内置评估/SRC](docs/REDTEAM-AWA-SRC.md)。源码升级不改原用户提示词/设置，不自动安装、apply 或重启当前 DSH。
 
 ### 证据账本（1.6.81 起）
 
-口头报告用 `claimed` 并填写 `source_agent`。工具默认按 `inferred` 记录。普通红队上下文可用 `redteam_evidence_upgrade` 提交实际核实的结果；SRC 模型按上述限制通过原生机器证明复核或可信操作员/代码路径核实，不能用自由升级参数替代核实。普通引用和旧版缺少核实记录的引用保留，需另行核实。计数或哈希报错时先处理账本异常。导入文件须位于当前靶标目录，可暂存在其 `incoming/` 子目录，也可以直接传截图内容。已撤回的问题可按 `withdrawn` 查询。
+口头报告用 `claimed` 并填写 `source_agent`，模型工具默认按 `inferred` 记录。三模式均不能通过 redteam_evidence_upgrade 的自由参数自授 observed；实际核实由固定可信采集代码路径或原生机器 review 执行。普通引用、旧确认标签和旧版无回执 observed 保留，需另行核实。计数或哈希报错时先处理账本异常。导入文件须位于当前靶标目录，可暂存在 incoming/，也可传截图材料；材料不是自动确认。已撤回的问题可按 withdrawn 查询。
 
 ## 10. 这份文档的维护规则
 
@@ -232,11 +313,11 @@ PowerShell 5.1 读取 UTF-8 JSON/文档应使用 `Get-Content -Raw -Encoding UTF
 
 ## 18. 旧自定义预设加载失败（1.6.13）
 
-DSH 0.2.1 的 `tool-subagent` 不再接受 `toolFilter`。不能只删除它：旧 deny 清单是子任务的工具策略，删除会改变行为。`presets-plugin` 通过 `preset-compat.js` 先生成私有 SHA256 备份，再将该策略转换为原生子预设和父工具的 `agentPreset` 引用。父会话仍有全部工具，子会话只排除原清单中的工具；`maxDepth`、人设、其他配置和 `!!js` 表达式保留。
+DSH 0.2.1 的 `tool-subagent` 不再接受 `toolFilter`。不能只删除它：旧 deny 清单是子任务的工具策略，删除会改变行为。`presets-plugin` 通过 `preset-compat.js` 先生成私有 SHA256 备份，再将 spawn 转为等价原生子预设与 `agentPreset` 引用；fork 继承父历史/合成，不传独立 `agentPreset`，由当前预设的 `preset-child-policy.js` 在 `tools.guard` 派发前拒绝原 deny 工具。缺少该守卫时注册失败。父会话仍保留原工具；fork 目录可能显示继承工具，不能把目录可见解释为允许执行。`maxDepth`、provider、人设、其他配置和 `!!js` 表达式保留。
 
 转换发生在注册时，用户的 `agent.cordis.yml` / `preset.yml` 原始字节不改写，后续用户修改仍会在重新加载时生效。备份在 `$DSH_HOME/dsh-purge-community/preset-migrations/<id>-<hash>/`，包含原文件和校验清单，不上传公开仓库。设置页会多一个「无限制模式 · 子任务」辅助预设；主会话仍选「无限制模式」。
 
-当前自动迁移仅处理能逐项对应到原生工具行的单个 spawn deny 策略；未知工具、allow 策略、多个策略或已有独立子预设冲突时停止并诊断，不能静默放宽。注册 disposer 不代表成功，必须检查真实 registry.resolve 的 broken 字段。
+当前自动迁移只处理能逐项对应到原生工具行的 deny 策略；未知工具、allow 策略、无法证明等价的多个策略或独立子预设冲突时停止并诊断，不能静默放宽。注册 disposer 不代表成功，必须检查真实 registry.resolve 的 broken 字段。
 
 普通测试之外，用实际 Desktop Electron 运行 `test/desktop-presets.mjs`（`ELECTRON_RUN_AS_NODE=1`，`PURGE_TEST_HOST` 指向宿主的 `node_modules/@deepseek-ai`）。它在隔离目录复现旧错误、加载迁移后的父/子预设、创建空白 Agent 并核对真实工具可见性，不调用 LLM，不重启用户应用。可用 `PURGE_TEST_PRESET` 指定本机旧文件目录做私有验收，不能把该目录内容或用户提示词加入测试夹具。
 

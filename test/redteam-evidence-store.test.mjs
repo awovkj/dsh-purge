@@ -23,7 +23,7 @@ test("ledger reads and writes through the real store handle", () => {
   withStore((store) => {
     const id = store.openEngagement("ledger-fixture", "10.0.0.5").id;
     const ledger = new EvidenceLedger(store.db(id));
-    const rec = ledger.record({ operation: "nmap_scan", result: { port: 22 }, confidence: "observed", engagement_id: id });
+    const rec = ledger.record({ operation: "nmap_scan", result: { port: 22 }, confidence: "inferred", engagement_id: id });
     assert.equal(rec.ok, true);
     assert.equal(ledger.list({ engagement_id: id }).length, 1);
 

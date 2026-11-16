@@ -19,6 +19,8 @@ jobs:
       - run: npm ci --ignore-scripts --legacy-peer-deps
       - run: npm --prefix packages/purge-panel ci --ignore-scripts --legacy-peer-deps
       - run: npm run check:docs
+      - run: npm run check:modes
+      - run: npm run check:assessment
       - run: node scripts/update-contributors.mjs --check
       - run: npm test
       - run: npm run check:client
@@ -51,7 +53,7 @@ jobs:
         run: npm test
       - name: Full Windows suite with bounded process concurrency
         if: runner.os == 'Windows'
-        run: npm test -- --test-concurrency=2
+        run: npm test
       - name: Windows PowerShell 5.1 installer wrapper
         if: runner.os == 'Windows'
         shell: powershell

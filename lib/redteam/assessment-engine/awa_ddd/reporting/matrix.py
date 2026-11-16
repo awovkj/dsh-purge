@@ -37,6 +37,7 @@ def matrix(project, args=None):
         "known_case_summary": result["known_case_summary"],
         "tool_yield": result["tool_yield"],
         "finding_summary": result["finding_summary"],
+        "membership": result["membership"], "recovery": result["recovery"],
         "delivery": result["delivery"],
         "denominators": {
             "discovery": "source-backed known routes only; site-wide percentage is null unless a complete source inventory exists",
@@ -76,7 +77,8 @@ def _render(project, campaign, data):
     lines.append(f"- 项目：`{project.config.get('project_id')}`；目标：`{safe_text(str(project.config.get('target')), 2048)}`")
     lines.append(f"- Campaign：`{campaign['id']}`；状态：`{campaign['state']}`；交付：`{data['delivery']['delivery_status']}`")
     lines.append(f"- Findings：当前 {data['finding_summary']['current_total']} 条（machine {data['finding_summary']['machine']} / reviewed {data['finding_summary']['reviewed']}）")
-    lines.append(f"- 假设：{hypothesis['numerator']}/{hypothesis['denominator']} 已测试；处置率 {hypothesis.get('disposition_rate')}")
+    lines.append(f"- 假设：{hypothesis['attempted']}/{hypothesis['denominator']} 已尝试；{hypothesis['conclusive']}/{hypothesis['denominator']} 有当前明确结论；处置率 {hypothesis.get('disposition_rate')}")
+    lines.append(f"- 待复核/草稿：{data['finding_summary'].get('pending_machine', 0)} / {data['finding_summary'].get('reviewed_drafts', 0)}；成员状态 `{data['membership']['state']}`")
     lines.append(f"- 未规划族：{data.get('unplanned_family_count', 0)}；未登记路由：{data.get('unregistered_route_count', 0)}")
     lines.append(f"- 耗尽可能：`{data['delivery']['exhausted_authority']}`（partial_accepted 不获得耗尽权限）")
     lines.append("")
@@ -110,8 +112,8 @@ def _render(project, campaign, data):
     lines.append("")
     lines.append("## 5. Findings")
     lines.append("")
-    line = _table(["标题", "模式", "严重度", "假设", "证据"], [
-        [safe_text(row.get("title", ""), 200), row.get("mode"), row.get("severity"),
+    line = _table(["标题", "模式", "当前证明", "严重度", "假设", "证据"], [
+        [safe_text(row.get("title", ""), 200), row.get("mode"), row.get("proof_state"), row.get("severity"),
          row.get("hypothesis_id"), ", ".join(row.get("evidence_ids", [])[:3])]
         for row in data.get("findings", [])
     ])
@@ -120,6 +122,9 @@ def _render(project, campaign, data):
     lines.append("## 6. 未测/受阻清单")
     lines.append("")
     lines.append(_table(["类型", "数量"], [[gap["kind"], gap["count"]] for gap in data["delivery"]["remaining"]]) if data["delivery"]["remaining"] else "无未测/受阻项（仅在当前登记范围内）。")
+    lines.append(_table(["假设", "运行", "离线恢复", "自动重试"], [
+        [row["hypothesis_id"], row.get("run_id"), row["next"]["action"], False] for row in data.get("recovery", [])
+    ]) if data.get("recovery") else "没有待离线复核的 inconclusive 运行。")
     lines.append("")
     lines.append("## 7. 工具能力与调用")
     lines.append("")
@@ -138,10 +143,13 @@ def build_v2_report(project, output_dir=None, *, stage="draft", campaign_id=None
         raise EngineError("v2_report_stage", "profile must be full, technical, executive, both or repro")
     campaign = _campaign(project, campaign_id)
     data = coverage.compute(project, campaign["id"])
-    findings = [row for row in Repository(project).list("finding", limit=None)[0] if row.get("current")]
-    data["findings"] = findings
+    from ..planning.membership import rows as member_rows
+    findings = [row for row in member_rows(project, campaign, "finding") if row.get("current")]
+    from ..proof_claim import finding_proof_state
+    data["findings"] = [{**row, **finding_proof_state(project, row, model="v2")} for row in findings]
     if stage == "final":
-        if campaign.get("state") != "completed" or not (campaign.get("delivery") or {}).get("exhausted_authority"):
+        if campaign.get("state") != "completed" or not (campaign.get("delivery") or {}).get("exhausted_authority") \
+                or not data["delivery"].get("exhausted_authority"):
             raise EngineError("v2_report_final", "Final report requires a completed campaign with exhaustion authority")
     elif stage != "draft":
         raise EngineError("v2_report_stage", "stage must be draft or final")

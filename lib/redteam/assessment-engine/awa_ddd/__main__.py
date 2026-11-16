@@ -22,6 +22,9 @@ def _dispatch(workspace,action,args):
     if action == "dsh.context.configure":
         from .dsh_context import configure
         return configure(workspace, args)
+    if action == "dsh.http.capture_batch":
+        from .capture_batch import private_dispatch
+        return private_dispatch(workspace, args)
     from .contracts import CONTRACTS, ALL_CONTRACTS, NO_PROJECT
     if isinstance(action, str) and action in ALL_CONTRACTS and action not in NO_PROJECT and isinstance(args, dict) and args.get("project_id") is not None:
         from .publication import invoke
@@ -54,6 +57,12 @@ def _project_dispatch(project, action, args):
         from . import integration
         return {"integration.import": integration.import_exchange,
                 "integration.export": integration.export_exchange}[action](project, args)
+    if action == "tool.route":
+        from .execution.tool_router import route
+        return route(project, args)
+    if action == "http.capture_batch":
+        from .capture_batch import run
+        return run(project, args)
     if action.startswith("campaign."):
         from . import v2api
         handler = {
@@ -116,7 +125,13 @@ def _project_dispatch(project, action, args):
         return engine.declare_consumer(project,args)
     if action=="browser.probe":
         from . import browser
-        return browser.probe()
+        result = browser.probe()
+        from .execution.capabilities import record
+        record(project, "playwright", installed=result.get("available") is True,
+               configured=result.get("available") is True, catalog_verified=True,
+               profile_supported=True, authorized=True,
+               evidence={key: result.get(key) for key in ("available", "reason", "node", "module_root", "module_path", "executable_path", "version")})
+        return {**result, "requests_sent": 0}
     if action=="browser.visit":
         from . import browser
         return browser.visit(project,args)

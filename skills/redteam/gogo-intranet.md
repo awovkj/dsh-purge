@@ -4,7 +4,16 @@ description: gogo v2.15.0 高性能内网扫描引擎：智能/超智能模式�
 whenToUse: 进入内网后对大网段（/16 /12）快速测绘、要指纹与关键信息、需要尽量少发包不被发现
 role: internal
 enabled: true
+metadata:
+  cwe: [CWE-200]
+  class: [recon, internal, component-intelligence]
+  requires: [shell]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # gogo（内网测绘与指纹引擎）
 

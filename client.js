@@ -275,16 +275,36 @@ var import_react3 = __toESM(require("react"), 1);
 var import_react2 = __toESM(require("react"), 1);
 var h2 = import_react2.default.createElement;
 var rules = (value) => String(value || "").split(/[\r\n,]+/).map((item) => item.trim()).filter(Boolean);
+var isScopedAssessmentMode = (mode) => mode === "src" || mode === "pentest";
+var assessmentModeLabel = (mode) => mode === "src" ? "[SRC] " : mode === "pentest" ? "[\u6E17\u900F] " : "[\u7EA2\u961F] ";
+var assessmentModeOptions = [
+  ["src", "SRC \u6F0F\u6D1E\u53D1\u73B0\u6A21\u5F0F"],
+  ["pentest", "\u6E17\u900F\u6A21\u5F0F"],
+  ["redteam", "\u7EA2\u961F\u6A21\u5F0F"]
+];
+var assessmentTabsForMode = (mode, tabs) => {
+  const allowed = mode === "src" ? ["assets", "evidence", "agents", "findings", "report"] : mode === "pentest" ? ["assets", "evidence", "findings", "report"] : null;
+  return allowed ? tabs.filter((item) => allowed.includes(item[0])) : tabs;
+};
 var field = (label, value, set, placeholder, props = {}) => h2(
   "label",
   { style: { display: "grid", gap: 4, marginBottom: 8 } },
   label,
-  h2("input", { className: "rt-input", value, placeholder, ...props, onChange: (event) => set(event.target.value) })
+  h2("input", {
+    className: "rt-input",
+    value,
+    placeholder,
+    ...props,
+    onChange: (event) => set(event.target.value)
+  })
 );
 function useRequestGeneration(engagement, api) {
   const owner = import_react2.default.useRef(null);
   const generation = import_react2.default.useRef(0);
-  const captured = import_react2.default.useMemo(() => ({ engagement, api, active: false, generation: 0, readSequence: 0 }), [engagement, api]);
+  const captured = import_react2.default.useMemo(
+    () => ({ engagement, api, active: false, generation: 0, readSequence: 0 }),
+    [engagement, api]
+  );
   import_react2.default.useLayoutEffect(() => {
     captured.generation = ++generation.current;
     captured.readSequence = 0;
@@ -298,6 +318,53 @@ function useRequestGeneration(engagement, api) {
 }
 var isCurrent = (owner, captured, generation = captured?.generation) => captured?.active === true && owner.current === captured && captured.generation === generation;
 var failureText = (failure) => String(failure?.message || failure || "\u64CD\u4F5C\u672A\u5B8C\u6210");
+var emptyRuntime = () => ({
+  pythonExecutable: "",
+  executionBackend: "native",
+  wslDistribution: "kali-linux",
+  wslPythonExecutable: "python3",
+  timeoutMs: 12e4
+});
+var defaultPreferences = () => ({
+  continuationGuard: true,
+  requireAssessmentForHighValueScore: true
+});
+var runtimeLabel = {
+  located: "\u5DF2\u5B9A\u4F4D\uFF0C\u5C1A\u672A\u63A2\u6D4B",
+  not_found: "\u672A\u627E\u5230",
+  not_checked: "\u5C1A\u672A\u63A2\u6D4B",
+  ready: "\u53EF\u7528",
+  unavailable: "\u4E0D\u53EF\u7528",
+  unsupported_or_unknown: "\u7248\u672C\u4E0D\u8DB3\u6216\u672A\u77E5",
+  module_located: "\u5305\u5DF2\u5B9A\u4F4D\uFF0C\u5C1A\u672A\u63A2\u6D4B",
+  cache_located: "\u7F13\u5B58\u5DF2\u5B9A\u4F4D\uFF0C\u5C1A\u672A\u63A2\u6D4B",
+  probe_failed: "\u63A2\u6D4B\u672A\u5B8C\u6210",
+  registered_receipt: "\u6700\u8FD1\u6CE8\u518C\u6210\u529F\u56DE\u6267",
+  pending_or_failed: "\u7B49\u5F85\u6CE8\u518C\u6216\u6CE8\u518C\u5931\u8D25",
+  not_recorded: "\u6CA1\u6709\u6CE8\u518C\u56DE\u6267",
+  unknown: "\u672A\u77E5",
+  unreadable: "\u56DE\u6267\u4E0D\u53EF\u8BFB\u53D6"
+};
+var coverageLabel = {
+  completed_registered_scope: "\u5DF2\u767B\u8BB0\u4EFB\u52A1\u5DF2\u7ED3\u9879",
+  unfinished: "\u6709\u672A\u5B8C\u6210\u9879",
+  blocked: "\u5F53\u524D\u53D7\u963B",
+  inactive_unfinished: "\u5DF2\u6682\u505C\u6216\u90E8\u5206\u4EA4\u4ED8",
+  not_initialized: "\u5C1A\u672A\u51C6\u5907\u5185\u90E8\u4E0A\u4E0B\u6587",
+  unavailable: "\u8986\u76D6\u6682\u4E0D\u53EF\u8BFB\u53D6"
+};
+var checkbox = (label, checked, set) => h2(
+  "label",
+  {
+    style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }
+  },
+  h2("input", {
+    type: "checkbox",
+    checked,
+    onChange: (event) => set(event.target.checked)
+  }),
+  label
+);
 function AssessmentTab({ engagement, api }) {
   const [status, setStatus] = import_react2.default.useState(null);
   const [target, setTarget] = import_react2.default.useState("");
@@ -309,6 +376,11 @@ function AssessmentTab({ engagement, api }) {
   const [resultOperation, setResultOperation] = import_react2.default.useState("");
   const [error, setError] = import_react2.default.useState("");
   const [busy, setBusy] = import_react2.default.useState(false);
+  const [runtimeConfig, setRuntimeConfig] = import_react2.default.useState(emptyRuntime);
+  const [preferences, setPreferences] = import_react2.default.useState(defaultPreferences);
+  const runtimeDirty = import_react2.default.useRef(false);
+  const preferencesDirty = import_react2.default.useRef(false);
+  const contextDirty = import_react2.default.useRef(false);
   const { owner, captured } = useRequestGeneration(engagement, api);
   const flight = import_react2.default.useRef(null);
   import_react2.default.useLayoutEffect(() => {
@@ -317,6 +389,11 @@ function AssessmentTab({ engagement, api }) {
     setTarget("");
     setScope("");
     setModel("v1");
+    setRuntimeConfig(emptyRuntime());
+    setPreferences(defaultPreferences());
+    runtimeDirty.current = false;
+    preferencesDirty.current = false;
+    contextDirty.current = false;
     setSourceOffset(0);
     setReviewOffset(0);
     setResult(null);
@@ -327,27 +404,41 @@ function AssessmentTab({ engagement, api }) {
   const acceptStatus = (value) => {
     setStatus(value);
     const urls = (value.context?.scope || value.assessment_policy?.scope || []).filter((rule) => /^https?:\/\//i.test(rule));
-    setTarget(value.context?.target || urls[0] || "");
-    setScope(urls.join("\n"));
-    setModel(value.context?.model === "v2" ? "v2" : "v1");
+    if (!contextDirty.current) {
+      setTarget(value.context?.target || urls[0] || "");
+      setScope(urls.join("\n"));
+      setModel(
+        value.context?.model || value.operator_config?.assessmentModel || "v1"
+      );
+    }
+    if (value.operator_config && !runtimeDirty.current)
+      setRuntimeConfig({ ...emptyRuntime(), ...value.operator_config });
+    if (value.preferences && !preferencesDirty.current)
+      setPreferences(value.preferences);
     if (value?.ok === false) setError(failureText(value.error));
   };
   const refresh = async (captured2, generation = captured2.generation) => {
     if (!isCurrent(owner, captured2, generation)) return;
     const sequence = ++captured2.readSequence;
     try {
-      const value = await captured2.api({ op: "assessmentStatus", ...captured2.engagement ? { engagement: captured2.engagement } : {} });
-      if (!isCurrent(owner, captured2, generation) || sequence !== captured2.readSequence) return value;
+      const value = await captured2.api({
+        op: "assessmentStatus",
+        ...captured2.engagement ? { engagement: captured2.engagement } : {}
+      });
+      if (!isCurrent(owner, captured2, generation) || sequence !== captured2.readSequence)
+        return value;
       acceptStatus(value);
       return value;
     } catch (failure) {
-      if (isCurrent(owner, captured2, generation) && sequence === captured2.readSequence) throw failure;
+      if (isCurrent(owner, captured2, generation) && sequence === captured2.readSequence)
+        throw failure;
     }
   };
   import_react2.default.useEffect(() => {
     const generation = captured.generation;
     refresh(captured, generation).catch((failure) => {
-      if (isCurrent(owner, captured, generation)) setError(failureText(failure));
+      if (isCurrent(owner, captured, generation))
+        setError(failureText(failure));
     });
   }, [captured]);
   const run = async (request) => {
@@ -355,20 +446,51 @@ function AssessmentTab({ engagement, api }) {
     const generation = captured.generation;
     const requestFlight = { captured };
     flight.current = requestFlight;
-    const statusSequence = request.op === "assessmentStatus" ? ++captured.readSequence : null;
+    const statusSequence = [
+      "assessmentStatus",
+      "awaConfigSave",
+      "assessmentPreferencesSave",
+      "assessmentRuntimeProbe"
+    ].includes(request.op) ? ++captured.readSequence : null;
     setBusy(true);
     setError("");
     try {
-      const value = await captured.api({ ...request, ...captured.engagement ? { engagement: captured.engagement } : {} });
+      const value = await captured.api({
+        ...request,
+        ...captured.engagement ? { engagement: captured.engagement } : {}
+      });
       if (!isCurrent(owner, captured, generation)) return value;
-      if (value?.ok === false) throw new Error(value.error || "\u64CD\u4F5C\u672A\u5B8C\u6210");
       setResult(value);
       setResultOperation(request.op);
-      if (request.op === "assessmentStatus" && statusSequence === captured.readSequence) acceptStatus(value);
-      if (request.op === "assessmentStart") await refresh(captured, generation);
+      if (request.op === "assessmentRuntimeProbe" && value.runtime) {
+        setStatus((previous) => ({ ...previous, runtime: value.runtime }));
+        if (value.ok === false)
+          setError("\u672C\u5730\u8BC4\u4F30\u8FD0\u884C\u6761\u4EF6\u5C1A\u4E0D\u8DB3\uFF0C\u8BF7\u67E5\u770B Node\u3001\u89E3\u91CA\u5668\u72B6\u6001\u4E0E\u539F\u56E0\u3002");
+      } else if (value?.ok === false) throw new Error(failureText(value.error));
+      if (request.op === "assessmentStatus" && statusSequence === captured.readSequence)
+        acceptStatus(value);
+      if (request.op === "awaConfigSave") {
+        runtimeDirty.current = false;
+        if (value.config)
+          setRuntimeConfig({ ...emptyRuntime(), ...value.config });
+      }
+      if (request.op === "assessmentPreferencesSave") {
+        preferencesDirty.current = false;
+        if (value.preferences) setPreferences(value.preferences);
+      }
+      if (request.op === "assessmentStart") contextDirty.current = false;
+      if ([
+        "assessmentStart",
+        "awaConfigSave",
+        "assessmentPreferencesSave",
+        "assessmentRuntimeProbe"
+      ].includes(request.op)) {
+        await refresh(captured, generation);
+      }
       return value;
     } catch (failure) {
-      if (isCurrent(owner, captured, generation)) setError(failureText(failure));
+      if (isCurrent(owner, captured, generation))
+        setError(failureText(failure));
     } finally {
       if (flight.current === requestFlight) {
         flight.current = null;
@@ -376,21 +498,50 @@ function AssessmentTab({ engagement, api }) {
       }
     }
   };
-  const button = (label, request, disabled = false) => h2("button", {
-    className: "rt-btn",
-    disabled: busy || disabled,
-    "data-assessment-operation": request.op,
-    "data-assessment-action": request.action || "",
-    "data-assessment-verify": typeof request.verify === "boolean" ? String(request.verify) : "",
-    onClick: () => run(request)
-  }, label);
+  const button = (label, request, disabled = false) => h2(
+    "button",
+    {
+      className: "rt-btn",
+      disabled: busy || disabled,
+      "data-assessment-operation": request.op,
+      "data-assessment-action": request.action || "",
+      "data-assessment-verify": typeof request.verify === "boolean" ? String(request.verify) : "",
+      onClick: () => run(request)
+    },
+    label
+  );
   const ready = status?.context?.ready === true;
-  const resultText = result ? JSON.stringify(result, (key, value) => ["project_id", "packagePath"].includes(key) ? void 0 : value, 2) : "";
+  const runtime = status?.runtime;
+  const guard = status?.continuation_guard;
+  const runtimeChange = (key) => (value) => {
+    runtimeDirty.current = true;
+    setRuntimeConfig((previous) => ({ ...previous, [key]: value }));
+  };
+  const preferenceChange = (key) => (value) => {
+    preferencesDirty.current = true;
+    setPreferences((previous) => ({ ...previous, [key]: value }));
+  };
+  const contextChange = (set) => (value) => {
+    contextDirty.current = true;
+    set(value);
+  };
+  const resultText = result ? JSON.stringify(
+    result,
+    (key, value) => ["project_id", "packagePath"].includes(key) ? void 0 : value,
+    2
+  ) : "";
   const resultPageKind = result?.page_kind || (resultOperation === "assessmentImport" ? "source_candidates" : resultOperation === "assessmentReview" ? "assessment_candidates" : "");
-  const canPageResult = ["source_candidates", "assessment_candidates"].includes(resultPageKind) && result?.next_offset != null;
+  const canPageResult = ["source_candidates", "assessment_candidates"].includes(resultPageKind) && (Boolean(result?.next?.arguments) || result?.next_offset != null);
   const nextResultPage = () => {
     if (!isCurrent(owner, captured) || !canPageResult) return;
-    if (resultPageKind === "source_candidates") setSourceOffset(result.next_offset);
+    if (result.next?.arguments) {
+      return run({
+        ...result.next.arguments,
+        op: resultPageKind === "source_candidates" ? "assessmentImport" : "assessmentReview"
+      });
+    }
+    if (resultPageKind === "source_candidates")
+      setSourceOffset(result.next_offset);
     else setReviewOffset(result.next_offset);
   };
   return h2(
@@ -399,22 +550,232 @@ function AssessmentTab({ engagement, api }) {
     h2(
       "div",
       { className: "rt-card" },
+      h2("h4", null, "\u8BC4\u4F30\u8FD0\u884C\u73AF\u5883"),
+      h2(
+        "p",
+        null,
+        "\u672C\u5730\u72B6\u6001\u533A\u5206\u6587\u4EF6\u5B9A\u4F4D\u4E0E\u5B9E\u9645\u63A2\u6D4B\u3002\u6D4F\u89C8\u5668\u8FD0\u884C\u65F6\u7F3A\u5931\u65F6\uFF0C\u76F8\u5173\u8BC4\u4F30\u9879\u4FDD\u7559\u53D7\u963B\u539F\u56E0\u3002"
+      ),
+      runtime ? h2(
+        import_react2.default.Fragment,
+        null,
+        h2(
+          "div",
+          { "data-runtime-kind": "node" },
+          `Node ${runtime.node?.version || "\u672A\u77E5"} \xB7 ${runtime.node?.supported ? "\u6EE1\u8DB3\u8BC4\u4F30\u6838\u5FC3\u8981\u6C42" : "\u9700\u8981 Node 22.19 \u6216\u66F4\u9AD8\u7248\u672C"}`
+        ),
+        h2(
+          "p",
+          null,
+          "\u8FD0\u884C\u8981\u6C42\uFF1APurge \u57FA\u7840 Node \u226518\uFF1B\u7EA2\u961F\u5DE5\u5177 Node \u226522.5\uFF1B\u5185\u7F6E\u8BC4\u4F30 Node \u226522.19\u3001Python \u22653.10\uFF1B\u6D4F\u89C8\u5668\u5355\u72EC\u5224\u65AD\u3002"
+        ),
+        h2(
+          "div",
+          {
+            "data-runtime-kind": "python",
+            "data-runtime-state": runtime.python?.state || "unknown"
+          },
+          `Python\uFF1A${runtimeLabel[runtime.python?.state] || runtime.python?.state || "\u672A\u77E5"}${runtime.python?.version ? " \xB7 " + runtime.python.version : ""}`
+        ),
+        h2(
+          "p",
+          { className: "rt-mono", style: { overflowWrap: "anywhere" } },
+          runtime.python?.path || runtime.python?.executable || "\u672A\u5B9A\u4F4D\u89E3\u91CA\u5668"
+        ),
+        runtime.python?.reason ? h2("p", null, "\u89E3\u91CA\u5668\u539F\u56E0\uFF1A" + runtime.python.reason) : null,
+        h2(
+          "div",
+          {
+            "data-runtime-kind": "browser",
+            "data-runtime-state": runtime.browser?.state || "unknown"
+          },
+          `\u6D4F\u89C8\u5668\uFF1A${runtimeLabel[runtime.browser?.state] || runtime.browser?.state || "\u672A\u77E5"}${runtime.browser?.version ? " \xB7 " + runtime.browser.version : ""}`
+        ),
+        runtime.browser?.reason ? h2("p", null, "\u6D4F\u89C8\u5668\u539F\u56E0\uFF1A" + runtime.browser.reason) : null,
+        ...(status?.assessment_policy?.assessment_mode === "pentest" ? [["\u6E17\u900F", runtime.pentest_preset]] : [["SRC", runtime.src_preset]]).flatMap(([label, receipt]) => [
+          h2(
+            "p",
+            { key: label + "-preset" },
+            `${label}\u9884\u8BBE\uFF1A${runtimeLabel[receipt?.state] || "\u672A\u77E5"}${receipt?.phase ? " \xB7 " + receipt.phase : ""}`
+          ),
+          receipt?.at ? h2(
+            "p",
+            { key: label + "-receipt" },
+            "\u56DE\u6267\u65F6\u95F4\uFF1A" + receipt.at + "\uFF1B\u8BE5\u56DE\u6267\u4E0D\u4EE3\u8868\u5F53\u524D\u754C\u9762\u5DF2\u91CD\u65B0\u52A0\u8F7D\u3002"
+          ) : null
+        ]),
+        status?.assessment_policy?.assessment_mode !== "pentest" ? h2(
+          "p",
+          null,
+          "SRC \u6307\u5F15\uFF1A" + (runtime.src_skill?.installed ? "\u968F\u5305\u6280\u80FD\u5DF2\u540C\u6B65" : "\u540C\u6B65\u526F\u672C\u5C1A\u672A\u5B9A\u4F4D") + "\uFF1B\u53EF\u7528 redteam_src_runbook \u8BFB\u53D6\u5F53\u524D\u5B89\u88C5\u7684\u6B63\u6587\u3002"
+        ) : null,
+        h2(
+          "p",
+          null,
+          guard?.registered ? `\u7EED\u8DD1\u94A9\u5B50\u5DF2\u767B\u8BB0 \xB7 ${guard.active_agents || 0} \u4E2A\u6D3B\u52A8\u4F1A\u8BDD` : "\u5BBF\u4E3B\u7EED\u8DD1\u63A5\u53E3\u5C1A\u4E0D\u53EF\u7528\uFF1B\u8BC4\u4F30\u5DE5\u5177\u4ECD\u4F1A\u63D0\u4F9B\u4E0B\u4E00\u6B65\u3002"
+        ),
+        guard?.reason ? h2(
+          "details",
+          null,
+          h2("summary", null, "\u7EED\u8DD1\u72B6\u6001"),
+          h2("p", { className: "rt-mono" }, guard.reason)
+        ) : null,
+        guard?.metrics ? h2(
+          "p",
+          null,
+          `\u672C\u8FDB\u7A0B\u6709\u6548\u8FDB\u5C55\uFF1A\u5B9E\u9645\u6750\u6599 ${guard.metrics.material_captures || 0}\uFF1B\u8EAB\u4EFD\u6838\u5B9E ${guard.metrics.identity_verifications || 0}\uFF1B\u5B89\u5168\u63A7\u5236 ${guard.metrics.security_control_runs || 0}\uFF1B\u91CD\u590D\u4EFB\u52A1\u53D7\u963B ${guard.metrics.repeated_task_failures || 0}\u3002`
+        ) : null,
+        runtime.checked_at ? h2("p", null, "\u6700\u8FD1\u672C\u5730\u63A2\u6D4B\uFF1A" + runtime.checked_at) : null
+      ) : h2("p", null, "\u6B63\u5728\u8BFB\u53D6\u672C\u5730\u73AF\u5883\u4FE1\u606F\u3002"),
+      button("\u63A2\u6D4B\u672C\u5730\u8FD0\u884C\u73AF\u5883", {
+        op: "assessmentRuntimeProbe",
+        browser: true
+      }),
+      h2(
+        "details",
+        { style: { marginTop: 12 } },
+        h2("summary", null, "\u89E3\u91CA\u5668\u4E0E\u6267\u884C\u540E\u7AEF\u8BBE\u7F6E"),
+        h2(
+          "p",
+          null,
+          "\u8BBE\u7F6E\u7531\u64CD\u4F5C\u8005\u4FDD\u5B58\u3002\u5DF2\u6709\u8BC4\u4F30\u4E0A\u4E0B\u6587\u7684\u540E\u7AEF\u4FDD\u6301\u56FA\u5B9A\uFF0C\u5207\u6362\u9ED8\u8BA4\u540E\u7AEF\u4E0D\u4F1A\u8FC1\u79FB\u5DF2\u6709\u53F0\u8D26\u3002"
+        ),
+        status?.context?.initialized ? h2(
+          "p",
+          null,
+          `\u5F53\u524D\u4EFB\u52A1\u540E\u7AEF\uFF1A${status.context.executionBackend}${status.context.wslDistribution ? " \xB7 " + status.context.wslDistribution : ""}`
+        ) : null,
+        field(
+          "\u672C\u673A Python \u8DEF\u5F84\u6216\u540D\u79F0",
+          runtimeConfig.pythonExecutable,
+          runtimeChange("pythonExecutable"),
+          "python \u6216\u7EDD\u5BF9\u8DEF\u5F84"
+        ),
+        h2(
+          "label",
+          { style: { display: "grid", gap: 4, marginBottom: 8 } },
+          "\u6267\u884C\u540E\u7AEF",
+          h2(
+            "select",
+            {
+              className: "rt-input",
+              value: runtimeConfig.executionBackend,
+              onChange: (event) => runtimeChange("executionBackend")(event.target.value)
+            },
+            h2("option", { value: "native" }, "\u672C\u673A"),
+            h2("option", { value: "wsl" }, "WSL\uFF08Windows\uFF09")
+          )
+        ),
+        runtimeConfig.executionBackend === "wsl" ? h2(
+          import_react2.default.Fragment,
+          null,
+          field(
+            "WSL \u53D1\u884C\u7248",
+            runtimeConfig.wslDistribution,
+            runtimeChange("wslDistribution"),
+            "kali-linux"
+          ),
+          field(
+            "WSL Python \u8DEF\u5F84\u6216\u540D\u79F0",
+            runtimeConfig.wslPythonExecutable,
+            runtimeChange("wslPythonExecutable"),
+            "python3"
+          )
+        ) : null,
+        field(
+          "\u5355\u6B21\u8C03\u7528\u8D85\u65F6\uFF08\u6BEB\u79D2\uFF09",
+          String(runtimeConfig.timeoutMs),
+          runtimeChange("timeoutMs"),
+          "120000",
+          { type: "number", min: 1e3, max: 6e5, step: 1e3 }
+        ),
+        button(
+          "\u4FDD\u5B58\u73AF\u5883\u8BBE\u7F6E",
+          {
+            op: "awaConfigSave",
+            config: {
+              pythonExecutable: runtimeConfig.pythonExecutable.trim(),
+              executionBackend: runtimeConfig.executionBackend,
+              wslDistribution: runtimeConfig.wslDistribution.trim(),
+              wslPythonExecutable: runtimeConfig.wslPythonExecutable.trim(),
+              timeoutMs: Number(runtimeConfig.timeoutMs)
+            }
+          },
+          !status?.operator_config || !runtimeConfig.pythonExecutable.trim()
+        )
+      ),
+      h2(
+        "details",
+        { style: { marginTop: 12 } },
+        h2("summary", null, "\u7EED\u8DD1\u4E0E\u8BB0\u5206\u504F\u597D"),
+        h2(
+          "p",
+          null,
+          "\u7EED\u8DD1\u53EA\u63A8\u8FDB\u5DF2\u6709\u83B7\u51C6\u4EFB\u52A1\uFF1B\u53D6\u6D88\u3001\u65B0\u8F93\u5165\u3001SRC \u505C\u6B62\u548C\u7F3A\u5931\u524D\u63D0\u4F18\u5148\u3002\u65E0\u8FDB\u5C55\u65F6\u4FDD\u7559\u672A\u5B8C\u6210\u8BB0\u5F55\u3002"
+        ),
+        checkbox(
+          "\u542F\u7528\u8BC4\u4F30\u7EED\u8DD1\u63D0\u9192",
+          preferences.continuationGuard,
+          preferenceChange("continuationGuard")
+        ),
+        checkbox(
+          "\u9AD8\u4EF7\u503C\u5F97\u5206\u8981\u6C42 observed \u6210\u679C\u8BC1\u636E",
+          preferences.requireAssessmentForHighValueScore,
+          preferenceChange("requireAssessmentForHighValueScore")
+        ),
+        h2(
+          "p",
+          null,
+          "\u9AD8\u4EF7\u503C\u8981\u6C42\u7528\u4E8E\u670D\u52A1\u5668\u4E3B\u673A\u3001\u96C6\u6743\u7CFB\u7EDF\u548C\u57DF\u540D\u63A7\u5236\u6210\u679C\uFF0C\u68C0\u67E5\u53EF\u4FE1\u91C7\u96C6\u56DE\u6267\u3001\u540C\u76EE\u6807\u3001score_outcome \u548C\u57FA\u7840\u5206\u503C\u6863\u4F4D\u3002\u65B0\u9ED8\u8BA4\u5F00\u542F\uFF0C\u5DF2\u660E\u786E\u4FDD\u5B58\u7684\u5173\u95ED\u503C\u4FDD\u7559\uFF0C\u5386\u53F2\u6587\u5B57\u8BB0\u5F55\u4ECD\u4F1A\u6807\u6CE8\u3002"
+        ),
+        button(
+          "\u4FDD\u5B58\u504F\u597D",
+          { op: "assessmentPreferencesSave", value: preferences },
+          !status?.preferences
+        )
+      )
+    ),
+    h2(
+      "div",
+      { className: "rt-card" },
       h2("h4", null, "\u5185\u7F6E\u8BC1\u636E\u8BC4\u4F30"),
-      h2("p", null, "\u8BC4\u4F30\u6838\u5FC3\u968F\u9879\u76EE\u63D0\u4F9B\uFF0C\u76F4\u63A5\u4F7F\u7528\u5F53\u524D\u9776\u6807\u7684\u8303\u56F4\u548C\u53F0\u8D26\u3002\u5019\u9009\u9700\u901A\u8FC7\u771F\u5B9E\u5BF9\u7167\u4E0E\u53EF\u590D\u6838\u8BC1\u636E\u786E\u8BA4\u3002"),
-      h2("div", { className: "rt-tag", "data-assessment-engine": "embedded" }, status?.engine?.embedded ? `\u9879\u76EE\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3 \xB7 ${status.engine.version || ""}` : "\u6B63\u5728\u68C0\u67E5\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3"),
+      h2(
+        "p",
+        null,
+        "\u8BC4\u4F30\u6838\u5FC3\u968F\u9879\u76EE\u63D0\u4F9B\uFF0C\u76F4\u63A5\u4F7F\u7528\u5F53\u524D\u9776\u6807\u7684\u8303\u56F4\u548C\u53F0\u8D26\u3002\u5019\u9009\u9700\u901A\u8FC7\u771F\u5B9E\u5BF9\u7167\u4E0E\u53EF\u590D\u6838\u8BC1\u636E\u786E\u8BA4\u3002"
+      ),
+      h2(
+        "div",
+        { className: "rt-tag", "data-assessment-engine": "embedded" },
+        status?.engine?.embedded ? `\u9879\u76EE\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3 \xB7 ${status.engine.version || ""}` : "\u6B63\u5728\u8BFB\u53D6\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3\u4FE1\u606F"
+      ),
       engagement ? h2(
         import_react2.default.Fragment,
         null,
-        h2("p", { "data-assessment-context": ready ? "ready" : "pending" }, ready ? `\u5F53\u524D\u9776\u6807\u8BC4\u4F30\u5DF2\u51C6\u5907 \xB7 ${status.context.target || ""}` : "\u5F53\u524D\u9776\u6807\u5C1A\u9700\u660E\u786E HTTP \u76EE\u6807\u4E0E\u8303\u56F4\u3002"),
-        !ready ? h2(
+        h2(
+          "p",
+          { "data-assessment-context": ready ? "ready" : "pending" },
+          ready ? `\u5F53\u524D\u9776\u6807\u8BC4\u4F30\u5DF2\u51C6\u5907 \xB7 ${status.context.target || ""}` : status?.context?.reason === "runtime_configuration_mismatch" ? "\u5F53\u524D\u914D\u7F6E\u4E0E\u5DF2\u6709\u4EFB\u52A1\u7684\u56FA\u5B9A\u540E\u7AEF\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u6062\u590D\u5BF9\u5E94\u540E\u7AEF\u8BBE\u7F6E\u3002" : "\u5F53\u524D\u9776\u6807\u5C1A\u9700\u660E\u786E HTTP \u76EE\u6807\u4E0E\u8303\u56F4\u3002"
+        ),
+        !ready && !status?.context?.initialized ? h2(
           import_react2.default.Fragment,
           null,
-          field("\u76EE\u6807 URL", target, setTarget, "https://example.test/app"),
+          field(
+            "\u76EE\u6807 URL",
+            target,
+            contextChange(setTarget),
+            "https://example.test/app"
+          ),
           h2(
             "label",
             { style: { display: "grid", gap: 4, marginBottom: 8 } },
             "\u660E\u786E URL \u8303\u56F4\uFF08\u6BCF\u884C\u4E00\u9879\uFF09",
-            h2("textarea", { className: "rt-textarea", rows: 3, value: scope, onChange: (event) => setScope(event.target.value) })
+            h2("textarea", {
+              className: "rt-textarea",
+              rows: 3,
+              value: scope,
+              onChange: (event) => contextChange(setScope)(event.target.value)
+            })
           ),
           h2(
             "label",
@@ -422,29 +783,99 @@ function AssessmentTab({ engagement, api }) {
             "\u8BC4\u4F30\u6A21\u578B",
             h2(
               "select",
-              { className: "rt-input", value: model, onChange: (event) => setModel(event.target.value), "data-assessment-model": true },
+              {
+                className: "rt-input",
+                value: model,
+                onChange: (event) => contextChange(setModel)(event.target.value),
+                "data-assessment-model": true
+              },
               h2("option", { value: "v1" }, "\u8BC1\u636E\u4E0E\u6D4B\u8BD5\u4E49\u52A1"),
               h2("option", { value: "v2" }, "\u5047\u8BBE\u4E0E\u6D4B\u8BD5\u914D\u65B9")
             )
           ),
-          button("\u51C6\u5907\u5F53\u524D\u9776\u6807\u8BC4\u4F30", { op: "assessmentStart", target, scope: rules(scope), assessmentModel: model }, !target || !rules(scope).length)
+          button(
+            "\u51C6\u5907\u5F53\u524D\u9776\u6807\u8BC4\u4F30",
+            {
+              op: "assessmentStart",
+              target,
+              scope: rules(scope),
+              assessmentModel: model
+            },
+            !target || !rules(scope).length
+          )
         ) : h2(
           import_react2.default.Fragment,
           null,
           button("\u5237\u65B0\u8BC4\u4F30\u72B6\u6001", { op: "assessmentStatus" }),
-          status.context.workspace ? h2("details", null, h2("summary", null, "\u53F0\u8D26\u4F4D\u7F6E"), h2("p", { className: "rt-mono" }, status.context.workspace)) : null
+          status.context.workspace ? h2(
+            "details",
+            null,
+            h2("summary", null, "\u53F0\u8D26\u4F4D\u7F6E"),
+            h2(
+              "p",
+              { className: "rt-mono" },
+              status.context.workspace
+            )
+          ) : null
         ),
         h2("hr"),
-        field("\u6765\u6E90\u5019\u9009\u9875\u504F\u79FB", String(sourceOffset), (value) => setSourceOffset(Number(value)), "0", { "data-assessment-cursor": "source_candidates" }),
-        field("\u8BC4\u4F30\u590D\u6838\u9875\u504F\u79FB", String(reviewOffset), (value) => setReviewOffset(Number(value)), "0", { "data-assessment-cursor": "assessment_candidates" }),
-        h2("p", null, "\u6765\u6E90\u5206\u9875\u7528\u4E8E\u7EB3\u5165\u5019\u9009\uFF1B\u590D\u6838\u5206\u9875\u68C0\u67E5\u672C\u9776\u6807\u5168\u90E8\u5DF2\u7EB3\u5165\u5019\u9009\u3002\u4E24\u4E2A\u9875\u504F\u79FB\u5206\u522B\u8BB0\u5F55\u3002"),
+        h2(
+          "details",
+          null,
+          h2("summary", null, "\u4ECE\u6307\u5B9A\u4F4D\u7F6E\u6062\u590D\u8BFB\u53D6"),
+          field(
+            "\u6765\u6E90\u5019\u9009\u8D77\u59CB\u4F4D\u7F6E",
+            String(sourceOffset),
+            (value) => setSourceOffset(Number(value)),
+            "0",
+            { "data-assessment-cursor": "source_candidates" }
+          ),
+          field(
+            "\u8BC4\u4F30\u590D\u6838\u8D77\u59CB\u4F4D\u7F6E",
+            String(reviewOffset),
+            (value) => setReviewOffset(Number(value)),
+            "0",
+            { "data-assessment-cursor": "assessment_candidates" }
+          )
+        ),
+        h2("p", null, "\u7EB3\u5165\u5019\u9009\u540E\u590D\u6838\u5DF2\u6709\u8BC1\u636E\uFF0C\u4F7F\u7528\u7ED3\u679C\u4E2D\u7684\u4E0B\u4E00\u9875\u7EE7\u7EED\u3002"),
         h2(
           "div",
           { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
-          button("\u7EB3\u5165\u672C\u9875\u5019\u9009", { op: "assessmentImport", offset: sourceOffset, limit: 50 }, !ready),
-          button("\u67E5\u770B\u8BC4\u4F30\u53F0\u8D26", { op: "assessmentRun", action: "project.status", input: { limit: 3 } }, !ready),
-          button("\u590D\u6838\u5DF2\u6709\u8BC1\u636E", { op: "assessmentReview", verify: false, offset: reviewOffset, limit: 50 }, !ready),
-          button("\u786E\u8BA4\u5DF2\u8BC1\u660E\u53D1\u73B0", { op: "assessmentReview", verify: true, offset: reviewOffset, limit: 50 }, !ready)
+          button(
+            "\u7EB3\u5165\u672C\u9875\u5019\u9009",
+            { op: "assessmentImport", offset: sourceOffset, limit: 50 },
+            !ready
+          ),
+          button(
+            "\u67E5\u770B\u8BC4\u4F30\u53F0\u8D26",
+            {
+              op: "assessmentRun",
+              action: "project.status",
+              input: { limit: 3 }
+            },
+            !ready
+          ),
+          button(
+            "\u590D\u6838\u5DF2\u6709\u8BC1\u636E",
+            {
+              op: "assessmentReview",
+              verify: false,
+              offset: reviewOffset,
+              limit: 50
+            },
+            !ready
+          ),
+          button(
+            "\u786E\u8BA4\u5DF2\u8BC1\u660E\u53D1\u73B0",
+            {
+              op: "assessmentReview",
+              verify: true,
+              offset: reviewOffset,
+              limit: 50
+            },
+            !ready
+          )
         )
       ) : h2("p", null, "\u5148\u521B\u5EFA\u9776\u6807\uFF0C\u8BC4\u4F30\u6838\u5FC3\u5C06\u4F7F\u7528\u8BE5\u9776\u6807\u7684\u5185\u90E8\u4E0A\u4E0B\u6587\u3002"),
       error ? h2("div", { className: "rt-err" }, error) : null,
@@ -454,17 +885,454 @@ function AssessmentTab({ engagement, api }) {
         h2("summary", null, "\u672C\u6B21\u7ED3\u679C"),
         canPageResult ? h2(
           "button",
-          { className: "rt-btn", disabled: busy, "data-assessment-next": resultPageKind, onClick: nextResultPage },
+          {
+            className: "rt-btn",
+            disabled: busy,
+            "data-assessment-next": resultPageKind,
+            onClick: nextResultPage
+          },
           resultPageKind === "source_candidates" ? "\u9009\u62E9\u4E0B\u4E00\u6765\u6E90\u5019\u9009\u9875" : "\u9009\u62E9\u4E0B\u4E00\u8BC4\u4F30\u590D\u6838\u9875"
         ) : null,
         h2(
           "pre",
-          { className: "rt-mono", style: { whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 360, overflow: "auto" } },
+          {
+            className: "rt-mono",
+            style: {
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              maxHeight: 360,
+              overflow: "auto"
+            }
+          },
           resultText.slice(0, 12e3)
         ),
-        resultText.length > 12e3 ? h2("p", null, "\u5F53\u524D\u7ED3\u679C\u4EC5\u663E\u793A\u524D 12,000 \u4E2A\u5B57\u7B26\uFF0C\u8BF7\u4F7F\u7528\u5C0F\u9875\u5B8C\u6210\u590D\u6838\u3002") : null
+        resultText.length > 12e3 ? h2(
+          "p",
+          null,
+          "\u5F53\u524D\u7ED3\u679C\u4EC5\u663E\u793A\u524D 12,000 \u4E2A\u5B57\u7B26\uFF0C\u8BF7\u4F7F\u7528\u5C0F\u9875\u5B8C\u6210\u590D\u6838\u3002"
+        ) : null
       ) : null
+    ),
+    engagement ? h2(AssessmentDeliveryReport, { engagement, api, embedded: true }) : null
+  );
+}
+function AssessmentDeliveryReport({
+  engagement,
+  api,
+  embedded = false
+}) {
+  const [report, setReport] = import_react2.default.useState(null);
+  const [scoreOffset, setScoreOffset] = import_react2.default.useState(0);
+  const [findingOffset, setFindingOffset] = import_react2.default.useState(0);
+  const [stopOffset, setStopOffset] = import_react2.default.useState(0);
+  const [currentPage, setCurrentPage] = import_react2.default.useState({});
+  const [busy, setBusy] = import_react2.default.useState(false);
+  const [error, setError] = import_react2.default.useState("");
+  const [message, setMessage] = import_react2.default.useState("");
+  const { owner, captured } = useRequestGeneration(engagement, api);
+  const flight = import_react2.default.useRef(null);
+  import_react2.default.useLayoutEffect(() => {
+    flight.current = null;
+    setReport(null);
+    setScoreOffset(0);
+    setFindingOffset(0);
+    setStopOffset(0);
+    setCurrentPage({});
+    setBusy(false);
+    setError("");
+    setMessage("");
+  }, [captured]);
+  const load = async (save = false, page = currentPage) => {
+    if (!captured.engagement || !isCurrent(owner, captured) || flight.current)
+      return;
+    const generation = captured.generation, sequence = ++captured.readSequence;
+    const requestFlight = { captured };
+    flight.current = requestFlight;
+    const pagination = page.page_token ? { page_token: page.page_token } : {
+      offset: page.offset ?? 0,
+      finding_offset: page.finding_offset ?? 0,
+      stop_offset: page.stop_offset ?? 0,
+      limit: 50
+    };
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const value = await captured.api({
+        op: "assessmentReport",
+        engagement: captured.engagement,
+        save,
+        ...pagination
+      });
+      if (!isCurrent(owner, captured, generation) || sequence !== captured.readSequence)
+        return value;
+      if (value?.ok === false) throw new Error(failureText(value.error));
+      setReport(value);
+      setScoreOffset(value.score?.offset ?? pagination.offset ?? 0);
+      setFindingOffset(
+        value.findings?.offset ?? pagination.finding_offset ?? 0
+      );
+      setStopOffset(value.src_stops?.offset ?? pagination.stop_offset ?? 0);
+      setCurrentPage(pagination);
+      if (save)
+        setMessage("\u672C\u9875 Markdown \u4E0E JSON \u5FEB\u7167\u5DF2\u4FDD\u5B58\u5230\u5F53\u524D\u9776\u6807\u7684\u62A5\u544A\u76EE\u5F55\u3002");
+      return value;
+    } catch (failure) {
+      if (isCurrent(owner, captured, generation))
+        setError(failureText(failure));
+    } finally {
+      if (flight.current === requestFlight) {
+        flight.current = null;
+        if (isCurrent(owner, captured, generation)) setBusy(false);
+      }
+    }
+  };
+  const download = () => {
+    if (!report?.markdown || !isCurrent(owner, captured)) return;
+    let url;
+    try {
+      url = URL.createObjectURL(
+        new Blob([report.markdown], { type: "text/markdown;charset=utf-8" })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "assessment-delivery-" + String(captured.engagement).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") + ".md";
+      link.click();
+      setMessage("\u5DF2\u4E0B\u8F7D\u5F53\u524D\u4EA4\u4ED8\u62A5\u544A\u9875\u3002");
+    } catch (failure) {
+      setError(failureText(failure));
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+    }
+  };
+  const legacyPage = {
+    offset: scoreOffset,
+    finding_offset: findingOffset,
+    stop_offset: stopOffset
+  };
+  return h2(
+    "div",
+    { className: embedded ? "rt-card" : "rt-pane" },
+    h2(
+      "div",
+      { className: embedded ? void 0 : "rt-card" },
+      h2("h4", null, "\u5F97\u5206\u3001\u53D1\u73B0\u4E0E\u8BC4\u4F30\u4EA4\u4ED8"),
+      h2(
+        "p",
+        null,
+        "\u540C\u65F6\u67E5\u770B\u73B0\u6709\u5F97\u5206\u3001\u8BC1\u636E\u5F3A\u5EA6\u3001\u8BC4\u4F30\u8986\u76D6\u548C SRC \u505C\u6B62\u3002\u6C47\u603B\u4FDD\u7559\u5168\u90E8\u5DF2\u767B\u8BB0\u5206\u6BCD\uFF0C\u660E\u7EC6\u6BCF\u9875 50 \u9879\u3002"
+      ),
+      h2(
+        "div",
+        { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+        h2(
+          "button",
+          {
+            className: "rt-btn",
+            disabled: busy || !engagement,
+            "data-delivery-action": "read",
+            onClick: () => load(false)
+          },
+          report ? "\u5237\u65B0\u5F53\u524D\u4EA4\u4ED8\u9875" : "\u8BFB\u53D6\u4EA4\u4ED8\u62A5\u544A"
+        ),
+        h2(
+          "button",
+          {
+            className: "rt-btn",
+            disabled: busy || !engagement,
+            "data-delivery-action": "save",
+            onClick: () => load(true)
+          },
+          "\u4FDD\u5B58\u4EA4\u4ED8\u62A5\u544A\u9875"
+        ),
+        h2(
+          "button",
+          { className: "rt-btn", disabled: busy || !report, onClick: download },
+          "\u4E0B\u8F7D Markdown"
+        )
+      ),
+      report ? h2(
+        import_react2.default.Fragment,
+        null,
+        h2(
+          "p",
+          { "data-delivery-state": report.assessment?.state },
+          `\u8BC4\u4F30\uFF1A${coverageLabel[report.assessment?.state] || "\u672A\u77E5"} \xB7 \u6765\u6E90\u53D1\u73B0 ${report.findings?.registered_total || 0} \u9879` + (report.assessment_mode === "src" ? ` \xB7 \u505C\u6B62\u76EE\u6807 ${report.src_stops?.targets || 0} \u4E2A` : ` \xB7 \u5F97\u5206 ${report.score?.summary?.points || 0}`)
+        ),
+        h2(
+          "p",
+          null,
+          `\u6F0F\u6D1E ${report.findings?.vulnerabilities ?? report.findings?.registered_total ?? 0} \u9879 \xB7 \u52A0\u56FA\u5EFA\u8BAE ${report.findings?.hardening || 0} \u9879 \xB7 \u4FE1\u606F\u9879 ${report.findings?.informational || 0} \u9879` + (report.assessment_mode === "src" ? ` \xB7 \u5DF2\u6392\u9664\u5386\u53F2\u914D\u7F6E/\u4FE1\u606F\u9879 ${report.findings?.excluded_hardening || 0} \u9879` : "")
+        ),
+        h2(
+          "div",
+          { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+          h2(
+            "button",
+            {
+              className: "rt-btn",
+              disabled: busy || !scoreOffset && !findingOffset && !stopOffset,
+              "data-delivery-action": "first",
+              onClick: () => load(false, {
+                offset: 0,
+                finding_offset: 0,
+                stop_offset: 0
+              })
+            },
+            "\u8FD4\u56DE\u9996\u4E2A\u4EA4\u4ED8\u9875"
+          ),
+          report.next?.arguments ? h2(
+            "button",
+            {
+              className: "rt-btn",
+              disabled: busy,
+              "data-delivery-action": "next",
+              onClick: () => load(false, report.next.arguments)
+            },
+            "\u4E0B\u4E00\u4EA4\u4ED8\u9875"
+          ) : null,
+          !report.next?.arguments && h2(
+            "button",
+            {
+              className: "rt-btn",
+              disabled: busy || report.score?.next_offset == null,
+              "data-delivery-action": "next-score",
+              onClick: () => load(false, {
+                ...legacyPage,
+                offset: report.score.next_offset
+              })
+            },
+            "\u4E0B\u4E00\u5F97\u5206\u660E\u7EC6\u9875"
+          ),
+          !report.next?.arguments && h2(
+            "button",
+            {
+              className: "rt-btn",
+              disabled: busy || report.findings?.next_offset == null,
+              "data-delivery-action": "next-findings",
+              onClick: () => load(false, {
+                ...legacyPage,
+                finding_offset: report.findings.next_offset
+              })
+            },
+            "\u4E0B\u4E00\u53D1\u73B0\u660E\u7EC6\u9875"
+          ),
+          !report.next?.arguments && report.assessment_mode === "src" && h2(
+            "button",
+            {
+              className: "rt-btn",
+              disabled: busy || report.src_stops?.next_offset == null,
+              "data-delivery-action": "next-stops",
+              onClick: () => load(false, {
+                ...legacyPage,
+                stop_offset: report.src_stops.next_offset
+              })
+            },
+            "\u4E0B\u4E00\u505C\u6B62\u660E\u7EC6\u9875"
+          )
+        ),
+        report.path ? h2(
+          "p",
+          { className: "rt-mono", style: { overflowWrap: "anywhere" } },
+          report.path
+        ) : null,
+        h2(
+          "details",
+          { open: !embedded },
+          h2("summary", null, "\u4EA4\u4ED8\u62A5\u544A\u5185\u5BB9"),
+          h2(
+            "pre",
+            {
+              style: {
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+                maxHeight: embedded ? 480 : void 0,
+                overflow: "auto"
+              }
+            },
+            report.markdown
+          )
+        )
+      ) : null,
+      message ? h2("p", null, message) : null,
+      error ? h2("div", { className: "rt-err" }, error) : null
     )
+  );
+}
+var submissionLabels = {
+  security_candidate: "\u5B89\u5168\u6F0F\u6D1E\u5019\u9009",
+  impact_review_required: "\u5B89\u5168\u5F71\u54CD\u5F85\u6838\u5B9E",
+  report_incomplete: "\u8BC1\u660E\u5DF2\u6838\u5B9E\uFF0C\u63D0\u4EA4\u6750\u6599\u5F85\u8865",
+  submission_ready: "\u63D0\u4EA4\u8349\u7A3F\u5B8C\u6574",
+  excluded_hardening: "\u5386\u53F2\u52A0\u56FA\u9879\uFF0C\u5DF2\u6392\u9664"
+};
+function FindingSubmission({ finding, engagement, api, onSaved }) {
+  const initial = () => ({
+    submission: { ...finding.submission },
+    reproduction: finding.reproduction || "",
+    impact: finding.impact || "",
+    remediation: finding.remediation || ""
+  });
+  const [draft, setDraft] = import_react2.default.useState(initial);
+  const [busy, setBusy] = import_react2.default.useState(false);
+  const [error, setError] = import_react2.default.useState("");
+  const { owner, captured } = useRequestGeneration(
+    engagement + ":" + finding.id,
+    api
+  );
+  const draftOwner = import_react2.default.useRef(null);
+  import_react2.default.useLayoutEffect(() => {
+    if (draftOwner.current !== captured) {
+      draftOwner.current = captured;
+      captured.dirty = false;
+      setBusy(false);
+      setError("");
+    }
+    if (!captured.dirty && !captured.submissionPending) setDraft(initial());
+  }, [finding, captured]);
+  const change = (key, value, submission = true) => {
+    captured.dirty = true;
+    setDraft(
+      (previous) => submission ? { ...previous, submission: { ...previous.submission, [key]: value } } : { ...previous, [key]: value }
+    );
+  };
+  const save = async () => {
+    if (captured.submissionPending || !isCurrent(owner, captured)) return;
+    const generation = captured.generation;
+    captured.submissionPending = true;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await captured.api({
+        op: "updateVuln",
+        engagement,
+        id: finding.id,
+        patch: draft
+      });
+      if (!isCurrent(owner, captured, generation)) return;
+      if (result?.ok !== true) throw new Error(failureText(result?.error));
+      captured.dirty = false;
+      onSaved?.();
+    } catch (failure) {
+      if (isCurrent(owner, captured, generation))
+        setError(failureText(failure));
+    } finally {
+      if (isCurrent(owner, captured, generation)) {
+        captured.submissionPending = false;
+        setBusy(false);
+      }
+    }
+  };
+  const state = finding.submission_state;
+  const input = (key, label, maximum, multiline = false, submission = true) => h2(
+    "label",
+    { key, style: { display: "grid", gap: 4, marginBottom: 8 } },
+    label,
+    h2(multiline ? "textarea" : "input", {
+      className: "rt-input",
+      value: (submission ? draft.submission[key] : draft[key]) || "",
+      maxLength: maximum,
+      rows: multiline ? 3 : void 0,
+      disabled: busy,
+      "data-src-submission-field": key,
+      onChange: (event) => change(key, event.target.value, submission)
+    })
+  );
+  return h2(
+    "div",
+    {
+      "data-src-submission": state?.disposition || "security_candidate",
+      style: { marginTop: 12 }
+    },
+    h2("h4", null, "SRC \u63D0\u4EA4\u8349\u7A3F"),
+    h2("p", null, submissionLabels[state?.disposition] || "\u5B89\u5168\u6F0F\u6D1E\u5019\u9009"),
+    h2(
+      "p",
+      null,
+      "\u6309\u5B9E\u9645\u9879\u76EE\u89C4\u5219\u6574\u7406\u5DF2\u6709\u6750\u6599\u3002\u8349\u7A3F\u5B8C\u6574\u4E0D\u4EE3\u8868\u5E73\u53F0\u63A5\u6536\uFF1B\u786E\u8BA4\u540E\u7684\u539F\u76EE\u6807\u7EE7\u7EED\u505C\u6D4B\u3002"
+    ),
+    state?.missing_fields?.length ? h2("p", null, "\u5F85\u8865\uFF1A" + state.missing_fields.join("\u3001")) : null,
+    input("program", "\u5B9E\u9645 SRC \u9879\u76EE", 256),
+    input("policy_reference", "\u9879\u76EE\u89C4\u5219\u5F15\u7528", 2048),
+    input("policy_basis", "\u89C4\u5219\u6536\u5F55\u4F9D\u636E", 4096, true),
+    input("prerequisites", "\u5B9E\u9645\u590D\u73B0\u524D\u63D0", 4096, true),
+    input("reproduction", "\u6700\u5C0F\u590D\u73B0\u6B65\u9AA4\uFF08\u5DF2\u6709\u6750\u6599\uFF09", 8192, true, false),
+    input("expected_result", "\u9884\u671F\u5B89\u5168\u7ED3\u679C", 8192, true),
+    h2(
+      "p",
+      null,
+      "\u5B9E\u9645\u53EF\u4FE1\u89C2\u5BDF\uFF1A" + ((finding.current_proofs || []).map((proof) => proof.observation).filter(Boolean).join("\uFF1B") || "\u5C1A\u65E0\u5F53\u524D\u53EF\u4FE1\u8BC1\u660E")
+    ),
+    input("impact", "\u5F71\u54CD\u5206\u6790\uFF08\u8349\u7A3F\uFF0C\u9650\u4E8E\u5DF2\u6709\u8BC1\u660E\uFF09", 8192, true, false),
+    input("remediation", "\u4FEE\u590D\u5EFA\u8BAE", 8192, true, false),
+    h2(
+      "label",
+      null,
+      "\u672C\u5730\u67E5\u91CD\u72B6\u6001 ",
+      h2(
+        "select",
+        {
+          className: "rt-input",
+          disabled: busy,
+          value: draft.submission.duplicate_check || "not_checked",
+          onChange: (event) => change("duplicate_check", event.target.value)
+        },
+        h2("option", { value: "not_checked" }, "\u5C1A\u672A\u67E5\u91CD"),
+        h2("option", { value: "checked_local" }, "\u5DF2\u6838\u5BF9\u672C\u5730\u91CD\u590D"),
+        h2("option", { value: "potential_duplicate" }, "\u5B58\u5728\u53EF\u80FD\u91CD\u590D")
+      )
+    ),
+    input("duplicate_reference", "\u67E5\u91CD\u53C2\u8003\u8BB0\u5F55", 2048),
+    h2(
+      "button",
+      {
+        className: "rt-btn",
+        disabled: busy,
+        "data-src-submission-action": "save",
+        onClick: save
+      },
+      busy ? "\u4FDD\u5B58\u4E2D\u2026" : "\u4FDD\u5B58\u63D0\u4EA4\u8349\u7A3F"
+    ),
+    error ? h2("p", { className: "rt-err" }, error) : null
+  );
+}
+function AssessmentReportHub({
+  engagement,
+  api,
+  detail: Detail,
+  detailProps = {},
+  src = false
+}) {
+  const [view, setView] = import_react2.default.useState("delivery");
+  import_react2.default.useLayoutEffect(() => {
+    setView("delivery");
+  }, [engagement]);
+  return h2(
+    "div",
+    { className: "rt-main" },
+    h2(
+      "div",
+      { className: "rt-toolbar" },
+      h2(
+        "button",
+        {
+          className: "rt-btn",
+          "aria-pressed": view === "delivery",
+          onClick: () => setView("delivery")
+        },
+        "\u5408\u5E76\u4EA4\u4ED8"
+      ),
+      h2(
+        "button",
+        {
+          className: "rt-btn",
+          "aria-pressed": view === "detail",
+          onClick: () => setView("detail")
+        },
+        src ? "\u76F4\u63A5\u8BC1\u636E\u53D1\u73B0" : "\u8BE6\u7EC6\u6210\u679C\u590D\u73B0"
+      )
+    ),
+    view === "delivery" ? h2(AssessmentDeliveryReport, { engagement, api }) : h2(Detail, { engagement, api, ...detailProps })
   );
 }
 function SrcDiscoveryReport({ engagement, api }) {
@@ -485,12 +1353,18 @@ function SrcDiscoveryReport({ engagement, api }) {
     const load = async () => {
       if (!isCurrent(owner, captured, generation)) return;
       try {
-        const value = await captured.api({ op: "srcReport", engagement: captured.engagement, save: false });
-        if (!isCurrent(owner, captured, generation) || sequence !== captured.readSequence) return;
+        const value = await captured.api({
+          op: "srcReport",
+          engagement: captured.engagement,
+          save: false
+        });
+        if (!isCurrent(owner, captured, generation) || sequence !== captured.readSequence)
+          return;
         if (value?.ok === false) setError(value.error || "\u62A5\u544A\u8BFB\u53D6\u5931\u8D25");
         else setReport(value);
       } catch (failure) {
-        if (isCurrent(owner, captured, generation) && sequence === captured.readSequence) setError(failureText(failure));
+        if (isCurrent(owner, captured, generation) && sequence === captured.readSequence)
+          setError(failureText(failure));
       }
     };
     load();
@@ -504,13 +1378,19 @@ function SrcDiscoveryReport({ engagement, api }) {
     setSaving(true);
     setError("");
     try {
-      const value = await captured.api({ op: "srcReport", engagement: captured.engagement, save: true });
-      if (!isCurrent(owner, captured, generation) || sequence !== captured.readSequence) return value;
+      const value = await captured.api({
+        op: "srcReport",
+        engagement: captured.engagement,
+        save: true
+      });
+      if (!isCurrent(owner, captured, generation) || sequence !== captured.readSequence)
+        return value;
       if (value?.ok === false) setError(value.error || "\u62A5\u544A\u4FDD\u5B58\u5931\u8D25");
       else setReport(value);
       return value;
     } catch (failure) {
-      if (isCurrent(owner, captured, generation) && sequence === captured.readSequence) setError(failureText(failure));
+      if (isCurrent(owner, captured, generation) && sequence === captured.readSequence)
+        setError(failureText(failure));
     } finally {
       if (flight.current === requestFlight) {
         flight.current = null;
@@ -518,16 +1398,238 @@ function SrcDiscoveryReport({ engagement, api }) {
       }
     }
   };
-  return h2("div", { className: "rt-pane" }, h2(
+  return h2(
     "div",
-    { className: "rt-card" },
-    h2("h4", null, "SRC \u6F0F\u6D1E\u53D1\u73B0\u62A5\u544A"),
-    h2("p", null, "\u62A5\u544A\u4FDD\u7559\u76F4\u63A5\u8BC1\u636E\u3001\u505C\u6B62\u539F\u56E0\u548C\u5F85\u6838\u5B9E\u9879\u3002\u53D1\u73B0\u505C\u6B62\u4E0E\u6574\u4F53\u8986\u76D6\u5B8C\u6210\u5206\u522B\u8BB0\u5F55\u3002"),
-    h2("button", { className: "rt-btn", disabled: saving, "data-src-action": "save", onClick: save }, "\u4FDD\u5B58\u53D1\u73B0\u62A5\u544A"),
-    report?.path ? h2("p", { className: "rt-mono" }, report.path) : null,
-    error ? h2("div", { className: "rt-err" }, error) : null,
-    report ? h2("pre", { style: { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, report.markdown) : null
-  ));
+    { className: "rt-pane" },
+    h2(
+      "div",
+      { className: "rt-card" },
+      h2("h4", null, "SRC \u6F0F\u6D1E\u53D1\u73B0\u62A5\u544A"),
+      h2(
+        "p",
+        null,
+        "\u62A5\u544A\u4FDD\u7559\u76F4\u63A5\u8BC1\u636E\u3001\u505C\u6B62\u539F\u56E0\u548C\u5F85\u6838\u5B9E\u9879\u3002\u53D1\u73B0\u505C\u6B62\u4E0E\u6574\u4F53\u8986\u76D6\u5B8C\u6210\u5206\u522B\u8BB0\u5F55\u3002"
+      ),
+      h2(
+        "button",
+        {
+          className: "rt-btn",
+          disabled: saving,
+          "data-src-action": "save",
+          onClick: save
+        },
+        "\u4FDD\u5B58\u53D1\u73B0\u62A5\u544A"
+      ),
+      report?.path ? h2("p", { className: "rt-mono" }, report.path) : null,
+      error ? h2("div", { className: "rt-err" }, error) : null,
+      report ? h2(
+        "pre",
+        { style: { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } },
+        report.markdown
+      ) : null
+    )
+  );
+}
+function PentestReport({ engagement, api }) {
+  const [report, setReport] = import_react2.default.useState(null);
+  const [busy, setBusy] = import_react2.default.useState(false);
+  const [error, setError] = import_react2.default.useState("");
+  const [message, setMessage] = import_react2.default.useState("");
+  const { owner, captured } = useRequestGeneration(engagement, api);
+  const flight = import_react2.default.useRef(null);
+  import_react2.default.useLayoutEffect(() => {
+    flight.current = null;
+    setReport(null);
+    setBusy(false);
+    setError("");
+    setMessage("");
+  }, [captured]);
+  const load = async (save = false) => {
+    if (!captured.engagement || !isCurrent(owner, captured) || flight.current)
+      return;
+    const generation = captured.generation;
+    const sequence = ++captured.readSequence;
+    const requestFlight = { captured };
+    flight.current = requestFlight;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const value = await captured.api({
+        op: "pentestReport",
+        engagement: captured.engagement,
+        save
+      });
+      if (!isCurrent(owner, captured, generation) || sequence !== captured.readSequence)
+        return value;
+      if (value?.ok === false) throw new Error(failureText(value.error));
+      if (value?.assessment_mode && value.assessment_mode !== "pentest") {
+        throw new Error("\u8FD4\u56DE\u7684\u62A5\u544A\u7C7B\u578B\u4E0E\u5F53\u524D\u6E17\u900F\u9776\u6807\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u5237\u65B0\u540E\u91CD\u8BD5\u3002");
+      }
+      setReport(value);
+      if (save) setMessage("\u5DF2\u4FDD\u5B58\u5B8C\u6574 Markdown \u4E0E JSON \u62A5\u544A\u3002");
+      return value;
+    } catch (failure) {
+      if (isCurrent(owner, captured, generation) && sequence === captured.readSequence)
+        setError(failureText(failure));
+    } finally {
+      if (flight.current === requestFlight) {
+        flight.current = null;
+        if (isCurrent(owner, captured, generation)) setBusy(false);
+      }
+    }
+  };
+  import_react2.default.useEffect(() => {
+    if (!captured.engagement || !isCurrent(owner, captured)) return;
+    load(false);
+  }, [captured]);
+  const download = (kind) => {
+    if (!isCurrent(owner, captured) || !report) return;
+    const markdown = kind === "markdown";
+    const content = markdown ? report.markdown : report.report == null ? null : JSON.stringify(report.report, null, 2);
+    if (content == null || content === "") {
+      setError(
+        markdown ? "\u5F53\u524D\u62A5\u544A\u6CA1\u6709\u53EF\u4E0B\u8F7D\u7684 Markdown\u3002" : "\u5F53\u524D\u62A5\u544A\u6CA1\u6709\u53EF\u4E0B\u8F7D\u7684 JSON \u5FEB\u7167\u3002"
+      );
+      return;
+    }
+    let url;
+    try {
+      url = URL.createObjectURL(
+        new Blob([content], {
+          type: markdown ? "text/markdown;charset=utf-8" : "application/json;charset=utf-8"
+        })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "pentest-report-" + String(captured.engagement).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") + (markdown ? ".md" : ".json");
+      link.click();
+      setMessage(markdown ? "\u5DF2\u4E0B\u8F7D Markdown \u62A5\u544A\u3002" : "\u5DF2\u4E0B\u8F7D JSON \u5FEB\u7167\u3002");
+    } catch (failure) {
+      setError(failureText(failure));
+    } finally {
+      if (url) URL.revokeObjectURL(url);
+    }
+  };
+  return h2(
+    "div",
+    { className: "rt-pane" },
+    h2(
+      "div",
+      { className: "rt-card" },
+      h2("h4", null, "\u6E17\u900F\u6D4B\u8BD5\u62A5\u544A"),
+      h2(
+        "p",
+        null,
+        "\u901A\u8FC7\u5F53\u524D\u9776\u6807\u7684\u5185\u7F6E awa-ddd \u6838\u5FC3\u751F\u6210\u5B8C\u6574\u62A5\u544A\uFF0C\u6C47\u603B\u8303\u56F4\u3001\u8D44\u4EA7\u3001\u53D1\u73B0\u3001\u590D\u73B0\u3001\u4FEE\u590D\u5EFA\u8BAE\u548C\u672A\u5B8C\u6210\u9879\u3002\u8BFB\u53D6\u62A5\u544A\u4F1A\u751F\u6210\u7248\u672C\u5316\u672C\u5730\u5FEB\u7167\uFF0C\u4E0D\u4F1A\u5411\u76EE\u6807\u53D1\u8D77\u65B0\u8BF7\u6C42\u3002"
+      ),
+      h2(
+        "div",
+        { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+        h2(
+          "button",
+          {
+            className: "rt-btn",
+            disabled: busy || !engagement,
+            "data-pentest-action": "read",
+            onClick: () => load(false)
+          },
+          report ? "\u5237\u65B0\u62A5\u544A" : "\u8BFB\u53D6\u62A5\u544A"
+        ),
+        h2(
+          "button",
+          {
+            className: "rt-btn",
+            disabled: busy || !engagement,
+            "data-pentest-action": "save",
+            onClick: () => load(true)
+          },
+          "\u4FDD\u5B58\u62A5\u544A"
+        ),
+        h2(
+          "button",
+          {
+            className: "rt-btn",
+            disabled: busy || !report?.markdown,
+            "data-pentest-action": "download-markdown",
+            onClick: () => download("markdown")
+          },
+          "\u4E0B\u8F7D Markdown"
+        ),
+        h2(
+          "button",
+          {
+            className: "rt-btn",
+            disabled: busy || report?.report == null,
+            "data-pentest-action": "download-json",
+            onClick: () => download("json")
+          },
+          "\u4E0B\u8F7D JSON"
+        )
+      ),
+      report ? h2(
+        import_react2.default.Fragment,
+        null,
+        Number(report.requests_sent) === 0 ? h2("p", null, "\u672C\u6B21\u4EC5\u6574\u7406\u73B0\u6709\u8BB0\u5F55\uFF0C\u672A\u53D1\u9001\u76EE\u6807\u8BF7\u6C42\u3002") : null,
+        report.path ? h2(
+          "p",
+          {
+            className: "rt-mono",
+            "data-pentest-path": "markdown",
+            style: { overflowWrap: "anywhere" }
+          },
+          "Markdown\uFF1A" + report.path
+        ) : null,
+        report.json_path ? h2(
+          "p",
+          {
+            className: "rt-mono",
+            "data-pentest-path": "json",
+            style: { overflowWrap: "anywhere" }
+          },
+          "JSON\uFF1A" + report.json_path
+        ) : null,
+        h2(
+          "details",
+          { open: true },
+          h2("summary", null, "Markdown \u62A5\u544A"),
+          h2(
+            "pre",
+            {
+              "data-pentest-report": "markdown",
+              style: {
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+                maxHeight: 560,
+                overflow: "auto"
+              }
+            },
+            report.markdown
+          )
+        ),
+        report.report != null ? h2(
+          "details",
+          null,
+          h2("summary", null, "\u7ED3\u6784\u5316\u5B8C\u6574\u5FEB\u7167"),
+          h2(
+            "pre",
+            {
+              "data-pentest-report": "json",
+              style: {
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+                maxHeight: 420,
+                overflow: "auto"
+              }
+            },
+            JSON.stringify(report.report, null, 2)
+          )
+        ) : null
+      ) : null,
+      message ? h2("p", null, message) : null,
+      error ? h2("div", { className: "rt-err" }, error) : null
+    )
+  );
 }
 
 // src/vendor/drill.js
@@ -1787,6 +2889,21 @@ var __dshPurgeDrill = (() => {
     const conclusion = h3(
       "div",
       { className: "rt-concl" },
+      h3(
+        "span",
+        { className: "rt-tag" },
+        "\u6F0F\u6D1E " + (stats.vulnerabilities || 0)
+      ),
+      !isSrc && h3(
+        "span",
+        { className: "rt-tag" },
+        "\u52A0\u56FA\u5EFA\u8BAE " + (stats.hardening || 0) + " \xB7 \u4FE1\u606F\u9879 " + (stats.informational || 0)
+      ),
+      isSrc && h3(
+        "span",
+        { className: "rt-tag" },
+        "\u5DF2\u6392\u9664\u5386\u53F2\u914D\u7F6E\u9879 " + (stats.excluded_hardening || 0)
+      ),
       conclItem("all", "\u53F0\u8D44\u4EA7", snapStats.assets, noFilter, () => {
         setTestStatus("");
         setPriority("");
@@ -3371,7 +4488,10 @@ var __dshPurgeDrill = (() => {
   }
   function FindingsTab(props) {
     const eng = props.engagement;
-    const isSrc = props.assessmentMode === "src";
+    const queryApi = props.api || api;
+    const isSrc2 = props.assessmentMode === "src";
+    const isPentest = props.assessmentMode === "pentest";
+    const hideRedteamCollections = isScopedAssessmentMode(props.assessmentMode);
     const refsOf = (value) => {
       try {
         const refs = typeof value === "string" ? JSON.parse(value) : value;
@@ -3397,12 +4517,38 @@ var __dshPurgeDrill = (() => {
     const [files, setFiles] = import_react3.default.useState([]);
     const [openId, setOpenId] = import_react3.default.useState(null);
     const [msg, setMsg] = import_react3.default.useState(null);
+    const [copyingCredential, setCopyingCredential] = import_react3.default.useState(null);
+    const credentialRequest = import_react3.default.useRef({ engagement: eng, sequence: 0 });
+    credentialRequest.current.engagement = eng;
+    const { owner, captured } = useRequestGeneration(
+      eng + ":" + props.assessmentMode,
+      queryApi
+    );
+    import_react3.default.useLayoutEffect(() => {
+      setState({
+        loading: false,
+        error: null,
+        total: 0,
+        items: [],
+        stats: null
+      });
+      setCreds([]);
+      setAccesses([]);
+      setFiles([]);
+      setOpenId(null);
+      setMsg(null);
+      setCopyingCredential(null);
+      credentialRequest.current.sequence++;
+    }, [captured]);
     const [subTab, setSubTab] = import_react3.default.useState("vulns");
     const [grouped, setGrouped] = import_react3.default.useState(true);
     const collapse = useCollapse("findings:" + eng);
     const load = () => {
-      if (!eng) return;
-      api({
+      if (!eng || !isCurrent(owner, captured)) return;
+      const sequence = ++captured.readSequence, generation = captured.generation;
+      const current = () => isCurrent(owner, captured, generation) && sequence === captured.readSequence;
+      setState((previous) => ({ ...previous, loading: true, error: null }));
+      queryApi({
         op: "vulns",
         engagement: eng,
         severity: sev || void 0,
@@ -3411,6 +4557,7 @@ var __dshPurgeDrill = (() => {
         limit: 200
       }).then(
         (r) => {
+          if (!current()) return;
           if (!r || r.ok === false) {
             setState({
               loading: false,
@@ -3429,7 +4576,7 @@ var __dshPurgeDrill = (() => {
             stats: r.stats || null
           });
         },
-        (e) => setState({
+        (e) => current() && setState({
           loading: false,
           error: String(e && e.message || e),
           total: 0,
@@ -3437,32 +4584,49 @@ var __dshPurgeDrill = (() => {
           stats: null
         })
       );
-      if (!isSrc) api({ op: "credentials", engagement: eng }).then(
-        (r) => setCreds(r && r.items || []),
-        () => {
-        }
-      );
-      if (!isSrc) api({ op: "access", engagement: eng }).then(
-        (r) => setAccesses(r && r.items || []),
-        () => {
-        }
-      );
-      if (!isSrc) api({ op: "attackFiles", engagement: eng }).then(
-        (r) => setFiles(r && r.items || []),
-        () => {
-        }
-      );
+      if (!isSrc2)
+        queryApi({ op: "credentials", engagement: eng }).then(
+          (r) => current() && setCreds(r && r.items || []),
+          () => {
+          }
+        );
+      if (!hideRedteamCollections)
+        queryApi({ op: "access", engagement: eng }).then(
+          (r) => current() && setAccesses(r && r.items || []),
+          () => {
+          }
+        );
+      if (!hideRedteamCollections)
+        queryApi({ op: "attackFiles", engagement: eng }).then(
+          (r) => current() && setFiles(r && r.items || []),
+          () => {
+          }
+        );
     };
-    import_react3.default.useEffect(load, [eng, sev, status, qApplied, refreshKey]);
+    import_react3.default.useEffect(load, [captured, sev, status, qApplied, refreshKey]);
+    import_react3.default.useEffect(() => {
+      if (isSrc2 && subTab !== "vulns" || isPentest && !["vulns", "creds"].includes(subTab))
+        setSubTab("vulns");
+    }, [eng, hideRedteamCollections, subTab]);
     const setVulnStatus = (id, next) => {
+      if (!isCurrent(owner, captured)) return;
+      const generation = captured.generation;
       setMsg(null);
-      api({
+      queryApi({
         op: "updateVuln",
         engagement: eng,
         id,
-        patch: { status: next, ...isSrc ? { evidence_refs: refsOf(state.items.find((item) => item.id === id)?.evidence_refs) } : {} }
+        patch: {
+          status: next,
+          ...isSrc2 ? {
+            evidence_refs: refsOf(
+              state.items.find((item) => item.id === id)?.evidence_refs
+            )
+          } : {}
+        }
       }).then(
         (r) => {
+          if (!isCurrent(owner, captured, generation)) return;
           if (!r || r.ok === false) {
             setMsg({ err: r && r.error || "\u66F4\u65B0\u5931\u8D25" });
             return;
@@ -3470,10 +4634,40 @@ var __dshPurgeDrill = (() => {
           setMsg({ ok: "\u5DF2\u66F4\u65B0\u4E3A\u300C" + (STATUS_LABEL[next] || next) + "\u300D" });
           load();
         },
-        (e) => setMsg({ err: String(e && e.message || e) })
+        (e) => isCurrent(owner, captured, generation) && setMsg({ err: String(e && e.message || e) })
       );
     };
-    const stats = state.stats && state.stats.bySeverity ? state.stats : { bySeverity: {}, byStatus: {} };
+    const copyCredential = async (credential) => {
+      if (!isCurrent(owner, captured)) return;
+      const generation = captured.generation;
+      const sequence = ++credentialRequest.current.sequence;
+      setCopyingCredential(credential.id);
+      setMsg(null);
+      try {
+        const result = await queryApi({
+          op: "credentialReveal",
+          engagement: eng,
+          credential_handle: credential.credential_handle,
+          purpose: "\u9762\u677F\u590D\u5236\u5F53\u524D\u9009\u4E2D\u5355\u6761\u51ED\u636E\uFF0C\u7528\u4E8E\u5F53\u524D\u9776\u6807\u4EFB\u52A1"
+        });
+        if (!isCurrent(owner, captured, generation) || credentialRequest.current.sequence !== sequence)
+          return;
+        if (result?.ok !== true || typeof result.credential?.secret_value !== "string")
+          throw new Error(result?.error || "\u5F53\u524D\u51ED\u636E\u5B9E\u9645\u503C\u4E0D\u53EF\u7528");
+        if (!await copyText(result.credential.secret_value))
+          throw new Error("\u526A\u8D34\u677F\u5199\u5165\u5931\u8D25");
+        if (!isCurrent(owner, captured, generation) || credentialRequest.current.sequence !== sequence)
+          return;
+        setMsg({ ok: "\u5DF2\u590D\u5236\u5F53\u524D\u5355\u6761\u51ED\u636E" });
+      } catch (error) {
+        if (isCurrent(owner, captured, generation) && credentialRequest.current.sequence === sequence)
+          setMsg({ err: error.message || "\u590D\u5236\u5931\u8D25" });
+      } finally {
+        if (isCurrent(owner, captured, generation) && credentialRequest.current.sequence === sequence)
+          setCopyingCredential(null);
+      }
+    };
+    const stats2 = state.stats && state.stats.bySeverity ? state.stats : { bySeverity: {}, byStatus: {} };
     const needRestart = state.error !== null && String(state.error).indexOf("unknown op") >= 0;
     const allFiles = (files || []).flatMap(
       (g) => (g.files || []).map((f) => Object.assign({ target: g.target }, f))
@@ -3510,46 +4704,46 @@ var __dshPurgeDrill = (() => {
       { className: "rt-concl" },
       concl(
         "conf",
-        "\u5DF2\u786E\u8BA4",
-        stats.byStatus.confirmed || 0,
+        "\u5F53\u524D\u8BC1\u660E\u786E\u8BA4",
+        stats2.byProof?.confirmed || 0,
         status === "confirmed",
         () => setStatus((v) => v === "confirmed" ? "" : "confirmed")
       ),
-      !isSrc && concl(
+      !hideRedteamCollections && concl(
         "exp",
-        "\u5DF2\u5229\u7528",
-        stats.byStatus.exploited || 0,
+        "\u5F53\u524D\u8BC1\u660E\u5229\u7528",
+        stats2.byProof?.exploited || 0,
         status === "exploited",
         () => setStatus((v) => v === "exploited" ? "" : "exploited")
       ),
       concl(
         "crit",
         "\u4E25\u91CD",
-        stats.bySeverity.critical || 0,
+        stats2.bySeverity.critical || 0,
         sev === "critical",
         () => setSev((v) => v === "critical" ? "" : "critical")
       ),
       concl(
         "high",
         "\u9AD8\u5371",
-        stats.bySeverity.high || 0,
+        stats2.bySeverity.high || 0,
         sev === "high",
         () => setSev((v) => v === "high" ? "" : "high")
       ),
       concl(
         "med",
         "\u4E2D\u5371",
-        stats.bySeverity.medium || 0,
+        stats2.bySeverity.medium || 0,
         sev === "medium",
         () => setSev((v) => v === "medium" ? "" : "medium")
       ),
-      !isSrc && concl("gain", "\u62FF\u5230\u6743\u9650", stats.withGained || 0, false, () => {
+      !hideRedteamCollections && concl("gain", "\u62FF\u5230\u6743\u9650", stats2.withGained || 0, false, () => {
       }),
       h3("div", { className: "rt-spacer" }),
       h3(
         "span",
         { style: { fontSize: 11, color: "var(--dsw-alias-label-secondary)" } },
-        "\u9ED8\u8BA4\u6309\u76EE\u6807\u805A\u5408 \xB7 \u5171 " + (stats.targetGroups || 0) + " \u4E2A\u76EE\u6807"
+        "\u9ED8\u8BA4\u6309\u76EE\u6807\u805A\u5408 \xB7 \u5171 " + (stats2.targetGroups || 0) + " \u4E2A\u76EE\u6807"
       )
     );
     const head = h3(
@@ -3599,7 +4793,12 @@ var __dshPurgeDrill = (() => {
             "span",
             { title: v.title || "" },
             h3("span", { className: "rt-sec-caret" }, open ? "\u25BE" : "\u25B8"),
-            (v.cve ? v.cve + " " : "") + (v.title || "")
+            (v.cve ? v.cve + " " : "") + (v.title || ""),
+            v.finding_kind !== "vulnerability" && h3(
+              "span",
+              { className: "rt-tag" },
+              v.finding_kind === "hardening" ? "\u52A0\u56FA\u5EFA\u8BAE" : "\u4FE1\u606F\u9879"
+            )
           ),
           compact ? null : h3(
             "span",
@@ -3633,8 +4832,11 @@ var __dshPurgeDrill = (() => {
             null,
             h3(
               "span",
-              { className: "rt-tag" },
-              STATUS_LABEL[v.status] || v.status
+              {
+                className: "rt-tag",
+                title: (v.proof_pending || []).join("\uFF1B")
+              },
+              v.confirmation_state === "pending_proof" ? "\u6807\u7B7E\u5F85\u590D\u6838" : STATUS_LABEL[v.status] || v.status
             )
           ),
           compact ? null : h3(
@@ -3656,11 +4858,21 @@ var __dshPurgeDrill = (() => {
           h3(
             "div",
             { className: "rt-vdetail" },
+            isSrc2 && h3(FindingSubmission, {
+              finding: v,
+              engagement: eng,
+              api: queryApi,
+              onSaved: load
+            }),
             h3(
               "div",
               { className: "rt-kv" },
-              h3("b", null, isSrc ? "\u505C\u6B62\u8BB0\u5F55" : "\u62FF\u5230\u4EC0\u4E48"),
-              isSrc ? h3("span", null, v.stop_reason || "\u5F85\u76F4\u63A5\u8BC1\u636E\u6838\u5B9E") : gainedList.length ? h3(
+              h3(
+                "b",
+                null,
+                isSrc2 ? "\u505C\u6B62\u8BB0\u5F55" : isPentest ? "\u5F71\u54CD\u5206\u6790" : "\u62FF\u5230\u4EC0\u4E48"
+              ),
+              isSrc2 ? h3("span", null, v.stop_reason || "\u5F85\u76F4\u63A5\u8BC1\u636E\u6838\u5B9E") : isPentest ? h3("span", null, v.impact || "\u5F85\u4F9D\u636E\u5F53\u524D\u8BC1\u660E\u6574\u7406\u5F71\u54CD") : gainedList.length ? h3(
                 "span",
                 null,
                 gainedList.map(
@@ -3676,7 +4888,9 @@ var __dshPurgeDrill = (() => {
                 )
               ) : h3(
                 "span",
-                { style: { color: "var(--dsw-alias-label-secondary)" } },
+                {
+                  style: { color: "var(--dsw-alias-label-secondary)" }
+                },
                 "\u672A\u8BB0\u5F55 \u2014\u2014 \u62FF\u5230\u6743\u9650/\u6210\u679C\u540E\u8BF7\u7528 redteam_vuln_update \u8865 gained\uFF08\u4F8B\uFF1A\u670D\u52A1\u5668\u6743\u9650\u3001\u5185\u7F51\u96A7\u9053\u3001\u540E\u53F0\u7BA1\u7406\u5458\u8D26\u53F7\uFF09"
               )
             ),
@@ -3711,7 +4925,7 @@ var __dshPurgeDrill = (() => {
               )
             ),
             detailEvidence(v),
-            (() => {
+            !isPentest && (() => {
               const mine = filesByVuln.get(Number(v.id)) || [];
               return h3(
                 "div",
@@ -3742,7 +4956,9 @@ var __dshPurgeDrill = (() => {
                   )
                 ) : h3(
                   "span",
-                  { style: { color: "var(--dsw-alias-label-secondary)" } },
+                  {
+                    style: { color: "var(--dsw-alias-label-secondary)" }
+                  },
                   "\uFF08\u65E0\uFF09\u7528 redteam_attack_file_add \u628A\u8FD9\u6761\u6F0F\u6D1E\u6253\u901A\u7684\u811A\u672C/\u9A6C/EXP \u5F52\u6863\uFF0C\u5E76\u5E26\u4E0A vuln_id"
                 )
               );
@@ -3754,7 +4970,7 @@ var __dshPurgeDrill = (() => {
                 "button",
                 {
                   className: "rt-btn",
-                  disabled: isSrc && !refsOf(v.evidence_refs).length,
+                  disabled: hideRedteamCollections && v.confirmation_state !== "verified",
                   onClick: (e) => {
                     e.stopPropagation();
                     setVulnStatus(v.id, "confirmed");
@@ -3762,7 +4978,7 @@ var __dshPurgeDrill = (() => {
                 },
                 "\u786E\u8BA4"
               ),
-              !isSrc && h3(
+              !hideRedteamCollections && h3(
                 "button",
                 {
                   className: "rt-btn",
@@ -3901,7 +5117,7 @@ var __dshPurgeDrill = (() => {
         h3("option", { value: "" }, "\u5168\u90E8\u72B6\u6001"),
         h3("option", { value: "candidate" }, "\u5F85\u9A8C\u8BC1"),
         h3("option", { value: "confirmed" }, "\u5DF2\u786E\u8BA4"),
-        !isSrc && h3("option", { value: "exploited" }, "\u5DF2\u5229\u7528"),
+        !isSrc2 && h3("option", { value: "exploited" }, "\u5DF2\u5229\u7528"),
         h3("option", { value: "false-positive" }, "\u8BEF\u62A5"),
         h3("option", { value: "fixed" }, "\u5DF2\u4FEE\u590D")
       )
@@ -3912,7 +5128,7 @@ var __dshPurgeDrill = (() => {
       h3(
         "div",
         { className: "rt-section" },
-        "\u51ED\u636E \xB7 " + creds.length + (creds.length ? "\uFF08\u660E\u6587\u76F4\u663E\uFF0C\u6CE8\u610F\u5C4F\u5E55\u5206\u4EAB/\u5F55\u5C4F\uFF09" : "")
+        "\u51ED\u636E \xB7 " + creds.length + "\uFF08\u9ED8\u8BA4\u9690\u85CF\u5B9E\u9645\u503C\uFF09"
       ),
       creds.length ? h3(
         "div",
@@ -3942,22 +5158,19 @@ var __dshPurgeDrill = (() => {
                 {
                   className: "rt-btn",
                   style: { padding: "0 6px", fontSize: 11 },
+                  disabled: !c.secret_available || copyingCredential !== null,
                   onClick: (e) => {
                     e.stopPropagation();
-                    copyText(String(c.secret_value || ""));
+                    copyCredential(c);
                   }
                 },
-                "\u590D\u5236"
+                copyingCredential === c.id ? "\u8BFB\u53D6\u4E2D\u2026" : "\u590D\u5236\u5B9E\u9645\u503C"
               )
             ),
-            c.secret_value ? h3(
-              "div",
-              { className: "rt-secret", title: "\u70B9\u51FB\u53EF\u5168\u9009" },
-              c.secret_value
-            ) : h3(
+            h3(
               "div",
               { className: "rt-secret-none" },
-              "\u672A\u8BB0\u660E\u6587 \u2014\u2014 \u8BF7\u7528 redteam_credential_add \u7684 secret_value \u8865\u4E0A\uFF0C\u9762\u677F\u624D\u80FD\u76F4\u663E"
+              (c.credential_handle || "\u2014") + " \xB7 " + (c.secret_state === "vault_unavailable" ? "\u672C\u5730\u5BC6\u94A5\u6216\u79C1\u6709\u6750\u6599\u4E0D\u53EF\u7528" : c.secret_available ? "\u5B9E\u9645\u503C\u5DF2\u4FDD\u5B58\uFF0C\u6309\u9700\u8BFB\u53D6" : "\u4EC5\u6709\u5F15\u7528\uFF0C\u672A\u4FDD\u5B58\u5B9E\u9645\u503C")
             ),
             h3(
               "div",
@@ -4040,9 +5253,9 @@ var __dshPurgeDrill = (() => {
         "div",
         { className: "rt-subtabs" },
         subTabBtn("vulns", "\u6F0F\u6D1E", state.total || 0),
-        !isSrc && subTabBtn("files", "\u653B\u51FB\u6587\u4EF6", allFiles.length),
-        !isSrc && subTabBtn("creds", "\u51ED\u636E", creds.length),
-        !isSrc && subTabBtn("access", "\u8BBF\u95EE\u4F1A\u8BDD", accesses.length),
+        !hideRedteamCollections && subTabBtn("files", "\u653B\u51FB\u6587\u4EF6", allFiles.length),
+        !isSrc2 && subTabBtn("creds", isPentest ? "\u6D4B\u8BD5\u51ED\u636E" : "\u51ED\u636E", creds.length),
+        !hideRedteamCollections && subTabBtn("access", "\u8BBF\u95EE\u4F1A\u8BDD", accesses.length),
         h3("div", { className: "rt-spacer" }),
         grouped ? h3(
           "button",
@@ -4089,7 +5302,7 @@ var __dshPurgeDrill = (() => {
         "\u8BE5\u6A21\u5757\u7684\u5BBF\u4E3B\u4EE3\u7801\u5DF2\u66F4\u65B0\uFF0C\u9700\u91CD\u542F\u4E00\u6B21\u5F53\u524D\u5BBF\u4E3B\uFF08\u5B98\u65B9 exe / \u793E\u533A\u7248 / dsh web\uFF09\u540E\u751F\u6548"
       ) : null,
       state.error && !needRestart ? h3("div", { className: "rt-err" }, state.error) : null,
-      !isSrc && subTab === "files" ? h3(
+      !hideRedteamCollections && subTab === "files" ? h3(
         "div",
         { className: "rt-body", style: { overflow: "auto" } },
         h3(
@@ -4098,11 +5311,11 @@ var __dshPurgeDrill = (() => {
           "\u653B\u51FB\u6587\u4EF6\u6309\u9776\u6807\u76EE\u5F55\u7EC4\u7EC7\uFF08\u539F\u300C\u653B\u51FB\u6587\u4EF6\u300D\u9875\u7B7E\uFF09\uFF1B\u6BCF\u6761\u6F0F\u6D1E\u7684\u5173\u8054\u6587\u4EF6\u4E5F\u80FD\u5728\u8BE5\u6F0F\u6D1E\u8BE6\u60C5\u91CC\u76F4\u63A5\u770B\u5230\u3002" + (orphanFiles.length ? " \u76EE\u524D\u6709 " + orphanFiles.length + " \u4E2A\u6587\u4EF6\u6CA1\u6302 vuln_id\uFF0C\u5EFA\u8BAE\u8865\u4E0A\u4EE5\u4FBF\u4E0E\u6F0F\u6D1E\u5BF9\u5E94\u3002" : "")
         ),
         h3(AttackFilesTab, { engagement: eng, refreshKey })
-      ) : !isSrc && subTab === "creds" ? h3(
+      ) : !isSrc2 && subTab === "creds" ? h3(
         "div",
         { className: "rt-body", style: { overflow: "auto" } },
         credSection
-      ) : !isSrc && subTab === "access" ? h3(
+      ) : !hideRedteamCollections && subTab === "access" ? h3(
         "div",
         { className: "rt-body", style: { overflow: "auto" } },
         accessSection
@@ -4824,6 +6037,24 @@ var __dshPurgeDrill = (() => {
         h3("b", null, "\u7ED3\u679C "),
         h3("span", null, String(x.evidence).replace(/\n+/g, " "))
       ) : null,
+      h3(
+        "div",
+        {
+          className: "rt-rep-meta",
+          "data-score-evidence": x.evidence_state || "legacy_text"
+        },
+        h3("b", null, "\u8BC1\u636E\u5173\u8054 "),
+        h3(
+          "span",
+          null,
+          x.evidence_state === "observed" ? "observed \u5F15\u7528" : x.evidence_state === "pending" ? "\u5F85\u8865\u6210\u679C\u5173\u8054" : "\u5386\u53F2\u6587\u5B57\u8BF4\u660E"
+        ),
+        (x.evidence_refs || []).length ? h3(
+          "span",
+          { className: "rt-mono", style: { overflowWrap: "anywhere" } },
+          " \xB7 " + x.evidence_refs.join("\u3001")
+        ) : null
+      ),
       x.recorded_at ? h3(
         "div",
         { className: "rt-rep-meta" },
@@ -5619,7 +6850,7 @@ var __dshPurgeDrill = (() => {
         (e) => setMsg({ err: String(e && e.message || e) })
       );
     };
-    const stats = data && data.stats || {
+    const stats2 = data && data.stats || {
       total: 0,
       verified: 0,
       reused: 0,
@@ -5786,20 +7017,20 @@ var __dshPurgeDrill = (() => {
         "div",
         { className: "rt-toolbar" },
         h3("span", { style: { fontWeight: 600 } }, "\u77E5\u8BC6\u5E93 \xB7 POC / EXP"),
-        h3("span", { className: "rt-tag" }, stats.total + " \u6761"),
+        h3("span", { className: "rt-tag" }, stats2.total + " \u6761"),
         h3(
           "span",
           { className: "rt-tag rt-tag-live" },
-          "\u5DF2\u9A8C\u8BC1 " + stats.verified
+          "\u5DF2\u9A8C\u8BC1 " + stats2.verified
         ),
-        h3("span", { className: "rt-tag" }, "\u7D2F\u8BA1\u590D\u7528 " + (stats.reused || 0)),
-        (stats.uncategorized || 0) > 0 && (stats.uncategorized || 0) !== stats.total ? h3(
+        h3("span", { className: "rt-tag" }, "\u7D2F\u8BA1\u590D\u7528 " + (stats2.reused || 0)),
+        (stats2.uncategorized || 0) > 0 && (stats2.uncategorized || 0) !== stats2.total ? h3(
           "span",
           {
             className: "rt-tag rt-tag-warn",
             title: "\u8FD9\u4E9B\u6761\u76EE\u8FD8\u6CA1\u5F52\u7C7B\uFF1A\u667A\u80FD\u4F53\u56DE\u586B\u65F6\u7528 redteam_poc_add \u7684 category \u53C2\u6570\u6807\u4E00\u4E0B"
           },
-          "\u672A\u5F52\u7C7B " + stats.uncategorized
+          "\u672A\u5F52\u7C7B " + stats2.uncategorized
         ) : null,
         tpl.total ? h3(
           "span",
@@ -5826,7 +7057,7 @@ var __dshPurgeDrill = (() => {
       h3(
         "div",
         { className: "rt-kb-cats" },
-        (stats.byCategory || []).filter((c) => catShown(c) > 0 || POC_CAT_ORDER.includes(c.code)).map(
+        (stats2.byCategory || []).filter((c) => catShown(c) > 0 || POC_CAT_ORDER.includes(c.code)).map(
           (c) => h3(
             "span",
             {
@@ -5889,7 +7120,7 @@ var __dshPurgeDrill = (() => {
             }
           },
           h3("option", { value: "" }, "\u5168\u90E8\u6765\u6E90\u9776\u6807"),
-          (stats.byEngagement || []).map(
+          (stats2.byEngagement || []).map(
             (e) => h3(
               "option",
               { key: e.engagement, value: e.engagement },
@@ -7344,7 +8575,7 @@ var __dshPurgeDrill = (() => {
     const testing = data && data.testing || [];
     const recent = data && data.recent || [];
     const queue = data && data.queue || [];
-    const stats = data && data.stats || {};
+    const stats2 = data && data.stats || {};
     const card = (a, past) => {
       const chips = [];
       chips.push(
@@ -7456,11 +8687,11 @@ var __dshPurgeDrill = (() => {
     const conclusion = h3(
       "div",
       { className: "rt-concl" },
-      concl("\u6D4B\u8BD5\u4E2D", stats.testing, "live"),
-      concl("\u5F85\u6D4B", stats.untested, ""),
-      concl("\u5DF2\u6D4B", stats.tested, ""),
-      concl("\u653E\u5F03", (stats.abandoned || 0) + (stats.blocked || 0), ""),
-      concl("\u65E0\u653B\u51FB\u9762", stats.no_surface, ""),
+      concl("\u6D4B\u8BD5\u4E2D", stats2.testing, "live"),
+      concl("\u5F85\u6D4B", stats2.untested, ""),
+      concl("\u5DF2\u6D4B", stats2.tested, ""),
+      concl("\u653E\u5F03", (stats2.abandoned || 0) + (stats2.blocked || 0), ""),
+      concl("\u65E0\u653B\u51FB\u9762", stats2.no_surface, ""),
       h3("div", { className: "rt-spacer" }),
       at ? h3(
         "span",
@@ -8110,7 +9341,7 @@ var __dshPurgeDrill = (() => {
           setErr(String(e && e.message || e));
         }
       );
-      api({ op: "agentsStatus" }).then(
+      api({ op: "agentsStatus", engagement: eng || void 0 }).then(
         (r) => {
           if (r && r.ok !== false) setConcurrency(r);
         },
@@ -8689,9 +9920,11 @@ var __dshPurgeDrill = (() => {
         (e) => setErr(String(e && e.message || e))
       );
     }, []);
+    const newModeNeedsScope = isScopedAssessmentMode(newMode);
+    const hasNewScope = newScope.split(/[\r\n,]+/).some((value) => value.trim());
     const openEngagement = (nameArg) => {
       const name2 = String(nameArg || newName).trim();
-      if (!name2) return;
+      if (!name2 || newModeNeedsScope && !hasNewScope) return;
       setCreating(true);
       const scope = newScope.split(/[\r\n,]+/).map((value) => value.trim()).filter(Boolean);
       const exclude = newExclude.split(/[\r\n,]+/).map((value) => value.trim()).filter(Boolean);
@@ -8699,7 +9932,7 @@ var __dshPurgeDrill = (() => {
         op: "openEngagement",
         name: name2,
         assessment_mode: newMode,
-        ...scope.length || newMode === "src" ? { scope } : {},
+        ...scope.length || newModeNeedsScope ? { scope } : {},
         exclude
       }).then(
         (r) => {
@@ -8861,24 +10094,27 @@ var __dshPurgeDrill = (() => {
       if (!seen) return false;
       return digestHasNew(seen[tab], digest[tab]);
     };
-    const stats = snapshot && snapshot.stats || {};
-    const isSrc = engagements.find((item) => item.id === eng)?.assessment_mode === "src";
-    const tabs = [
+    const stats2 = snapshot && snapshot.stats || {};
+    const currentMode = engagements.find((item) => item.id === eng)?.assessment_mode || "redteam";
+    const isSrc2 = currentMode === "src";
+    const isPentest = currentMode === "pentest";
+    const tabs = assessmentTabsForMode(currentMode, [
       ["assets", "\u8D44\u4EA7\u6D4B\u7ED8"],
       ["evidence", "\u5185\u7F6E\u8BC4\u4F30"],
       ["env", "\u73AF\u5883\u9002\u914D"],
       ["agents", "\u667A\u80FD\u4F53"],
       ["sessions", "\u4F1A\u8BDD\u96A7\u9053"],
-      ["findings", isSrc ? "\u6F0F\u6D1E\u53D1\u73B0" : "\u6F0F\u6D1E\u6218\u679C"],
+      ["findings", isSrc2 ? "\u6F0F\u6D1E\u53D1\u73B0" : isPentest ? "\u6E17\u900F\u53D1\u73B0" : "\u6F0F\u6D1E\u6218\u679C"],
       ["chain", "\u653B\u51FB\u94FE"],
       ["scores", "\u5F97\u5206\u76EE\u6807"],
       ["report", "\u62A5\u544A"],
       ["knowledge", "\u77E5\u8BC6\u5E93"],
       ["skills", "\u6280\u80FD\u5E93"]
-    ].filter((item) => !isSrc || !["env", "sessions", "chain", "scores", "knowledge", "skills"].includes(item[0]));
+    ]);
+    const activeTab = isScopedAssessmentMode(currentMode) && !tabs.some((item) => item[0] === st.tab) ? "assets" : st.tab;
     import_react3.default.useEffect(() => {
-      if (isSrc && !tabs.some((item) => item[0] === st.tab)) setUI({ tab: "assets" });
-    }, [isSrc, st.tab]);
+      if (activeTab !== st.tab) setUI({ tab: activeTab });
+    }, [activeTab, st.tab]);
     const full = isFullWindow();
     const openFull = () => {
       try {
@@ -8914,20 +10150,33 @@ var __dshPurgeDrill = (() => {
     }, [full]);
     let body;
     if (err) body = h3("div", { className: "rt-err" }, err);
-    else if (st.tab === "evidence") body = h3(AssessmentTab, { engagement: eng, api });
-    else if (st.tab === "knowledge")
+    else if (activeTab === "evidence")
+      body = h3(AssessmentTab, { engagement: eng, api });
+    else if (activeTab === "knowledge")
       body = h3(KnowledgeTab, { refreshKey });
-    else if (st.tab === "env") body = h3(EnvTab, { refreshKey });
-    else if (st.tab === "skills")
+    else if (activeTab === "env") body = h3(EnvTab, { refreshKey });
+    else if (activeTab === "skills")
       body = h3(SkillsTab, { refreshKey });
-    else if (st.tab === "agents" || st.tab === "prompts")
-      body = isSrc ? h3("div", { className: "rt-pane" }, h3(
+    else if (activeTab === "agents" || activeTab === "prompts")
+      body = isSrc2 ? h3(
         "div",
-        { className: "rt-card" },
-        h3("h4", null, "SRC \u53D1\u73B0\u4E0E\u590D\u6838"),
-        h3("p", null, "\u5148\u6574\u7406\u660E\u786E\u8303\u56F4\u5185\u8D44\u4EA7\u548C\u5DF2\u6709\u8BC1\u636E\uFF0C\u901A\u8FC7\u9879\u76EE\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3\u9A8C\u8BC1\u5019\u9009\u3002\u76F4\u63A5\u8BC1\u636E\u786E\u8BA4\u540E\u505C\u6B62\u8BE5\u76EE\u6807\u7684\u540E\u7EED\u8BF7\u6C42\uFF0C\u6574\u7406\u62A5\u544A\u4E0E\u4FEE\u590D\u5EFA\u8BAE\u3002"),
-        h3("p", null, "SRC \u9884\u8BBE\u63D0\u4F9B\u53D1\u73B0\u3001\u8BC1\u636E\u548C\u62A5\u544A\u5DE5\u5177\uFF1B\u9879\u76EE\u6A21\u5F0F\u548C\u8303\u56F4\u5728\u521B\u5EFA\u65F6\u56FA\u5B9A\u3002")
-      )) : h3(AgentsTab, { engagement: eng, refreshKey });
+        { className: "rt-pane" },
+        h3(
+          "div",
+          { className: "rt-card" },
+          h3("h4", null, "SRC \u53D1\u73B0\u4E0E\u590D\u6838"),
+          h3(
+            "p",
+            null,
+            "\u5148\u6574\u7406\u660E\u786E\u8303\u56F4\u5185\u8D44\u4EA7\u548C\u5DF2\u6709\u8BC1\u636E\uFF0C\u901A\u8FC7\u9879\u76EE\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3\u9A8C\u8BC1\u5019\u9009\u3002\u76F4\u63A5\u8BC1\u636E\u786E\u8BA4\u540E\u505C\u6B62\u8BE5\u76EE\u6807\u7684\u540E\u7EED\u8BF7\u6C42\uFF0C\u6574\u7406\u62A5\u544A\u4E0E\u4FEE\u590D\u5EFA\u8BAE\u3002"
+          ),
+          h3(
+            "p",
+            null,
+            "SRC \u9884\u8BBE\u63D0\u4F9B\u53D1\u73B0\u3001\u8BC1\u636E\u548C\u62A5\u544A\u5DE5\u5177\uFF1B\u9879\u76EE\u6A21\u5F0F\u548C\u8303\u56F4\u5728\u521B\u5EFA\u65F6\u56FA\u5B9A\u3002"
+          )
+        )
+      ) : h3(AgentsTab, { engagement: eng, refreshKey });
     else if (!eng) {
       body = h3(
         "div",
@@ -8945,28 +10194,43 @@ var __dshPurgeDrill = (() => {
                 marginBottom: 8
               }
             },
-            "\u521B\u5EFA\u7EA2\u961F\u6216 SRC \u9776\u6807\u3002SRC \u5728\u660E\u786E\u8303\u56F4\u5185\u53D1\u73B0\u6F0F\u6D1E\uFF0C\u53D6\u5F97\u76F4\u63A5\u8BC1\u636E\u540E\u505C\u6B62\u8BE5\u9879\u9A8C\u8BC1\u3002"
+            "\u521B\u5EFA\u7EA2\u961F\u3001SRC \u6216\u6E17\u900F\u9776\u6807\u3002SRC \u4E0E\u6E17\u900F\u6A21\u5F0F\u5FC5\u987B\u5728\u660E\u786E\u6388\u6743\u8303\u56F4\u5185\u5DE5\u4F5C\u3002"
           ),
           h3(
             "select",
-            { className: "rt-input", value: newMode, onChange: (event) => setNewMode(event.target.value) },
-            h3("option", { value: "redteam" }, "\u7EA2\u961F\u6A21\u5F0F"),
-            h3("option", { value: "src" }, "SRC \u6F0F\u6D1E\u53D1\u73B0\u6A21\u5F0F")
+            {
+              className: "rt-input",
+              value: newMode,
+              onChange: (event) => setNewMode(event.target.value)
+            },
+            assessmentModeOptions.map(
+              (option) => h3("option", { key: option[0], value: option[0] }, option[1])
+            )
           ),
           h3("textarea", {
             className: "rt-textarea",
             rows: 3,
             value: newScope,
-            placeholder: "\u660E\u786E\u6388\u6743\u8303\u56F4\uFF0C\u6BCF\u884C\u4E00\u9879 URL / \u57DF\u540D / IP / CIDR\uFF1BSRC \u5FC5\u586B",
+            placeholder: "\u660E\u786E\u6388\u6743\u8303\u56F4\uFF0C\u6BCF\u884C\u4E00\u9879 URL / \u57DF\u540D / IP / CIDR\uFF1BSRC \u4E0E\u6E17\u900F\u6A21\u5F0F\u5FC5\u586B",
             onChange: (event) => setNewScope(event.target.value)
           }),
-          newMode === "src" ? h3("textarea", {
+          newModeNeedsScope ? h3("textarea", {
             className: "rt-textarea",
             rows: 2,
             value: newExclude,
-            placeholder: "\u6392\u9664\u8303\u56F4\uFF0C\u6BCF\u884C\u4E00\u9879\uFF1B\u53EF\u7559\u7A7A",
+            placeholder: "\u6392\u9664\u8303\u56F4\uFF0C\u6BCF\u884C\u4E00\u9879\uFF1B\u6CA1\u6709\u6392\u9664\u9879\u65F6\u4E5F\u53EF\u7559\u7A7A",
             onChange: (event) => setNewExclude(event.target.value)
           }) : null,
+          newMode === "pentest" ? h3(
+            "p",
+            {
+              style: {
+                fontSize: 12,
+                color: "var(--dsw-alias-label-secondary)"
+              }
+            },
+            "\u6E17\u900F\u6A21\u5F0F\u4F7F\u7528\u968F\u63D2\u4EF6\u63D0\u4F9B\u7684\u5185\u7F6E\u8BC4\u4F30\u6838\u5FC3\u548C\u9884\u8BBE\uFF0C\u65E0\u9700\u9009\u62E9\u5916\u90E8\u9879\u76EE\u3002"
+          ) : null,
           h3(
             "div",
             { style: { display: "flex", gap: 8 } },
@@ -8984,7 +10248,7 @@ var __dshPurgeDrill = (() => {
               "button",
               {
                 className: "rt-btn rt-btn-primary",
-                disabled: creating,
+                disabled: creating || !newName.trim() || newModeNeedsScope && !hasNewScope,
                 onClick: () => openEngagement()
               },
               creating ? "\u521B\u5EFA\u4E2D\u2026" : "\u521B\u5EFA\u9776\u6807"
@@ -8992,7 +10256,7 @@ var __dshPurgeDrill = (() => {
           )
         )
       );
-    } else if (st.tab === "assets")
+    } else if (activeTab === "assets")
       body = h3(AssetsTab, {
         engagement: eng,
         snapshot,
@@ -9000,7 +10264,7 @@ var __dshPurgeDrill = (() => {
         onRefresh: refreshAll,
         onData: () => loadSnapshot(eng)
       });
-    else if (st.tab === "testing")
+    else if (activeTab === "testing")
       body = h3(AssetsTab, {
         engagement: eng,
         snapshot,
@@ -9008,17 +10272,27 @@ var __dshPurgeDrill = (() => {
         onRefresh: refreshAll,
         onData: () => loadSnapshot(eng)
       });
-    else if (st.tab === "sessions")
+    else if (activeTab === "sessions")
       body = h3(SessionTab, { engagement: eng, refreshKey });
-    else if (st.tab === "findings")
-      body = h3(FindingsTab, { engagement: eng, refreshKey, assessmentMode: isSrc ? "src" : "redteam" });
-    else if (st.tab === "chain")
+    else if (activeTab === "findings")
+      body = h3(FindingsTab, {
+        engagement: eng,
+        refreshKey,
+        assessmentMode: currentMode
+      });
+    else if (activeTab === "chain")
       body = h3(ChainTab, { engagement: eng, refreshKey });
-    else if (st.tab === "report")
-      body = isSrc ? h3(SrcDiscoveryReport, { engagement: eng, api }) : h3(ReportTab, { engagement: eng, refreshKey });
-    else if (st.tab === "attackfiles")
+    else if (activeTab === "report")
+      body = isPentest ? h3(PentestReport, { engagement: eng, api }) : h3(AssessmentReportHub, {
+        engagement: eng,
+        api,
+        src: isSrc2,
+        detail: isSrc2 ? SrcDiscoveryReport : ReportTab,
+        detailProps: { refreshKey }
+      });
+    else if (activeTab === "attackfiles")
       body = h3(FindingsTab, { engagement: eng, refreshKey });
-    else if (st.tab === "scores")
+    else if (activeTab === "scores")
       body = h3(ScoreTab, { engagement: eng, refreshKey });
     else body = h3("div", { className: "rt-empty" }, "\u672A\u77E5\u9875\u7B7E");
     const shellProps = full ? { className: "rt-full", style: { display: "flex" } } : embedded ? {
@@ -9105,16 +10379,27 @@ var __dshPurgeDrill = (() => {
             engagements.length ? "\u9009\u62E9\u9776\u6807" : "\u6682\u65E0\u9776\u6807"
           ),
           engagements.map(
-            (x) => h3("option", { key: x.id, value: x.id }, (x.assessment_mode === "src" ? "[SRC] " : "") + (x.name || x.id || "\u672A\u547D\u540D"))
+            (x) => h3(
+              "option",
+              { key: x.id, value: x.id },
+              assessmentModeLabel(x.assessment_mode) + (x.name || x.id || "\u672A\u547D\u540D")
+            )
           )
         ),
-        isSrc ? h3("span", { className: "rt-tag" }, "\u76F4\u63A5\u8BC1\u636E\u5373\u505C\u6B62") : null,
-        h3("button", { className: "rt-btn", onClick: () => {
-          setEng(null);
-          setSnapshot(null);
-          setErr(null);
-          setUI({ tab: "assets" });
-        } }, "\u65B0\u5EFA\u9776\u6807"),
+        isSrc2 ? h3("span", { className: "rt-tag" }, "\u76F4\u63A5\u8BC1\u636E\u5373\u505C\u6B62") : isPentest ? h3("span", { className: "rt-tag" }, "\u5185\u7F6E\u8BC4\u4F30 \xB7 \u5B8C\u6574\u62A5\u544A") : null,
+        h3(
+          "button",
+          {
+            className: "rt-btn",
+            onClick: () => {
+              setEng(null);
+              setSnapshot(null);
+              setErr(null);
+              setUI({ tab: "assets" });
+            }
+          },
+          "\u65B0\u5EFA\u9776\u6807"
+        ),
         h3("div", { className: "rt-spacer" }),
         embedded ? null : h3(VersionBar, null),
         full ? h3(
@@ -9169,9 +10454,9 @@ var __dshPurgeDrill = (() => {
             "div",
             Object.assign({}, clickable(activate, { label: t[1] }), {
               key: t[0],
-              className: "rt-tab" + (st.tab === t[0] ? " on" : ""),
+              className: "rt-tab" + (activeTab === t[0] ? " on" : ""),
               role: "tab",
-              "aria-selected": st.tab === t[0] ? "true" : "false",
+              "aria-selected": activeTab === t[0] ? "true" : "false",
               title: unreadOf(t[0]) ? t[1] + "\uFF1A\u6709\u65B0\u5185\u5BB9\uFF0C\u70B9\u5F00\u770B\u8FC7\u7EA2\u70B9\u5C31\u4F1A\u6D88\u5931" : t[1]
             }),
             t[1],
@@ -9184,25 +10469,25 @@ var __dshPurgeDrill = (() => {
       ),
       h3(
         "div",
-        { className: "rt-body", key: "body-" + st.tab },
-        h3(RtBoundary, { key: st.tab }, body)
+        { className: "rt-body", key: "body-" + activeTab },
+        h3(RtBoundary, { key: activeTab }, body)
       ),
       h3(
         "div",
         { className: "rt-foot" },
-        h3("span", null, "C \u6BB5 " + (stats.segments || 0)),
+        h3("span", null, "C \u6BB5 " + (stats2.segments || 0)),
         h3(
           "span",
           null,
-          "\u8D44\u4EA7 " + (stats.assets || 0) + "\uFF08\u5B58\u6D3B " + (stats.liveAssets || 0) + "\uFF09"
+          "\u8D44\u4EA7 " + (stats2.assets || 0) + "\uFF08\u5B58\u6D3B " + (stats2.liveAssets || 0) + "\uFF09"
         ),
-        h3("span", null, "\u7AEF\u53E3 " + (stats.openPorts || 0)),
-        h3("span", null, "\u6307\u7EB9 " + (stats.fingerprints || 0)),
-        h3("span", null, "\u6F0F\u6D1E " + (stats.vulns || 0)),
+        h3("span", null, "\u7AEF\u53E3 " + (stats2.openPorts || 0)),
+        h3("span", null, "\u6307\u7EB9 " + (stats2.fingerprints || 0)),
+        h3("span", null, "\u6F0F\u6D1E " + (stats2.vulns || 0)),
         h3(
           "span",
           null,
-          "\u88AB\u52A8/\u4E3B\u52A8 " + (stats.passiveSignals || 0) + "/" + (stats.activeSignals || 0)
+          "\u88AB\u52A8/\u4E3B\u52A8 " + (stats2.passiveSignals || 0) + "/" + (stats2.activeSignals || 0)
         ),
         h3("div", { className: "rt-spacer" }),
         full ? h3("span", null, "\u6309 Esc \u6216\u70B9\u53F3\u4E0A\u89D2\u300C\u9000\u51FA\u5168\u9762\u6D4F\u89C8\u300D\u56DE\u5230\u5E26\u4FA7\u680F\u7684\u754C\u9762") : null,
@@ -9269,7 +10554,11 @@ var __dshPurgeDrill = (() => {
       setUI,
       useUI,
       isFullWindow,
-      setDockWidth
+      setDockWidth,
+      SidebarButton,
+      HeaderButton,
+      FullButton,
+      FindingsTab
     };
   }
   exports.inject = inject2;
@@ -13565,7 +14854,7 @@ function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.8.0"
+        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.11.0"
       )
     ),
     h(CompatibilityNote, { status: backendStatus }),
@@ -13722,7 +15011,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "\u63D2\u4EF6 ",
-      h("b", null, info?.plugin_version || "1.8.0")
+      h("b", null, info?.plugin_version || "1.11.0")
     )
   );
 }
@@ -13784,11 +15073,11 @@ function VersionNotice({ info }) {
     );
   }
   const backend = info?.plugin_version;
-  if (!backend || backend === "1.8.0") return null;
+  if (!backend || backend === "1.11.0") return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.8.0"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
+    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.11.0"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
   );
 }
 function PurgePage() {
@@ -13838,7 +15127,7 @@ function PurgePage() {
           true ? h(
             "span",
             { className: "dshpp-page-ver" },
-            "\u793E\u533A\u7248 1.8.0"
+            "\u793E\u533A\u7248 1.11.0"
           ) : null
         )
       )

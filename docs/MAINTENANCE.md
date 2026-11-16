@@ -1,16 +1,48 @@
 # 维护、迁移与恢复
 
-当前版本 **1.8.0**。包名 `dsh-purge-community`，来源仅本仓库正式 GitHub Releases；保留内部 Cordis ID `dsh-purge`、HTTP `/dsh-purge/*` 及用户数据目录。主安装步骤与镜像故障决策树统一见 [安装指南](INSTALLATION.md)；[AGENTS.md](../AGENTS.md) 是 Agent 操作说明。
+当前源码版本 **1.12.0**。包名 `dsh-purge-community`，正式发行渠道为本仓库 GitHub Releases；保留内部 Cordis ID `dsh-purge`、HTTP `/dsh-purge/*` 及用户数据目录。本次升级修正三模式证明/活动隔离并补需求驱动路由与实际成本，进行了隔离回归和真实 localhost HTTP；实际外部工具、模型选择与宿主验收未完成，未打包发布、安装、apply、退出或重启正式 DSH。[实施与验证](MODE-UPGRADE-1.12.0.md) 记录当前结果。主安装步骤与镜像故障决策树统一见 [安装指南](INSTALLATION.md)；[AGENTS.md](../AGENTS.md) 是 Agent 操作说明。
+
+## 1.12.0 路由与证明维护
+
+`tool.route` 是只读建议，不是运行探测或工具调度；需要实际执行时复用返回的 next 参数。安装回执、MCP 握手、browser 缓存和旧能力回执不能当成当前受支持 profile。明确 runtime/file/profile/backend 变化后重新显式准备，不改源/代理/后端或自动下载依赖。
+
+维护者核对随包改动用 `npm run check:assessment`。明确审阅 allowlist 内的本地适配后可用 `node scripts/sync-assessment-engine.mjs --record-local` 记录新字节哈希；这不验证代码正确性或工具运行，也不改变上游哈希。未审阅文件变更/未知新增文件拒绝记录。原始 upstream/许可和历史升级结果保留。
+
+## 1.11.0 发现辅助维护
+
+新动作契约见 [发现工作流](DISCOVERY-WORKFLOW.md)。`assessment/discovery/sourcemaps/<maphash>/` 保存哈希来源与私有源码，不依目标给出的来源路径写入。`intel/catalogue.json` 是靶标内离线元数据缓存，声明来源没有被远程核实；缓存损坏时保留原文，不自动清空、修复、同步或执行。`workspace.list/read` 的固定材料目录不包括此缓存、凭据或原生数据库。三者均不构成 observed/confirmed 或覆盖完成。
+
+新增技能专题及元数据由 `build:modes/check:modes` 核对；读取索引时实际模式优先于能力声明，unknown 不表示可运行。派发失败缺少可信 no-start 回执时保留 lease，真实完成后回收。得分、发现和 SRC 停止的 offset 独立，优先复用签名 `next.arguments`。本轮没有改变随包 awa-ddd 的来源源码或发布独立面板版本。
 
 ## 内置评估源码与历史数据
 
-awa-ddd 2.2.0 的生产评估源码随 `lib/redteam/assessment-engine/` 分发，MIT 许可证、NOTICE 和 `provenance.json` 保留来源及逐文件哈希。维护者运行 `node scripts/sync-assessment-engine.mjs --check` 离线核对；明确选择已审阅的本地源码后，才用 `--source` 同步写入本仓库。运行时直接使用随包核心，不自动查询或同步独立 AWA 项目。[维护流程和验证边界](REDTEAM-AWA-SRC.md)。
+awa-ddd 2.2.0 的生产评估源码随 `lib/redteam/assessment-engine/` 分发，MIT 许可证、NOTICE 和 `provenance.json` 保留上游来源及逐文件哈希。1.10.0 更新来源停止/浏览器发送前适配的 bundled 摘要和本地适配版本；自有 helper 标 origin:dsh-purge，不改变上游版本及原来源哈希。`node scripts/sync-assessment-engine.mjs --check` 离线核对本包来源，本轮结果记录在实施说明。显式 --source 仅对匹配确切已记录上游哈希的适配保留本地版本，漂移须重审，--force 不自动授权覆盖契约。运行时直接使用随包核心，不自动查询或同步独立 AWA 项目。[维护流程和当前边界](MODE-UPGRADE-1.10.0.md)。
 
 每个 engagement 的 `<靶标目录>/assessment` 是独立评估工作区，内部项目固定为 `assessment`；模型不能替换 code/workspace。旧 `settings.json` 的外部路径/工作区及 `awa-binding.json` 保留为历史数据，不选择或执行外部引擎。独立 awa-ddd 2.2.0 升级、用户提示词和设置不因嵌入改写；维护源码不自动部署、应用补丁、初始化目标评估或重启正在运行的 DSH。
 
+## 1.10.0 三模式维护
+
+模式注册从当前 profile 的 Loader 和安装锚点取证，只有 AST 证明 control 主插件已经登记 `list_agents` 时才移除冗余旧行。spawn 使用等价子预设，fork 继承父历史并在 `tools.guard` 执行原 deny；缺守卫时失败。服务代际回收、各模式独立失败预算和卸载取消共用注册驱动；原用户 YAML 保留。
+
+SRC 分类字段与提交草稿在正常数据库升级时添加，历史加固项保留但不进入漏洞分母；真实低危缺陷保留。先通过 `redteam_src_runbook resource:submission` 读取实际规则、最小验证、查重及草稿步骤。当前机器证明和材料完整性分别显示，报告包含候选、待复核、停止和剩余。渗透的 vulnerability 与 recommendations 分开计数，测试凭据使用句柄。源码维护只迁移临时测试数据库，没有改正式用户数据。
+
+`assessmentContinuationGuard` 默认开，`requireAssessmentForHighValueScore` 新默认开启，操作者已明确保存的 false 保留；设置位于 `$DSH_HOME/redteam/settings.json`，模型输入不改设置。续跑钩子登记只证明注册，不能代替真实回合事件执行记录。
+
+三模式模型只登记 claimed/inferred，observed 使用可信代码采集器及不可编辑 provenance。历史无回执 observed 保留 legacy_unattested，不批量删除或自动重认证。发现写入和报告共用精确 proof 契约；原生旧机器标签缺 claim_contract 时保留待复核。原有持久 SRC 停止不因标签待复核、发现编辑或删除而撤销。
+
+同靶标 SQLite lease 在实际派发入口共享计数，registry/session ID 保存明确别名，未知派发状态保留占位。只有真实结束回收已派发任务；未派发 reservation 可过期，不能手工释放 running lease 冒充任务结束。新凭据使用 AES-256-GCM，默认查询为 cred_<id>；迁移数据须保留对应 `.credential-vault-key` 和 engagement 身份，密钥不可用时保留记录并显示 vault_unavailable。源码工作没有执行这些用户数据库迁移。
+
+v2 自动 provider 的已实现能力与前提缺失分开呈现；失败保留 run、partial evidence、attempt/cooldown 和未知写入状态。只补齐真实相关前提再准备，不因行政变化重试。报告同时展示当前机器证明、待复核和未完成分母，不能用报告生成成功宣称任务完成。
+
+SRC 专用根 `$DSH_HOME/redteam/src-skills/src-discovery/` 由随包技能/文档同步；红队根也提供同份技能。旧 SRC 预设在注册时只做内存适配，原用户 YAML 不重写。`redteam_src_runbook` 始终读取当前安装的固定资源，注册回执、技能同步和实际 GUI 加载分别记录。
+
+来源 `src_source_stop` 是独立、不可更新或删除的停止台账；历史明确的 direct_evidence_obtained 停止会在正常数据库迁移时纳入，来源发现状态或目标编辑不会撤销原目标停止。可信门面同步固定工作区快照，HTTP、preflight、身份、间接配方和浏览器每次发送前同时检查来源与 native 停止；快照坏损时零发送失败。正式用户数据库尚未执行迁移。
+
+`redteam_delivery_report` 与面板合并交付入口只读取当前已有覆盖，保存分页 Markdown/JSON。来源候选、复核和交付优先直接复用返回的签名 `next.arguments`；token 绑定服务、靶标、模式、流与验证语义，旧 offset 兼容。交付各流耗尽后不重复，切靶清空游标；不可读和未初始化的覆盖保持 unknown。报告与 checkpoint 不自动结项，SRC 不声明范围耗尽，独立 AWA 证据不跨账本确认。SRC 报告与渗透完整报告各遵守明确预算，超限在写入前失败。完整变更与未验收边界见 [1.10.0 升级说明](releases/1.10.0.md)。
+
 ## 兼容与操作边界
 
-已验证宿主目标为 Desktop 0.2.1-rc.1 / rc.2。缺失宿主布局时停止写入；其他版本标为未验证，组件版本不一致只报告。兼容状态不是“全部补丁已生效”的保证，使用 selfcheck/diagnose 逐条核对。安装器支持 Windows 入口不等于完整 Windows 补丁/UI 已验收。
+历史宿主与安装验收记录见 AGENTS 和对应维护文档；1.10.0 的 86 条宿主补丁源码目标仍是 Desktop 0.2.2-rc.1。实际 Desktop 0.2.2-rc.3 的专用 Electron 副本已核实预设 Loader 和空白工具目录，完整 GUI、补丁与实际调度未验收。缺失宿主布局时停止写入，组件版本不一致只报告。正常维护可使用 selfcheck/diagnose 逐条核对，本轮没有对正式安装执行。安装器支持 Windows 入口不等于完整 Windows 补丁/UI 已验收。
 
 安装/更新、应用宿主补丁、重启是独立动作。安装前备份，应用宿主补丁前也备份；不因安装成功自动应用或重启。更新检查与自动安装分别设置，默认检查开、安装关，已有偏好继续保留。
 

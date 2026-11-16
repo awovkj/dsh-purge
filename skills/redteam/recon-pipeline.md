@@ -4,7 +4,16 @@ description: ProjectDiscovery 信息收集流水线：subfinder→dnsx→naabu�
 whenToUse: 信息收集阶段拿到域名/单位名后，系统化铺开子域→解析→端口→存活→页面与接口
 role: recon
 enabled: true
+metadata:
+  cwe: []
+  class: [recon, active-scan]
+  requires: [shell]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # 外部信息收集流水线（ProjectDiscovery）
 

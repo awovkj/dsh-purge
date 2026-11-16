@@ -235,7 +235,10 @@ def _decision(project, decision, category=None, link=None):
             if requested_family is not None and family != requested_family:
                 raise EngineError("oracle_family", "The imported candidate and local decision have different vulnerability families")
             current_machine_proof(project, decision["id"], family)
-            result.update(validated=True, usable_for_confirmation=True, category=family)
+            result.update(validated=True, usable_for_confirmation=True, category=family,
+                          operation_id=decision.get("operation_id"), input_key=item.get("input_key"),
+                          input_location=item.get("input_location"), input_selector=item.get("input_selector"),
+                          proof_scope=decision.get("proof_scope") or (decision.get("oracle") or {}).get("type"))
             if item.get("kind") == "input_test" and (not isinstance(link, dict)
                     or link.get("input_location") != item.get("input_location")
                     or link.get("input_selector") != item.get("input_selector")):
@@ -253,7 +256,7 @@ def _v2_machine(project, finding):
     from .domain.repository import Repository
     from .domain.test_recipe import assert_current, render
     from .engine import verify_current_evidence
-    from .execution.test_runner import context, _evidence_value, _eval_from_results
+    from .execution.test_runner import context, verify_saved_run
     repository = Repository(project, read_only=True)
     run = repository.get("run", finding["run_id"])
     recipe = repository.get("recipe", run["recipe_id"])
@@ -274,55 +277,26 @@ def _v2_machine(project, finding):
     executable = render(recipe, {})
     groups = executable.get("control_groups") or recipe.get("control_groups", [])
     controls = groups[0].get("controls", []) if groups else []
+    if len(groups) != 1:
+        raise EngineError("control_provider", "The HTTP machine proof must contain one complete frozen control group")
     ids = run.get("evidence_ids") or []
-    if len(ids) != len(controls) or not set(finding.get("evidence_ids") or []).issubset(set(ids)):
+    if not controls or len(ids) != len(controls) or len(set(ids)) != len(ids) \
+            or finding.get("evidence_ids") != ids:
         raise EngineError("evidence_binding", "V2 finding needs every exact control observation")
-    results = []
-    for control, identity in zip(controls, ids):
-        meta, artifact = verify_current_evidence(project, identity)
-        session_binding = recipe.get("bindings", {}).get("session") or {}
-        resource_binding = recipe.get("bindings", {}).get("resource") or {}
-        if meta.get("session_id") != session_binding.get("session_id") \
-                or meta.get("session_generation") != session_binding.get("generation") \
-                or meta.get("actor_id") != session_binding.get("actor_id") \
-                or meta.get("resource_id") != resource_binding.get("resource_id"):
-            raise EngineError("control_identity", "V2 evidence belongs to another recipe identity or resource")
-        request = control.get("request", {})
-        actual_request = artifact.get("request", {})
-        expected_body = request.get("body")
-        if "body_base64" in request:
-            raw_body = base64.b64decode(request["body_base64"], validate=True)
-        elif isinstance(expected_body, (dict, list)):
-            raw_body = json.dumps(expected_body, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
-        else:
-            raw_body = expected_body.encode("utf-8") if isinstance(expected_body, str) else b""
-        if meta.get("operation_id") != recipe["bindings"]["operation_id"] \
-                or normalize_url(actual_request["url"]) != normalize_url(request["url"]) \
-                or actual_request.get("method") != str(request.get("method")).upper() \
-                or base64.b64decode(actual_request.get("body_base64", ""), validate=True) != raw_body:
-            raise EngineError("control_request", "V2 evidence no longer matches its frozen control request")
-        actual_headers = actual_request.get("headers", {})
-        from .transport import headers_map
-        expected_headers = headers_map(request.get("headers") or {})
-        if session_binding:
-            expected_headers = {**project.get("session", session_binding["session_id"])["headers"], **expected_headers}
-        if isinstance(expected_body, (dict, list)):
-            expected_headers.setdefault("content-type", "application/json")
-        if operation.get("content_type"):
-            expected_headers.setdefault("content-type", operation["content_type"])
-        if actual_headers != expected_headers:
-            raise EngineError("control_request", "V2 evidence headers differ from the frozen control")
-        selector = control.get("expected", {}).get("selector", "body")
-        actual = _evidence_value(project, identity, selector)
-        expected = control.get("expected", {}).get("value")
-        results.append((control, {"evidence_id": identity, "actual": actual,
-                                  "matched": str(actual).strip() == str(expected).strip() if expected is not None else None}))
-    evaluation = _eval_from_results(recipe, results)
+    evaluation = verify_saved_run(project, run)
     if evaluation.get("outcome") != "supported" or not evaluation.get("finding_allowed") \
             or canonical(evaluation) != canonical(run.get("evaluation")):
         raise EngineError("finding_proof", "V2 oracle re-evaluation did not reproduce the stored positive proof")
+    from .proof_claim import claim_matches
+    from .execution.test_runner import _machine_claim
+    if not claim_matches(finding, _machine_claim(recipe)):
+        raise EngineError("finding_claim", "Machine title, impact or severity exceeds the rechecked proof contract; legacy wording needs a new bounded finding")
     return {"decision_id": run["id"], "outcome": "confirmed", "mode": "machine", "proof_mode": "machine",
             "oracle_type": recipe.get("oracle", {}).get("type"), "category": finding.get("category"),
+            "operation_id": recipe["bindings"]["operation_id"], "input_key": recipe["bindings"].get("consumer_context", {}).get("input_key"),
+            "input_location": (recipe["bindings"].get("consumer_context", {}).get("input") or {}).get("location"),
+            "input_selector": (recipe["bindings"].get("consumer_context", {}).get("input") or {}).get("selector"),
+            "proof_scope": evaluation.get("proof_scope"), "limitations": evaluation.get("limitations") or [],
             "evidence_ids": ids, "evidence_hashes": _evidence_metadata(project, ids),
             "current": True, "validated": True, "usable_for_confirmation": True}
 
@@ -363,11 +337,22 @@ def export_exchange(project, args):
                 if finding.get("decision_id") not in decision_views:
                     continue
                 proof = decision_views[finding["decision_id"]]
+                claim_current = False
+                if finding.get("mode") == "machine" and proof.get("usable_for_confirmation"):
+                    try:
+                        from .proof_claim import machine_claim, claim_matches
+                        claim_current = claim_matches(finding, machine_claim(family=proof["category"],
+                            oracle_type=proof["oracle_type"], operation_id=proof["operation_id"],
+                            input_location=proof.get("input_location"), input_selector=proof.get("input_selector")))
+                    except (EngineError, ValueError, KeyError, TypeError):
+                        claim_current = False
                 row["findings"].append({"finding_id": finding["id"], "decision_id": finding["decision_id"],
                     "mode": finding.get("mode"), "status": finding.get("status"), "category": finding.get("category"),
                     "severity": finding.get("severity"), "title": finding_title(finding), "evidence_ids": finding.get("evidence_ids", []),
-                    "current": proof["current"] and finding.get("status") == "confirmed" and not finding.get("superseded_by"),
-                    "usable_for_confirmation": proof["usable_for_confirmation"] and finding.get("status") == "confirmed" and not finding.get("superseded_by")})
+                    "proof_scope": finding.get("proof_scope") or proof.get("proof_scope"), "limitations": finding.get("limitations") or [],
+                    "claim_contract_current": claim_current,
+                    "current": claim_current and proof["current"] and finding.get("status") == "confirmed" and not finding.get("superseded_by"),
+                    "usable_for_confirmation": claim_current and proof["usable_for_confirmation"] and finding.get("status") == "confirmed" and not finding.get("superseded_by")})
                 if len(row["findings"]) >= MAX_PROOFS:
                     row["proofs_truncated"] = True
                     break
@@ -402,6 +387,7 @@ def export_exchange(project, args):
                 row["findings"].append({"finding_id": finding["id"], "decision_id": proof["decision_id"],
                     "mode": proof["mode"], "status": finding.get("status"), "category": finding.get("category"),
                     "severity": finding.get("severity"), "title": finding_title(finding),
+                    "proof_scope": finding.get("proof_scope"), "limitations": finding.get("limitations") or [],
                     "evidence_ids": proof["evidence_ids"], "current": proof["current"],
                     "usable_for_confirmation": proof["usable_for_confirmation"]})
             row["usable_for_confirmation"] = any(proof.get("usable_for_confirmation") for proof in row["decisions"])

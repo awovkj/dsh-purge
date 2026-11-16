@@ -2,13 +2,19 @@
 from __future__ import annotations
 
 import hashlib
-from urllib.parse import urlsplit, urlunsplit
+import json
+import re
+from ipaddress import ip_address
+from urllib.parse import urlsplit, urlunsplit, unquote, quote
 
-from .store import EngineError, now
+from .store import EngineError, now, contained
 
 MODES = {"assessment", "src"}
 SRC_MAX_RESPONSE = 64 * 1024
 SRC_MAX_TIMEOUT = 15
+SOURCE_STOP_FILE = "dsh-source-stops.json"
+SOURCE_STOP_SCHEMA = "dsh-purge-source-stops/v1"
+SOURCE_STOP_MAX_BYTES = 2 * 1024 * 1024
 SRC_DENIED_ACTIONS = frozenset({
     "tool.sqlmap", "tool.yakit_replay", "tool.tscanplus_request",
     "test.run_external", "scenario.run", "test.run_scenario",
@@ -49,8 +55,96 @@ def _stop_id(operation_id):
 
 
 def _endpoint(url):
-    parsed = urlsplit(url)
+    from .scope import normalize_url
+    parsed = urlsplit(normalize_url(url))
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+
+
+def _url_rule(url, **extra):
+    parsed = urlsplit(_endpoint(url))
+    host = parsed.hostname
+    try:
+        host = str(ip_address(host))
+    except ValueError:
+        pass
+    authority = "[" + host + "]" if ":" in host else host
+    if parsed.port and parsed.port != (443 if parsed.scheme == "https" else 80):
+        authority += ":" + str(parsed.port)
+    return {**extra, "kind": "url", "origin": parsed.scheme + "://" + authority,
+            "path": unquote(parsed.path)}
+
+
+def _source_snapshot(project):
+    """The owner refreshes this fixed file from its immutable source ledger, never from action input."""
+    try:
+        path = contained(project.workspace / SOURCE_STOP_FILE, project.workspace)
+        if not path.exists():
+            return None, [], None  # Standalone upstream SRC projects have no source ledger.
+        if not path.is_file() or path.stat().st_size > SOURCE_STOP_MAX_BYTES:
+            raise ValueError()
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or set(document) != {"schema", "project_id", "source_engagement_id", "rules"} \
+                or document["schema"] != SOURCE_STOP_SCHEMA or document["project_id"] != project.project_id \
+                or re.fullmatch(r"rt-[a-f0-9]{24}", str(document["source_engagement_id"])) is None \
+                or not isinstance(document["rules"], list) or len(document["rules"]) > 10000:
+            raise ValueError()
+        rules = document["rules"]
+        for rule in rules:
+            if not isinstance(rule, dict) or not isinstance(rule.get("id"), str) \
+                    or re.fullmatch(r"source-[0-9]+-[a-f0-9]{16}", rule["id"]) is None \
+                    or not isinstance(rule.get("evidence_ids"), list) or len(rule["evidence_ids"]) > 32 \
+                    or any(not isinstance(item, str) or re.fullmatch(r"ev_[a-f0-9]{64}", item) is None for item in rule["evidence_ids"]):
+                raise ValueError()
+            fields = {"id", "evidence_ids", "kind"}
+            if rule.get("kind") == "url":
+                if set(rule) != fields | {"origin", "path"} or not isinstance(rule["origin"], str) \
+                        or not isinstance(rule["path"], str) or not rule["path"].startswith("/"):
+                    raise ValueError()
+                normalized = _url_rule(rule["origin"] + quote(rule["path"], safe="/{}:!$&'()*+,;=@-._~"))
+                if normalized["origin"] != rule["origin"] or normalized["path"] != rule["path"]:
+                    raise ValueError()
+            elif rule.get("kind") == "host":
+                if set(rule) != fields | {"host", "port"} or not isinstance(rule["host"], str) \
+                        or not rule["host"] or len(rule["host"]) > 256 \
+                        or re.search(r"[\s\\/?#@]", rule["host"]) \
+                        or rule["port"] is not None and (type(rule["port"]) is not int or not 1 <= rule["port"] <= 65535):
+                    raise ValueError()
+            else:
+                raise ValueError()
+        return str(path), rules, document["source_engagement_id"]
+    except (OSError, ValueError, TypeError, KeyError, EngineError) as exc:
+        raise EngineError("src_stop_snapshot", "The fixed SRC source-stop snapshot is invalid; preserve it and use offline diagnosis",
+                          {"requests_sent": 0, "automatic_retry_allowed": False, "next_action": "evidence.inspect"}) from exc
+
+
+def _rule_matches(rule, url, method):
+    from .scope import normalize_url
+    parsed = urlsplit(normalize_url(url))
+    if rule.get("method") and rule["method"] != method.upper():
+        return False
+    if rule["kind"] == "host":
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        host = parsed.hostname
+        try:
+            host = str(ip_address(host))
+        except ValueError:
+            pass
+        return host == rule["host"] and (rule["port"] is None or port == rule["port"])
+    if _url_rule(url)["origin"] != rule["origin"]:
+        return False
+    expression = "".join(r"[^/]+" if re.fullmatch(r"\{[A-Za-z_][\w-]*\}", part)
+                         else re.escape(part) for part in re.split(r"(\{[A-Za-z_][\w-]*\})", rule["path"]))
+    return re.fullmatch(expression, unquote(parsed.path)) is not None
+
+
+def browser_stop_rules(project):
+    if mode(project) != "src":
+        return {"sourceStopFile": None, "sourceStopIdentity": None, "stopRules": []}
+    path, _, identity = _source_snapshot(project)
+    native = [_url_rule(row["endpoint"], id=row["id"], method=row["method"])
+              for row in project.list("src_stop")]
+    return {"sourceStopFile": path, "sourceStopIdentity": identity,
+            "stopRules": native}
 
 
 def record_stop(project, *, operation_id, evidence_ids, decision_id=None, finding_id=None,
@@ -59,11 +153,52 @@ def record_stop(project, *, operation_id, evidence_ids, decision_id=None, findin
     if mode(project) != "src":
         return None
     operation = project.get("operation", operation_id)
+    identity = _stop_id(operation_id)
+    existing = project.get("src_stop", identity, required=False)
+    if existing:
+        return existing
     if not evidence_ids:
         raise EngineError("evidence_binding", "A SRC stopping receipt requires direct evidence")
+    if finding_id:
+        finding = project.get("v2_finding", finding_id, required=False)
+        if finding is not None:
+            if finding.get("mode") != "machine" or finding.get("status") != "machine_confirmed":
+                raise EngineError("src_stop_proof", "A new SRC stop requires a current trusted machine verdict")
+            from .integration import _v2_machine
+            proof = _v2_machine(project, finding)
+            if proof.get("operation_id") != operation_id or proof.get("evidence_ids") != list(evidence_ids) \
+                    or proof.get("decision_id") != decision_id:
+                raise EngineError("src_stop_proof", "The stopping proof belongs to another operation or control group")
+        else:
+            finding = project.get("finding", finding_id)
+            if finding.get("status") != "confirmed" or finding.get("superseded_by") \
+                    or finding.get("decision_id") != decision_id or finding.get("evidence_ids") != list(evidence_ids):
+                raise EngineError("src_stop_proof", "The legacy finding does not bind these exact current controls")
+            decision = project.get("decision", decision_id)
+            if finding.get("mode") == "machine":
+                from .proof_claim import finding_proof_state
+                if finding_proof_state(project, finding).get("machine_proof") is not True:
+                    raise EngineError("src_stop_proof", "The legacy machine finding requires current bounded proof")
+            else:
+                from .assessment import _bound_xss_proof, validate_confirmation
+                proof = _bound_xss_proof(project, decision)
+                validate_confirmation(project, decision, finding.get("category"))
+                if proof.get("source") != "local_playwright":
+                    raise EngineError("src_stop_proof", "Imported or freely declared runtime labels cannot authorize a new SRC stop")
+            if decision.get("operation_id") != operation_id or decision.get("evidence_ids") != list(evidence_ids):
+                raise EngineError("src_stop_proof", "The legacy decision belongs to another operation or control group")
+    elif decision_id:
+        decision = project.get("decision", decision_id)
+        item = project.get("obligation", decision.get("obligation_id"))
+        from .assessment import current_machine_proof
+        family = "access_control" if item.get("kind") in {"access", "ownership"} else item.get("test_family") or "generic"
+        current_machine_proof(project, decision_id, family)
+        if decision.get("operation_id") != operation_id or decision.get("evidence_ids") != list(evidence_ids):
+            raise EngineError("src_stop_proof", "The stopping decision does not bind these exact captures")
+    else:
+        raise EngineError("src_stop_proof", "Evidence completeness alone cannot authorize a new SRC stop")
     from .engine import verify_current_evidence
     evidence = [verify_current_evidence(project, identity)[0] for identity in evidence_ids]
-    identity = _stop_id(operation_id)
     with project.transaction():
         existing = project.get("src_stop", identity, required=False)
         if existing:
@@ -96,23 +231,12 @@ def stop_receipt(project, operation):
     if mode(project) != "src":
         return None
     receipt = project.get("src_stop", _stop_id(operation["id"]), required=False)
+    _, source, _ = _source_snapshot(project)
     if receipt is None:
-        endpoint = _endpoint(operation["url"])
-        receipt = next((row for row in project.list("src_stop")
-                        if row.get("endpoint") == endpoint and row.get("method") == operation["method"]), None)
+        receipt = next((row for row in project.list("src_stop") if _rule_matches(
+            _url_rule(row["endpoint"], method=row["method"]), operation["url"], operation["method"])), None)
     if receipt is None:
-        from .scope import bind_operation
-        for row in project.list("src_stop"):
-            if row.get("method") != operation["method"]:
-                continue
-            template = project.get("operation", row["operation_id"], required=False)
-            template = template or {"url": row["endpoint"], "method": row["method"]}
-            try:
-                bind_operation(template, operation["url"], operation["method"])
-            except EngineError:
-                continue
-            receipt = row
-            break
+        receipt = next((row for row in source if _rule_matches(row, operation["url"], operation["method"])), None)
     return receipt
 
 
@@ -121,7 +245,7 @@ def require_not_stopped(project, operation):
     if receipt:
         raise EngineError("stopped_at_evidence",
                           "SRC already has direct evidence for this operation; continue with offline review/reporting or a different candidate",
-                          {"operation_id": receipt["operation_id"], "decision_id": receipt.get("decision_id"),
+                          {"operation_id": receipt.get("operation_id"), "stop_id": receipt["id"], "decision_id": receipt.get("decision_id"),
                            "evidence_ids": receipt["evidence_ids"], "assessment_mode": "src",
                            "requests_sent": 0, "next_action": "evidence.inspect"})
 
@@ -134,6 +258,8 @@ def capture_policy(project, operation, args, *, existing=False):
                           {"operation_id": operation["id"], "requests_sent": 0, "assessment_mode": "src"})
     if not existing:
         require_not_stopped(project, operation)
+        if args.get("url"):
+            require_not_stopped(project, {**operation, "url": args["url"]})
 
 
 def browser_policy(project, url, args):
@@ -146,17 +272,7 @@ def browser_policy(project, url, args):
         if not isinstance(action, dict) or action.get("type", action.get("action")) not in allowed:
             raise EngineError("src_action_denied", "SRC browser actions support observation and waits only",
                               {"requests_sent": 0, "assessment_mode": "src"})
-    from .scope import bind_operation
-    for row in project.list("src_stop"):
-        operation = project.get("operation", row["operation_id"], required=False)
-        if operation is None:
-            continue
-        try:
-            bind_operation(operation, url, "GET")
-        except EngineError:
-            continue
-        raise EngineError("stopped_at_evidence", "SRC already has direct evidence for this page; use offline review",
-                          {"requests_sent": 0, "assessment_mode": "src", "next_action": "evidence.inspect"})
+    require_not_stopped(project, {"id": "browser-entry", "url": url, "method": "GET"})
 
 
 def work_policy(project, row, operation):
@@ -175,7 +291,10 @@ def work_policy(project, row, operation):
     if "preparation_state" in row:
         row["preparation_state"] = "stopped_at_evidence" if receipt else "src_discovery_only"
     row["suggested_action"] = "evidence.inspect" if receipt else "surface.inspect"
-    row["input_template"] = {"evidence_id": receipt["evidence_ids"][0]} if receipt else {"operation_id": operation["id"]}
+    native_refs = [value for value in receipt.get("evidence_ids", []) if value.startswith("E-")] if receipt else []
+    row["input_template"] = {"evidence_id": native_refs[0]} if native_refs else {"operation_id": operation["id"]}
+    if receipt and not native_refs:
+        row["suggested_action"] = "surface.inspect"
     row["help_input"] = {"name": row["suggested_action"]}
     row["recommended_tools"] = []
     row["preparation_actions"] = []

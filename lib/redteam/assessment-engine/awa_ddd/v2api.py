@@ -93,8 +93,14 @@ def recon_hypotheses(project, args):
     for key in ("status", "family", "operation_id", "source_kind"):
         if args.get(key):
             where[key] = args[key]
-    rows, total = repository.list("hypothesis", where=where, offset=args.get("offset", 0),
-                                  limit=args.get("limit", 25))
+    if args.get("campaign_id"):
+        from .planning.membership import rows as member_rows
+        rows = [row for row in member_rows(project, repository.get("campaign", args["campaign_id"]), "hypothesis")
+                if not row.get("superseded") and all(row.get(key) == value for key, value in where.items())]
+        total = len(rows)
+        rows = rows[args.get("offset", 0):args.get("offset", 0) + args.get("limit", 25)]
+    else:
+        rows, total = repository.list("hypothesis", where=where, offset=args.get("offset", 0), limit=args.get("limit", 25))
     return {"items": [row for row in rows if not row.get("superseded")], "total": total,
             "offset": args.get("offset", 0), "limit": args.get("limit", 25),
             "next_offset": (args.get("offset", 0) + args.get("limit", 25))
@@ -115,6 +121,24 @@ def test_inspect(project, args):
 
 def test_run_browser(project, args):
     from .execution import browser_provider
+    if args.get("recipe_id") or args.get("hypothesis_id") or args.get("run_id"):
+        from .domain.common import fail
+        repository = Repository(project, read_only=True)
+        if args.get("run_id"):
+            recipe = repository.get("recipe", repository.get("run", args["run_id"])["recipe_id"])
+        elif args.get("recipe_id"):
+            recipe = repository.get("recipe", args["recipe_id"])
+        else:
+            campaign = repository.get("campaign", args.get("campaign_id"))
+            from .planning.membership import hypothesis as member_hypothesis
+            hypothesis = member_hypothesis(project, campaign, args["hypothesis_id"])
+            universe = repository.get("universe", campaign["universe_id"])
+            from .execution.recipe_builder import build
+            prepared = build(project, campaign, universe, hypothesis)
+            recipe = prepared.get("recipe") or {}
+        if recipe.get("provider", {}).get("name") != "browser":
+            fail("v2_browser_recipe", "test.run_browser requires an actual frozen browser recipe")
+        return test_runner.run(project, args)
     if args.get("mode") == "xss_evaluate":
         result = browser_provider.evaluate_xss(
             project, consumer_url=args["consumer_url"], marker=args["marker"],

@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { removeTreeNoFollowSync } from '../lib/remove-tree.js'
+import { defaultPythonExecutable } from '../lib/redteam/native-assessment.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const executeFile = promisify(execFile)
@@ -17,7 +18,7 @@ const endpoint = 'https://fixture.invalid/api/render'
 
 // The normal bridge retains its JSON protocol, interpreter flags, cwd, argv
 // workspace and cancellation. Only the owned Python process replaces HTTP.
-// It never evaluates the expression: it returns the fixed synthetic value 49.
+// It never evaluates the expressions: it returns fixed synthetic values 221/437.
 const HTTP_PROTOCOL = String.raw`
 import base64, hashlib, json, sys
 from pathlib import Path
@@ -25,6 +26,7 @@ from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 from awa_ddd.__main__ import main
 from awa_ddd.store import now
+from awa_ddd.transport import request_parts
 log = Path(sys.argv[1])
 sys.argv = ["owned-v2-fixture", *sys.argv[2:]]
 def request(url, method="GET", headers=None, body=None, timeout=15, max_bytes=65536):
@@ -35,12 +37,14 @@ def request(url, method="GET", headers=None, body=None, timeout=15, max_bytes=65
     values = parse_qs(parsed.query, strict_parsing=True)
     assert set(values) == {"label"} and len(values["label"]) == 1
     label = values["label"][0]
-    assert label in {"AWA-NORMAL", "7*7", "AWA-NORMAL-2"}
-    document = {"value": "49" if label == "7*7" else label}
+    assert label in {"13*17", "{{13*17}}", "{{13*17", "{{19*23}}"}
+    document = {"value": {"{{13*17}}": "221", "{{19*23}}": "437"}.get(label, label)}
     raw = json.dumps(document, separators=(",", ":")).encode("utf-8")
     with log.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps({"url": url, "method": method, "label": label}) + "\n")
-    return {"request": {"url": url, "method": method, "headers": headers or {}, "body_base64": ""},
+    actual_headers, actual_body = request_parts(url, headers or {}, body)
+    return {"request": {"url": url, "method": method, "headers": actual_headers,
+        "body_base64": base64.b64encode(actual_body).decode("ascii") if actual_body else ""},
         "response": {"status": 200, "headers": [["content-type", "application/json"]],
             "complete": True, "length": len(raw), "body_base64": base64.b64encode(raw).decode("ascii"),
             "body_sha256": hashlib.sha256(raw).hexdigest()},
@@ -105,7 +109,7 @@ async function fixture(t, operatorModel = 'v1') {
     load('lib/redteam/native-assessment.js'), load('lib/redteam/evidence-ledger.mjs'), load('lib/redteam/settings.js'),
   ])
   store = new RedteamStore(stateRoot)
-  const pythonExecutable = process.env.AWA_DDD_TEST_PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
+  const pythonExecutable = process.env.AWA_DDD_TEST_PYTHON || defaultPythonExecutable()
   settings.saveAwaSettings(stateRoot, { pythonExecutable, executionBackend: 'native', timeoutMs: 15000, assessmentModel: operatorModel })
   const engineRoot = path.join(install, 'lib', 'redteam', 'assessment-engine')
   const callsPath = path.join(container, 'synthetic-http.jsonl')
@@ -218,7 +222,8 @@ test('a real read-only v2 test.run finding upgrades through native review to obs
   assert.equal(context.model, 'v2')
   const registered = await f.api.assessmentRun(f.store, id, 'surface.register', { operation: {
     url: endpoint, method: 'GET', auth: 'public', inputs: [{ name: 'label', location: 'query', selector: 'label',
-      consumer: 'template_engine', test_families: ['template_injection'] }],
+      consumer: 'template_engine', test_families: ['template_injection'],
+      test_contract: { response_selector: '/value', template_dialect: 'jinja_expression' } }],
   } }, f.options)
   // The automatically created campaign froze the initially empty inventory.
   // Start an explicit new inventory campaign through the public contract; no
@@ -243,8 +248,8 @@ test('a real read-only v2 test.run finding upgrades through native review to obs
   assert.equal(executed.data.finding.status, 'machine_confirmed')
   assert.equal(executed.data.finding.proof_scope, 'unexpected_expression_evaluation')
   const evidenceIds = executed.data.run.evidence_ids
-  assert.equal(evidenceIds.length, 3)
-  assert.deepEqual(f.httpCalls().map(row => row.label), ['AWA-NORMAL', '7*7', 'AWA-NORMAL-2'])
+  assert.equal(evidenceIds.length, 4)
+  assert.deepEqual(f.httpCalls().map(row => row.label), ['13*17', '{{13*17}}', '{{13*17', '{{19*23}}'])
   const actual = await f.inspect(id)
   assert.equal(actual.runs.length, 1)
   const frozenRecipe = actual.recipes.find(row => row.id === prepared.recipe_id)
@@ -281,7 +286,7 @@ test('a real read-only v2 test.run finding upgrades through native review to obs
   assert.equal(observation.result.validated, true)
   assert.equal(observation.result.decision_id, executed.data.run.id)
   assert.deepEqual(observation.result.evidence_ids, evidenceIds)
-  assert.equal(observation.result.evidence_hashes.length, 3)
+  assert.equal(observation.result.evidence_hashes.length, 4)
   for (const record of observation.result.evidence_hashes) {
     assert(evidenceIds.includes(record.evidence_id))
     assert.match(record.sha256, /^[a-f0-9]{64}$/)
@@ -290,11 +295,11 @@ test('a real read-only v2 test.run finding upgrades through native review to obs
   const finding = f.store.db(id).prepare('SELECT status,title,severity,cve,stop_reason FROM vuln WHERE id = ?').get(source.id)
   assert.equal(finding.status, 'confirmed')
   assert.equal(finding.title, executed.data.finding.title)
-  assert.equal(finding.severity, 'high')
+  assert.equal(finding.severity, 'medium', 'expression evaluation stays within its actual proof severity cap')
   assert.equal(finding.cve, null)
   assert.equal(finding.stop_reason, 'direct_evidence_obtained')
   const repeated = await f.api.assessmentReview(f.store, id, { verify: true }, f.options)
   assert.equal(repeated.reviews[0].evidence_ref, observation.ev_id)
   await assert.rejects(f.api.assessmentRun(f.store, id, 'http.capture', { operation_id: prepared.operation_id, url: endpoint }, f.options), /stopped_at_evidence/)
-  assert.equal(f.httpCalls().length, 3, 'offline review and the stopped request cannot send another HTTP control')
+  assert.equal(f.httpCalls().length, 4, 'offline review and the stopped request cannot send another HTTP control')
 })

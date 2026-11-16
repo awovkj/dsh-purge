@@ -53,6 +53,7 @@ def _executable(value, name, *, configured=False, configured_backend=None):
             "file_missing": "The selected local executable file does not exist; this does not establish that the tool is absent from every installation location.",
             "wrong_filename": "The executable path must identify sqlmap.py or the Yak engine filename required by this adapter.",
             "invalid_path": "The executable path must be a bounded string without surrounding whitespace or control characters.",
+            "not_executable": "The configured Yak file is not executable in this runtime; do not treat file deployment as runtime readiness.",
         }
         raise EngineError("tool_path", messages[reason],
                           {"reason_code": reason, "execution_backend": backend, "path_field": name,
@@ -373,6 +374,8 @@ def probe(project, args):
                              "sqlmap_path" if adapter == "sqlmap" else "yak_path")
     run, folder = _start(project, adapter, "probe")
     run["executable"] = str(executable)
+    from .runtime import tool_file_binding
+    run["executable_binding"] = tool_file_binding(executable)
     document, files = {}, []
     try:
         if adapter == "sqlmap":
@@ -397,18 +400,28 @@ def probe(project, args):
                            tool_count=len(catalog), server_info=initialized.get("serverInfo", {}),
                            tools=[{"name": t.get("name"), "description": str(t.get("description", ""))[:300]} for t in catalog])
                 document = {"executable": str(executable), "initialize": initialized, "tools": catalog}
+                support = False
+                try:
+                    _yak_arguments(catalog, "GET / HTTP/1.1\r\nHost: probe.invalid\r\n\r\n", False, timeout)
+                    _yak_arguments(catalog, "GET / HTTP/1.1\r\nHost: probe.invalid\r\n\r\n", True, timeout)
+                    support = True
+                except EngineError:
+                    pass
+                run["profile_support"] = {"public_get_replay": support}
             finally:
                 client.close()
                 document.update(exchanges=client.exchanges, process_log=client.noise)
     except (EngineError, OSError, subprocess.TimeoutExpired) as exc:
         run.update(status="failed", available=False, error_code=getattr(exc, "code", "tool_probe_failed"))
         document["error_type"] = type(exc).__name__
+    document["executable_binding"] = run["executable_binding"]
     result = _finish(project, run, document, files)
     if run.get("available"):
         from .runtime import execution_backend
         project.put("tool_config", {"id": adapter, "executable": str(executable),
-                                   "execution_backend": execution_backend(), "probe_run_id": run["id"], "configured_at": now()})
-    return result
+                                   "execution_backend": execution_backend(), "probe_run_id": run["id"], "configured_at": now(),
+                                   "executable_binding": run["executable_binding"]})
+    return {**result, "profile_support": run.get("profile_support", {})}
 
 
 def _target(project, args):
@@ -692,6 +705,43 @@ def sqlmap_run(project, args):
     return {**result, "candidate_ids": candidate_ids}
 
 
+def _yak_arguments(catalog, packet, https, timeout):
+    if "{{" in packet or "}}" in packet:
+        raise EngineError("tool_effect", "The public replay profile does not interpret caller-supplied fuzztags")
+    selected = [tool for tool in catalog if tool.get("name") in {"http_fuzzer", "http_fuzzer_request", "http-fuzzer"}]
+    if len(selected) != 1:
+        raise EngineError("mcp_capability", "The advertised Yak catalog has no unique supported HTTP fuzzer")
+    selected = selected[0]
+    schema = selected.get("inputSchema") or {}
+    props = schema.get("properties") or {}
+    if schema.get("type") != "object" or not isinstance(props, dict):
+        raise EngineError("mcp_schema", "The HTTP fuzzer needs an explicit object schema")
+    raw_key = next((key for key in ("request", "requestRaw", "request_raw", "raw_request", "Request") if key in props), None)
+    tls_keys = [key for key in ("isHttps", "is_https", "https") if key in props]
+    if not raw_key or not tls_keys or "noFollowRedirect" not in props or "fuzzTagMode" not in props:
+        raise EngineError("mcp_schema", "Single-packet replay requires typed packet, TLS, redirect and fuzztag controls")
+    values = {raw_key: packet, "noFollowRedirect": True, "fuzzTagMode": "standard"}
+    values.update({key: https for key in tls_keys})
+    optional = {"forceFuzz": False, "concurrent": 1, "repeatTimes": 1, "timeout": min(timeout, 10),
+                "perRequestTimeoutSeconds": min(timeout, 10), "noSystemProxy": True,
+                "disableUseConnPool": True, "followRedirect": False, "redirectTimes": 0}
+    values.update({key: value for key, value in optional.items() if key in props})
+    required = schema.get("required", [])
+    if not isinstance(required, list) or any(key not in values for key in required):
+        raise EngineError("mcp_schema", "The discovered HTTP fuzzer requires unsupported arguments")
+    for key, value in values.items():
+        definition = props[key]
+        expected = "boolean" if type(value) is bool else "string" if isinstance(value, str) else "number"
+        if not isinstance(definition, dict) or definition.get("type") not in ({"number", "integer"} if expected == "number" else {expected}) \
+                or any(field in definition for field in ("$ref", "oneOf", "anyOf", "allOf")):
+            raise EngineError("mcp_schema", "An explicit typed safety control is missing from the live schema")
+        if "enum" in definition and value not in definition["enum"] or "const" in definition and value != definition["const"] \
+                or type(value) in {int, float} and ("minimum" in definition and value < definition["minimum"]
+                                                   or "maximum" in definition and value > definition["maximum"]):
+            raise EngineError("mcp_schema", "The live schema does not accept the fixed bounded replay controls")
+    return selected, values
+
+
 def yakit_replay(project, args):
     from .assessment_mode import require_action
     require_action(project, "tool.yakit_replay", args)
@@ -709,30 +759,7 @@ def yakit_replay(project, args):
         client = MCPClient(executable, timeout, project.base / "tools" / "runtime" / "yakit")
         initialized = client.initialize()
         catalog = client.list_tools()
-        selected = next((t for t in catalog if t.get("name") in {"http_fuzzer", "http_fuzzer_request", "http-fuzzer"}), None)
-        if selected is None:
-            raise EngineError("mcp_capability", "The advertised Yak catalog has no supported single-request HTTP fuzzer")
-        props = selected.get("inputSchema", {}).get("properties", {})
-        raw_key = next((k for k in ("request", "requestRaw", "request_raw", "raw_request", "Request") if k in props), None)
-        if raw_key is None:
-            raise EngineError("mcp_schema", "The HTTP fuzzer packet schema is unsupported; inspect the discovery artifact")
-        values = {raw_key: packet}
-        for key, value in (("isHttps", parsed.scheme == "https"), ("is_https", parsed.scheme == "https"),
-                           ("https", parsed.scheme == "https"), ("forceFuzz", False), ("concurrent", 1),
-                           ("repeatTimes", 1), ("timeout", min(timeout, 10)),
-                           # "standard" actually renders the {{repeat(1)}} template
-                           # prefix. "close" left it in the request line, so every
-                           # replay answered 400 even for an ASCII GET.
-                           ("perRequestTimeoutSeconds", min(timeout, 10)), ("fuzzTagMode", "standard"),
-                           ("noSystemProxy", True), ("disableUseConnPool", True), ("noFollowRedirect", True),
-                           ("followRedirect", False), ("redirectTimes", 0)):
-            if key in props:
-                values[key] = value
-        if "noFollowRedirect" not in props or "fuzzTagMode" not in props:
-            raise EngineError("mcp_schema", "Single-packet replay requires redirect and fuzztag controls")
-        required = selected.get("inputSchema", {}).get("required", [])
-        if any(key not in values for key in required):
-            raise EngineError("mcp_schema", "The discovered fuzzer requires unsupported arguments")
+        selected, values = _yak_arguments(catalog, packet, parsed.scheme == "https", timeout)
         result = client.call_tool(selected["name"], values)
         run.update(status="failed" if result.get("isError") else "succeeded", verification_level="mcp_execution",
                    tool_name=selected["name"], server_info=initialized.get("serverInfo", {}))

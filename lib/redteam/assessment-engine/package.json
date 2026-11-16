@@ -11,5 +11,6 @@
   "python": ">=3.10",
   "runtimeDependencies": {
     "acorn": "8.19.0"
-  }
+  },
+  "dshPurgeAdaptationVersion": "1.12.0"
 }

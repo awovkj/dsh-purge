@@ -14,7 +14,7 @@ test('drill tools resolve their native framework in a copied official host outsi
   fs.writeFileSync(cli,'// official entry fixture');fs.writeFileSync(path.join(host,'package.json'),JSON.stringify({name:'@deepseek-ai/dsh',bin:{dsh:'lib/bin.js'}}));
   fs.writeFileSync(path.join(framework,'package.json'),'{"main":"index.cjs"}');fs.writeFileSync(path.join(framework,'index.cjs'),'exports.defineTool=(tool)=>tool;');
   const moduleUrl=pathToFileURL(path.resolve('lib/redteam/tools.js')).href;
-  const script=`process.argv[1]=${JSON.stringify(cli)};const m=await import(${JSON.stringify(moduleUrl)});console.log(m.name);`;
+  const script=`process.argv[1]=${JSON.stringify(cli)};const m=await import(${JSON.stringify(moduleUrl)});const names=[];const effects=[];await m.apply({get:()=>undefined,tools:{register:tool=>names.push(tool.name)},effect:fn=>effects.push(fn())},{assessmentMode:'src'});if(!names.includes('redteam_assessment_run'))throw Error('host SDK did not register assessment tools');for(const release of effects.reverse())await release?.();console.log(m.name);`;
   assert.equal(execFileSync(process.execPath,['--input-type=module','-e',script],{cwd:root,env:{...process.env,HOME:root,DSH_HOME:path.join(root,'home'),DSH_PROFILE:'custom-profile',PURGE_DSH_CLI:''},encoding:'utf8',stdio:'pipe'}).trim(),'dsh-purge-redteam-tools');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });

@@ -1,0 +1,210 @@
+{
+  "schema": "dsh-purge-three-mode-audit-capture/v1",
+  "recorded_date": "2026-11-15",
+  "base_git_head": "a945d57d350139b4dd9cea1d2f8f9a9b41591a46",
+  "worktree_was_already_dirty": true,
+  "node_version": "24.21.0",
+  "command": "node scripts/audit-three-modes.mjs",
+  "exit_code": 0,
+  "capture_note": "result is the isolated audit script output. static_skill_catalog is a separate read-only package catalogue query, not a live host capability probe. Elapsed time is one synthetic local run, not a production network benchmark.",
+  "source_sha256": {
+    "scripts/audit-three-modes.mjs": "93b2eeb4fbd4aecaa0abe09bdd6ff77b02fb2c9d42d5c82778ff5cd888c42a94",
+    "lib/redteam/assessment-engine/awa_ddd/execution/oracle_profiles.py": "33317dab4da6df369d43a4c7930f5c673b24d47161d79d2f3cfeb7a9dbab30f4",
+    "lib/redteam/assessment-engine/awa_ddd/execution/review_engine.py": "2040160ee89e7eea247aae46291f8eab88cd8bb1ad732b9dabf784ef7c74c9b2",
+    "lib/redteam/assessment-engine/awa_ddd/domain/universe.py": "e34818252167a9f9041c355c0bd3c5e06e3b2f34df802c70c3fc726fc8dbf9a6",
+    "lib/redteam/assessment-engine/awa_ddd/planning/hypotheses.py": "2d25f7320895e8d2e1b15d42437c0c5e700050135932cd7018580856ec80c09f",
+    "lib/redteam/assessment-engine/awa_ddd/planning/campaign.py": "e28ecd16b4350339641fcb26cf5fd9ee742a39790a896aedb8d3bdb0951a94f5",
+    "lib/redteam/assessment-engine/awa_ddd/planning/coverage.py": "6fc5b77be0067b2861167569b498af437478e1c79db5ae35238afda75e76c514",
+    "lib/redteam/assessment-engine/awa_ddd/planning/scheduler.py": "bd05877af245aec27e70bb58a758ee2f87e3b668f79387c8b4bdcd82f215b9bd",
+    "lib/redteam/assessment-batch.js": "0381d8f0c2277df4a4551ca36b8eb238304a8758f052f79a9765cf6545afef34"
+  },
+  "static_skill_catalog": [
+    {
+      "mode": "redteam",
+      "bounded": true,
+      "tool_names": 71,
+      "total_skills": 32,
+      "counts": { "available": 6, "unknown": 6, "blocked": 20 }
+    },
+    {
+      "mode": "src",
+      "bounded": true,
+      "tool_names": 48,
+      "total_skills": 9,
+      "counts": { "available": 4, "unknown": 5, "blocked": 0 }
+    },
+    {
+      "mode": "pentest",
+      "bounded": true,
+      "tool_names": 51,
+      "total_skills": 11,
+      "counts": { "available": 4, "unknown": 7, "blocked": 0 }
+    }
+  ],
+  "result": {
+    "schema": "dsh-purge-three-mode-audit/v1",
+    "package_version": "1.11.0",
+    "isolation": {
+      "synthetic_transport": true,
+      "target_network_disabled": true,
+      "temporary_state_only": true
+    },
+    "native": {
+      "ownership_projection": {
+        "registered_ownership": true,
+        "projected_ownership": null,
+        "generated_boundary_hypotheses": 0,
+        "with_field_preserved": 1
+      },
+      "known_case_origin": {
+        "mapped_to_expected_operation": false,
+        "mapped_to_first_other_origin": true,
+        "registered_operations": 2,
+        "merged_route_rows": 1
+      },
+      "substring_hypotheses": [
+        {
+          "family": "business_logic",
+          "property": "time_window_enforcement",
+          "field": "candidate_id"
+        },
+        {
+          "family": "file_upload",
+          "property": "upload_path_and_content",
+          "field": "profile_id"
+        }
+      ],
+      "inconclusive_scheduling": {
+        "outcome": "inconclusive",
+        "tested_coverage": 1,
+        "hypothesis_coverage_status": "covered",
+        "next_selected": 0,
+        "next_preparation": 0,
+        "unresolved_inconclusive": 1
+      },
+      "agent_review_stop": {
+        "machine_proof": false,
+        "reviewer_type": "agent_recorded",
+        "declared_observation_matches_capture": false,
+        "same_evidence_in_normal_and_attack": true,
+        "native_src_stops": 1,
+        "hypothesis_status": "supported"
+      },
+      "parameterized_sql_false_positive": {
+        "query_uses_bound_parameters": true,
+        "outcome": "supported",
+        "machine_finding_created": true,
+        "current_machine_proof": true,
+        "severity": "medium",
+        "proof_scope": "sql_metadata_observation",
+        "native_src_stops": 1
+      },
+      "campaign_membership": {
+        "first_frozen_operations": 1,
+        "first_hypothesis_denominator_after_second_start": 2,
+        "foreign_operation_is_schedulable": true,
+        "snapshot_changed": true,
+        "target_build_unchanged": true
+      },
+      "automatic_providers": [
+        {
+          "family": "access_control",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "sql_injection",
+          "supported": true,
+          "provider": "native_http_controls",
+          "reason": null,
+          "alternative": null
+        },
+        {
+          "family": "xss",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "ssrf",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "xxe",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "path_traversal",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "command_injection",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "template_injection",
+          "supported": true,
+          "provider": "native_http_controls",
+          "reason": null,
+          "alternative": null
+        },
+        {
+          "family": "deserialization",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "file_upload",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "business_logic",
+          "supported": false,
+          "provider": null,
+          "reason": "dedicated_control_provider_not_implemented",
+          "alternative": "Use the dedicated scenario/browser/external test contract when available."
+        },
+        {
+          "family": "generic",
+          "supported": true,
+          "provider": "native_http_controls",
+          "reason": null,
+          "alternative": null
+        }
+      ]
+    },
+    "facade_batch": {
+      "items": 2,
+      "native_invocations": 10,
+      "invocation_counts": {
+        "project.status": 5,
+        "http.preflight": 2,
+        "http.capture": 2,
+        "surface.inspect": 1
+      },
+      "elapsed_ms": 5649,
+      "repeated_evidence_ids_reused": true,
+      "repeated_requests_sent": null
+    }
+  }
+}

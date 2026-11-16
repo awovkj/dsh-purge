@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { RedteamStore } from '../lib/redteam/store-core.js'
-import { EvidenceLedger } from '../lib/redteam/evidence-ledger.mjs'
+import { confirmFinding } from './fixtures/trusted-finding.mjs'
 import { buildSrcReport } from '../lib/redteam/src-report.js'
 import { buildAwaExchange } from '../lib/redteam/awa-integration.js'
 import { isRedteamOriginAllowed, apply as applyUi } from '../lib/redteam/ui.js'
@@ -48,13 +48,10 @@ test('SRC report retains direct-evidence stops and pending denominator, redacts 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'purge-src-report-'))
   const store = new RedteamStore(root)
   t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }) })
-  const id = store.openEngagement('SRC reporting fixture', ['https://fixture.invalid/api'], { assessment_mode: 'src' }).id
+  const id = store.openEngagement('SRC reporting fixture', ['https://fixture.invalid/api'], { assessment_mode: 'src', exclude: [] }).id
   const target = 'https://fixture.invalid/api/item?%74oken=PRIVATE_QUERY_FIXTURE_123'
-  const ledger = new EvidenceLedger(store.db(id))
-  const evidence = ledger.record({ operation: 'bounded_http_proof', parameters: { target },
-    confidence: 'observed', authority: 'request-replay', engagement_id: id,
-    result: { direct_evidence: true, proof_type: 'http_response', observation: 'Restricted fixture marker; Bearer PRIVATE_BEARER_FIXTURE_123' } })
-  store.addVuln(id, { title: 'Fixture access boundary', target, severity: 'medium', status: 'confirmed', evidence_refs: [evidence.ev_id] })
+  const finding = store.addVuln(id, { title: 'Fixture access boundary', target, severity: 'medium', status: 'candidate' })
+  const evidenceRef = confirmFinding(store, id, finding, { result: { observation: 'Restricted fixture marker; Bearer PRIVATE_BEARER_FIXTURE_123' } })
   store.addVuln(id, { title: 'Needs controls', target: 'https://fixture.invalid/api/other', status: 'candidate' })
   const report = buildSrcReport(store, id)
   assert.equal(report.confirmed, 1)
@@ -66,17 +63,20 @@ test('SRC report retains direct-evidence stops and pending denominator, redacts 
   assert.equal(path.dirname(report.path), path.join(store.dirOf(id), 'reports'))
   assert.equal(fs.readFileSync(report.path, 'utf8'), report.markdown)
   assert.match(report.markdown, /direct_evidence_obtained/)
-  assert.ok(report.markdown.includes(evidence.ev_id))
+  assert.ok(report.markdown.includes(evidenceRef))
   assert.doesNotMatch(report.markdown, /PRIVATE_QUERY_FIXTURE_123|PRIVATE_BEARER_FIXTURE_123/)
-  store.db(id).prepare('UPDATE evidence SET result = ? WHERE ev_id = ?').run('{"direct_evidence":true,"proof_type":"http_response","observation":"changed"}', evidence.ev_id)
-  assert.throws(() => buildSrcReport(store, id), /integrity|valid/i)
+  store.db(id).prepare('UPDATE evidence SET result = ? WHERE ev_id = ?').run('{"direct_evidence":true,"proof_type":"http_response","observation":"changed"}', evidenceRef)
+  const changed = buildSrcReport(store, id)
+  assert.equal(changed.confirmed, 0)
+  assert.equal(changed.source_confirmed_pending_proof, 1)
+  assert.equal(changed.stop_records, 1)
 })
 
 test('exchange omits unknown query credentials even without a learned credential context', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'purge-exchange-query-'))
   const store = new RedteamStore(root)
   t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }) })
-  const id = store.openEngagement('Query handoff', ['https://fixture.invalid/api'], { assessment_mode: 'src' }).id
+  const id = store.openEngagement('Query handoff', ['https://fixture.invalid/api'], { assessment_mode: 'src', exclude: [] }).id
   const secret = 'UNDECLARED_QUERY_CREDENTIAL_FIXTURE_123'
   const url = 'https://fixture.invalid/api/lookup?opaque=' + secret
   const finding = store.addVuln(id, { title: 'Candidate at ' + url, target: url, status: 'candidate' })

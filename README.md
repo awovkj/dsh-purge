@@ -9,9 +9,15 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.8.0** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.1 / rc.2 / rc.3 / rc.5 同样通过） · [English](docs/README.en.md)
+当前源码版本 **1.12.0** · 宿主目标 **DSH Desktop 0.2.2-rc.1**（补丁源码目标；历史版本已适配 0.2.1-rc.1 / rc.2 / rc.3 / rc.5） · [English](docs/README.en.md)
 
-1.8.0 将 awa-ddd 2.2.0 的生产评估源码写入本项目，随包提供内置评估核心。每个靶标直接使用自己的内部台账，按真实 HTTP URL 初始化；SRC 取得直接证据后停止该项测试，并保留未测范围。[实施与使用说明](docs/REDTEAM-AWA-SRC.md)。本地源码和 TGZ 可供验收，线上发行链接须待发布后使用。
+1.12.0 按三模式锐评方案修正 SQL/模板证明、模型复核权限和活动覆盖串用；补真实身份访问控制、受控浏览器 XSS 配方、单 worker 批量及实际成本回执。新增 `tool.route`，按真实需求选择离线发现、Playwright、Yak 重放或 TscanPlus 结果；WSL 只使用操作者固定后端。源码图与情报去重仍为线索，不冒充漏洞。[优化方案](docs/THREE-MODE-OPTIMIZATION-PLAN.md) · [实施与验证](docs/MODE-UPGRADE-1.12.0.md) · [升级后锐评](docs/THREE-MODE-REVIEW-1.12.0.md) · [工具路由](docs/TOOL-ROUTING.md)。
+
+1.11.0 结合 Pojun 对照分析，补齐真实证据差分、sourcemap 离线发现、受控批量 HTTP 采集、固定目录材料读取、本地 NVD/KEV/GHSA 情报与 CWE 技能导航。失败回执区分平台拒绝、目标响应和未知派发；后续建议依据当前证明，保留 SRC 停测与未完成分母。内置 awa-ddd 上游继续为 2.2.0。[升级方案](docs/MODE-UPGRADE-1.11.0-PLAN.md) · [实施与验证](docs/MODE-UPGRADE-1.11.0.md) · [动作使用](docs/DISCOVERY-WORKFLOW.md) · [版本说明](docs/releases/1.11.0.md)。
+
+1.10.0 已修复宿主合并 `list_agents` 与 fork 子预设的加载阻塞，保留用户 YAML 与原子任务限制；当时的 DSH Desktop 0.2.2-rc.3 专用 Electron 副本验收覆盖四个预设及空白 Agent 工具目录。历史故障见 [模式加载修复](docs/preset-mode-loading.md)，原验收见 [1.10.0 记录](docs/MODE-UPGRADE-1.10.0.md)。
+
+本轮交付源码与生成物，验证分为隔离真值/模拟适配器和真实 localhost HTTP。实际 Playwright、Yakit/Yak、TscanPlus、WSL Kali、模型工具选择、宿主/GUI 和委派调度未验收。没有打发行 TGZ、发布、安装、应用补丁、退出或重启正式 DSH；下文的 1.12.0 发行链接须在正式发布后使用。小样本与模拟不能证明总体准确率、召回率或实际工具可用；历史升级保留各自验证边界。
 
 **原项目与作者**：小杨 / YuJunZhiXue 是历史上游 dsh-purge 的作者署名。本仓库独立维护社区版，保留上游版权和 MIT 许可证。历史署名不代表对当前同名 GitHub 账号身份的核实。详见[署名记录](NOTICE.md)与[许可证](LICENSE)。
 
@@ -68,11 +74,21 @@ dsh-purge Community 是一个跑在你自己机器上的 Harness 附加组件。
 
 本机学习、个人项目、自动化实验与维护工作。请在你拥有或已获授权的环境中使用；涉及他人系统时，先取得许可。
 
-### 内置证据评估与 SRC
+### 内置证据评估、SRC 与渗透模式
+
+模型在三模式中只登记 claimed/inferred，observed 由可信代码采集回执产生。确认须绑定同靶标、同发现、具体操作/输入/类别与当前证明范围；历史标签和超出证明的影响在面板及报告中显示待复核。新凭据默认通过句柄使用，高价值积分可信证据策略默认开启，操作者明确保存的关闭偏好保留。v2 自动 provider 的未实现项会保留受阻，部署文件与真实运行能力分别呈现。
 
 演练台的「内置评估」页直接使用当前靶标的范围、候选与证据。`lib/redteam/assessment-engine/` 是随包生产源码，保留 MIT 许可证及逐文件来源/哈希清单；每个靶标有独立的 `assessment` 工作区和内部固定项目。首次按真实 HTTP(S) URL 准备评估，无需绑定外部 awa-ddd；模型不能选择引擎代码路径或外部工作区。
 
-SRC 使用创建时固定的范围与排除项，只进行发现和必要证据核实；直接证据确认后停止该项，报告保留未测和待核实项。旧外部 AWA settings/binding 作为历史数据保留，不参与新版执行。独立 awa-ddd 2.2.0 升级继续保留，内置核心可用维护脚本离线核对和同步；原用户提示词、设置和正在运行的 DSH 不由源码升级改写。[流程、源码来源和验证边界](docs/REDTEAM-AWA-SRC.md)。
+SRC 使用创建时固定的范围与排除项，按实际平台规则发现具体安全漏洞、最小验证、查重并整理提交草稿。开始发现前用 `redteam_src_runbook` 读取随包 `src-discovery`，用 `resource:submission` 加载固定提交流程；四个角色稿在当前会话分阶段使用。面板可编辑规则引用、前提、预期结果、查重、复现、影响和修复，报告保存完整有界 Markdown/JSON。当前机器证明和材料完整性分别检查；提交草稿完整仍需操作者复核与提交，平台接收保持尚未判定。直接证据确认后持久停止该项，HTTP、身份、间接配方及浏览器发送前都检查停止，后续修复或状态编辑继续保留原停止。
+
+「渗透模式」预设 `pentest` 创建独立靶标，明确 scope/exclude，使用同一随包核心完成测试、复核、覆盖与报告。先读取 `redteam_pentest_runbook`，补齐真实认证与状态前提，再按输入执行安全控制和机器复核。它使用引擎普通 assessment 策略，漏洞与加固建议分别计数，可使用本范围测试凭据句柄；既有 SRC 会话和靶标的模式保持固定。`redteam_pentest_report` 生成 `reports/pentest-report.md/.json`，合并 v1 原生技术/复现附件或 v2 覆盖矩阵及发现详解；工具返回路径、质量和未完成计数，完整正文在文件与面板 API。预览也创建版本化原生本地快照；生成报告不访问目标、不自动结项。[完整步骤与可移动导出](docs/PENTEST.md)。
+
+评估动作先用 `action.help` 查真实字段。`evidence.read` 离线读取实际 JSON 结构或脱敏文本，`surface.from_evidence` 把完整 JS/严格连续的 206 Range 交给内置 AST 分析，避免猜字段和把截断响应当完整证据。正常 baseline、HTTP 200 或相同响应长度不能代替漏洞测试。具体源码修复与原会话未完成项见 [SRC 会话诊断](docs/src-session-v4-analysis.md)。
+
+内置评估返回 `next_step`；宿主根据当前 v1 台账或 v2 Campaign 的实际状态有界提醒，尊重取消、新输入与缺失前提。「内置评估」页提供 Python/native/WSL 设置、运行环境信息及续跑偏好；现有 Playwright 可从实际 DSH_HOME 或操作者指定的 `PURGE_PLAYWRIGHT_ROOT` 复用，模块和 Chromium 缓存分别定位，缺件继续保留原因，不自动安装。
+
+`redteam_delivery_report` 合并得分、证据关联、当前覆盖、来源发现和 SRC 停止，明细有界分页并可保存 Markdown/JSON。导入、复核和交付优先直接复用各自签名的 `next.arguments`，旧 offset 兼容。红队高价值记分的 observed 成果证据要求默认开启，操作者明确保存的关闭偏好保留；原详细得分复现报告仍可使用。有范围的红队沿持久绑定使用 typed 评估入口与显式工具清单。独立 AWA 与内置 `redteam_assessment_*` 各用自己的台账，跨账本材料重新作为候选纳入。旧外部 settings/binding 保留；内置核心仍为 2.2.0。[流程、源码来源和交付边界](docs/REDTEAM-AWA-SRC.md)。
 
 ## 1.6.39 更新
 
@@ -94,11 +110,13 @@ SRC 使用创建时固定的范围与排除项，只进行发现和必要证据�
 
 下面命令适用于**已经安装 `dsh` 命令、且使用 `web` profile 的 CLI/Web 用户**，在 macOS/Linux 终端或 Windows PowerShell 中运行。桌面版用户优先用上面的界面；不要为了安装插件再用 `npx` 下载另一套宿主。
 
+下面是 1.12.0 正式发布后的固定版本命令。当前本地源码尚未发布，不应把此 URL 当作已有下载包。
+
 ```sh
-dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.8.0/dsh-purge-community-1.8.0.tgz"
+dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.12.0/dsh-purge-community-1.12.0.tgz"
 ```
 
-`web` 必须与实际启动的 profile 一致；自定义数据目录需要沿用该实例的 `DSH_HOME`。命令使用本次发行的固定版本 URL；不是 `npm install -g`，也不是安装裸 npm 包名。本项目通过 GitHub 发行，**不要替换成 `add dsh-purge` 或 `add dsh-purge-community`**。官方 CLI 的安装不会额外运行我们安装器的 Release SHA256 比对及迁移快照；需要这些功能时选方式三。[官方 CLI 安装说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)
+`web` 必须与实际启动的 profile 一致；自定义数据目录需要沿用该实例的 `DSH_HOME`。命令使用对应发行的固定版本 URL；不是 `npm install -g`，也不是安装裸 npm 包名。本项目通过 GitHub 发行，**不要替换成 `add dsh-purge` 或 `add dsh-purge-community`**。官方 CLI 的安装不会额外运行我们安装器的 Release SHA256 比对及迁移快照；需要这些功能时选方式三。[官方 CLI 安装说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)
 
 ### 方式三：社区安装器（备份、旧版迁移、恢复）
 
@@ -197,8 +215,9 @@ sh "$PURGE_INSTALL_DIR/install.sh" --dry-run
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.8.0 |
-| 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.12.0 |
+| 历史宿主覆盖 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5；按对应历史验收解释 |
+| 既有宿主验证 | DSH Desktop 0.2.2-rc.3：1.10.0 隔离 Loader 与空白 Agent 工具目录通过；完整 GUI、补丁及实际调度未验收 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可）；红队工具需 ≥22.5（`node:sqlite`） |
 | 内置评估 | Node ≥22.19、Python ≥3.10；实际浏览器观察需现有 Playwright 运行时 |
@@ -219,11 +238,15 @@ purge-community audit --limit 20     # 最近动作
 npm test                 # 单元与契约测试
 npm run check:docs       # 版本与文档一致性
 npm run check:client     # 面板 bundle 与源码一致
+npm run check:modes      # 人设、技能和模式政策生成一致
+npm run check:assessment # 随包来源与摘要核对（离线）
+npm run test:ui          # 界面交互与切靶回归
+npm run test:discovery   # 证据发现、批量采集、情报、技能与工作建议
 npm run test:electron    # 真实 Electron 环境（临时目录，不改安装）
 npm run smoke            # 发行包冒烟
 ```
 
-面向 AI agent 的操作说明在 [AGENTS.md](AGENTS.md)，两者冲突时以它为准。
+本轮实际执行与未执行项见 [1.12.0 验证记录](docs/MODE-UPGRADE-1.12.0.md)，`npm run test:optimization` 覆盖正确性、工具路由和真实本地批量专项，并接入 test/redteam/assessment 的 npm 后置门禁。预设 Loader 专项验收需显式提供现有宿主路径：`npm run check:mode-loader -- --host-root <绝对安装目录>`，使用专用副本，不调用模型或目标。面向 AI agent 的操作说明在 [AGENTS.md](AGENTS.md)，两者冲突时以它为准。
 
 **关键词**：破甲 · 无限制模式 · unrestricted · prompt injection · jailbreak · DSH 插件 · 状态自检 · 备份回滚
 

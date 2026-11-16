@@ -4,7 +4,16 @@ description: nuclei 模板化漏洞扫描：13,000+ 模板覆盖 CVE/暴露面/�
 whenToUse: 漏洞发现阶段拿到存活资产清单后，做 Nday/1day 批量检测；或已知组件版本想快速确认是否有现成模板
 role: vuln-scan
 enabled: true
+metadata:
+  cwe: [CWE-200, CWE-287, CWE-89, CWE-79, CWE-502]
+  class: [poc, component-intelligence, active-scan]
+  requires: [shell]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # nuclei（模板化漏洞检测）
 

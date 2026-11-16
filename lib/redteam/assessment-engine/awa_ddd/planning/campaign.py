@@ -35,7 +35,10 @@ def build_universe(project, *, campaign_id=None, read_only=False):
         operations.append(record)
         inputs.extend(record["inputs"])
         template = record["url_template"]
-        route = routes.setdefault(template, {"path": template, "page_ids": [], "operation_ids": []})
+        route_key = (record["origin"], record["method"], record["protocol"],
+                     record["operation_name"], record["content_type"], template)
+        route = routes.setdefault(route_key, {"path": template, "page_ids": [], "operation_ids": [],
+                                              **{key: record[key] for key in ("origin", "method", "protocol", "operation_name", "content_type")}})
         route["operation_ids"].append(record["operation_id"])
     for page in project.list("page"):
         if not _scoped(config, page.get("url")):
@@ -43,11 +46,17 @@ def build_universe(project, *, campaign_id=None, read_only=False):
         record = page_record(page)
         pages.append(record)
         functions.extend(record["functions"])
-        route = routes.setdefault(record["route_template"], {"path": record["route_template"], "page_ids": [], "operation_ids": []})
+        from ..scope import origin
+        route_key = (origin(record["url"]), "GET", "http", "", "", record["route_template"])
+        route = routes.setdefault(route_key, {"path": record["route_template"], "page_ids": [], "operation_ids": [],
+                                              "origin": route_key[0], "method": "GET", "protocol": "http",
+                                              "operation_name": "", "content_type": ""})
         route["page_ids"].append(record["page_id"])
     route_rows = [route_record(path_template=row["path"], source_kind="registered_operation" if row["operation_ids"] else "page_ledger",
                                source_ref="ledger", dynamic_params=[], page_ids=row["page_ids"],
-                               operation_ids=row["operation_ids"]) for row in routes.values()]
+                               operation_ids=row["operation_ids"],
+                               **{key: row[key] for key in ("origin", "method", "protocol", "operation_name", "content_type")})
+                  for row in routes.values()]
     for imported in Repository(project, read_only=read_only).list("route_source", limit=None)[0]:
         route_rows.append(route_record(
             path_template=imported["path_template"], source_kind="imported_route",
@@ -77,7 +86,8 @@ def build_universe(project, *, campaign_id=None, read_only=False):
         operations=operations, inputs=inputs, consumers=consumers, sources=sources,
         unknown_counts=unknown_counts,
         completeness_level="source_inventory" if operations or pages else "declared_only")
-    universe["target_build"] = digest({"target": config.get("target"), "scope": config.get("scope")})[:16]
+    universe["target_build"] = "unknown"
+    universe["target_build_source"] = "no_verified_deployment_observation"
     universe["project_id"] = project.config.get("project_id")
     return universe
 
@@ -130,7 +140,10 @@ def start(project, args):
             hypothesis = repository.get("hypothesis", hypothesis["id"])
     gaps = _gaps(universe, hypotheses)
     for gap in gaps:
-        repository.add("gap", gap, immutable=False)
+        if repository.get("gap", gap["id"], required=False) is None:
+            repository.add("gap", gap, immutable=False)
+    from .membership import freeze
+    freeze(project, campaign, universe, hypotheses, known_cases, gaps)
     coverage_row = coverage.compute(project, campaign["id"])
     checkpoint = checkpoint_record(campaign_id=campaign["id"], universe=universe, coverage=coverage_row,
                                    hypotheses=hypotheses, known_cases=coverage_row["known_case_matrix"],
@@ -188,6 +201,7 @@ def status(project, args):
         "open_hypothesis_count": matrix["open_hypothesis_count"],
         "open_gap_count": matrix["open_gap_count"],
         "capabilities": capabilities.snapshot(project),
+        "membership": matrix["membership"], "recovery": matrix["recovery"],
         "next_action": "campaign.next",
     }
 
@@ -196,6 +210,8 @@ def next_recipes(project, args):
     repository = Repository(project)
     campaign = _campaign(project, args.get("campaign_id"))
     universe = repository.get("universe", campaign["universe_id"])
+    from ..execution.recipe_builder import refresh_preparation, prerequisite_fingerprint
+    refresh_preparation(project, campaign, universe)
     selected, preparation, queue = scheduler.next_hypotheses(
         project, campaign, universe, limit=args.get("limit", 3))
     repository.save("campaign", campaign)
@@ -204,7 +220,19 @@ def next_recipes(project, args):
         from ..execution.recipe_builder import build
         built = build(project, campaign, universe, hypothesis)
         if built["status"] != "ready":
-            preparation.append({**built, "hypothesis_id": hypothesis["id"], "family": hypothesis["family"]})
+            from ..domain.hypothesis import transition
+            transition(hypothesis, "blocked", reason=built.get("reason"),
+                       missing_context=sorted(set(hypothesis.get("missing_context", []) + built.get("missing", []))))
+            hypothesis["automatic_preparation"] = {
+                "provider_supported": built.get("provider_supported"),
+                "capability": built.get("capability"),
+                "preparation": built.get("preparation"),
+                "prerequisite_fingerprint": prerequisite_fingerprint(project, hypothesis),
+            }
+            repository.save("hypothesis", hypothesis)
+            preparation.append({**built, "hypothesis_id": hypothesis["id"], "family": hypothesis["family"],
+                                "operation_id": hypothesis.get("operation_id"), "status": "blocked",
+                                "denominator_retained": True})
             continue
         recipe = built["recipe"]
         if repository.get("recipe", recipe["id"], required=False) is None:
@@ -237,7 +265,8 @@ def next_recipes(project, args):
         })
     return {"campaign_id": campaign["id"], "recipes": rows, "preparation": preparation[:20],
             "queue": queue, "returned": len(rows),
-            "next_action": "test.run" if rows else "review.disposition",
+            "next_action": "test.run" if rows else "action.help" if preparation else "campaign.status",
+            "blocked_preparation_retains_coverage": True,
             "note": "Only complete public references are returned; executable bytes and credentials stay in the private capsule."}
 
 
@@ -246,10 +275,11 @@ def checkpoint(project, args):
     campaign = _campaign(project, args.get("campaign_id"))
     universe = repository.get("universe", campaign["universe_id"])
     matrix = coverage.compute(project, campaign["id"])
-    hypotheses = repository.list("hypothesis", limit=None)[0]
+    from .membership import rows as member_rows
+    hypotheses = member_rows(project, campaign, "hypothesis")
     row = checkpoint_record(campaign_id=campaign["id"], universe=universe, coverage=matrix,
                             hypotheses=hypotheses, known_cases=matrix["known_case_matrix"],
-                            gaps=[gap["id"] for gap in repository.list("gap", limit=None)[0]
+                            gaps=[gap["id"] for gap in member_rows(project, campaign, "gap")
                                   if gap.get("status") == "open"],
                             label=args.get("label"))
     repository.add("checkpoint", row, immutable=True)

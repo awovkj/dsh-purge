@@ -1,6 +1,8 @@
 """Campaign: a persistent, bounded assessment objective (never a chat turn)."""
 from __future__ import annotations
 
+import secrets
+
 from .common import boolean, digest, enum, integer, mapping, optional_text, stable_id, text, utc_now
 
 CAMPAIGN_STATES = {"active", "paused", "delivered_partial", "completed", "abandoned"}
@@ -18,7 +20,7 @@ def new_campaign(project_id, *, target, objective, model="v2", scope_snapshot=No
     scope = scope_snapshot if isinstance(scope_snapshot, list) else []
     exclude = exclude_snapshot if isinstance(exclude_snapshot, list) else []
     identity = {"project_id": project_id, "target": target, "objective": objective,
-                "model": model, "scope": scope, "exclude": exclude, "created": utc_now()}
+                "model": model, "scope": scope, "exclude": exclude, "created": utc_now(), "nonce": secrets.token_hex(16)}
     campaign_id = stable_id("CAM", identity)
     return {
         "id": campaign_id,

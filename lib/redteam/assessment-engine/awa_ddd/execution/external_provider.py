@@ -18,8 +18,9 @@ def record(project, args):
     campaign_id = text(args["campaign_id"], "campaign_id", maximum=128)
     hypothesis_id = text(args["hypothesis_id"], "hypothesis_id", maximum=128)
     repository = Repository(project)
-    repository.get("campaign", campaign_id)
-    hypothesis = repository.get("hypothesis", hypothesis_id)
+    campaign = repository.get("campaign", campaign_id)
+    from ..planning.membership import require_hypothesis
+    require_hypothesis(project, campaign, hypothesis_id)
     path = Path(args["path"]).expanduser().resolve()
     if not path.is_file() or path.stat().st_size > MAX_RECEIPT:
         fail("v2_external_receipt", "External receipt must be a local file under 1 MiB")
@@ -33,7 +34,7 @@ def record(project, args):
     digest_value = hashlib.sha256(canonical(document).encode("utf-8")).hexdigest()
     artifact_path, stored_digest = project.artifact("EXT-" + digest_value[:24], document)
     run_row = {
-        "id": "RUN2-EXT-" + digest_value[:24],
+        "id": "RUN2-EXT-" + hashlib.sha256((campaign_id + ':' + hypothesis_id + ':' + digest_value).encode()).hexdigest()[:24],
         "schema": 2,
         "campaign_id": campaign_id,
         "hypothesis_id": hypothesis_id,

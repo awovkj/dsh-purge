@@ -159,11 +159,20 @@ def supervise(request, workspace, deadline_ms, *, control=None):
 
 def worker(request, workspace):
     from .runtime import translate_path, translate_request_paths
+    environment = dict(os.environ)
+    values = request.get("operator_runtime_env", {})
+    if not isinstance(values, dict) or set(values) - {"PURGE_PLAYWRIGHT_ROOT", "DSH_HOME", "PLAYWRIGHT_BROWSERS_PATH"}:
+        raise EngineError("wsl_runtime_environment", "The private supervisor accepts only fixed operator browser path variables")
+    from .runtime import _control_characters
+    for name, value in values.items():
+        if not isinstance(value, str) or not value or len(value) > 4096 or _control_characters(value):
+            raise EngineError("wsl_runtime_environment", "Operator browser paths must be bounded paths without control characters")
+        environment[name] = value if name == "PLAYWRIGHT_BROWSERS_PATH" and value == "0" else translate_path(value)
     translated = {"action": request["action"], "args": translate_request_paths(request["action"], request.get("args", {}))}
     completed = subprocess.run(
         [sys.executable, "-E", "-s", "-X", "utf8", "-B", "-m", "awa_ddd", "--workspace", translate_path(workspace)],
         input=(canonical(translated) + "\n").encode("utf-8"),
-        stdout=sys.stdout.buffer, stderr=sys.stderr.buffer, shell=False)
+        stdout=sys.stdout.buffer, stderr=sys.stderr.buffer, shell=False, env=environment)
     return completed.returncode
 
 

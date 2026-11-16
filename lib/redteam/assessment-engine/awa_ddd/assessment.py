@@ -174,16 +174,30 @@ def _json_oracle_result(project, item, operation, observations, oracle):
             elif "expected" in oracle and json_equal(_value(observations[0], oracle["selector"]), oracle["expected"]):
                 return "refuted", "Declared normal response assertion matched; this is a baseline, not a vulnerability absence claim"
     elif kind == "sql_boolean":
-        if item["kind"] != "input_test" or item.get("test_family") != "sql_injection" or len(observations) != 3:
-            raise EngineError("oracle_binding", "SQL boolean differential needs a SQL input test and normal/variant/sensitivity captures")
+        if item["kind"] != "input_test" or item.get("test_family") != "sql_injection" or len(observations) != 5:
+            raise EngineError("oracle_binding", "SQL boolean proof needs one actual normal and two distinct true/false pairs")
         _same_identity(observations)
         _input_controls(observations, item, operation)
-        values = [_value(observation, oracle.get("selector")) for observation in observations]
-        baseline, control = oracle.get("baseline_expected"), oracle.get("control_expected")
-        if not json_equal(baseline, control) and json_equal(values[0], baseline) \
-                and json_equal(values[1], control) and json_equal(values[2], baseline) \
-                and 200 <= observations[1][1]["response"]["status"] < 300:
-            return "confirmed", "The boolean SQL input changed the selected business observable while normal controls repeated"
+        entries = [entry for entry in operation.get("inputs") or [] if entry.get("location") == item["input_location"]
+                   and entry.get("selector", entry.get("name")) == item["input_selector"] and entry.get("schema_branch") == item.get("schema_branch")]
+        if len(entries) != 1:
+            raise EngineError("input_test_contract", "The exact SQL input and mechanism contract must still exist")
+        session_id = observations[0][0].get("session_id")
+        session = project.get("session", session_id) if session_id else None
+        from .execution.input_contract import controls, _response_value
+        expected_controls, bound_oracle, unused_request = controls(project, operation, entries[0], "sql_injection", session)
+        if oracle.get("selector") != bound_oracle["selector"] \
+                or [_input_view(observation, item, operation)[0] for observation in observations] != [row[2] for row in expected_controls] \
+                or not all(observation[1]["response"]["status"] == 200 for observation in observations):
+            raise EngineError("control_request", "Actual captures must match the fixed quoted equality controls and response selector")
+        values = [_response_value(observation[1], bound_oracle["selector"]) for observation in observations]
+        from .execution.oracle_profiles import evaluate as evaluate_profile
+        evaluation = evaluate_profile("sql_boolean", {"baseline": values[0], "true_control": values[1], "false_control": values[2],
+                                                      "second_true": values[3], "second_false": values[4], "same_identity": True,
+                                                      "controls_complete": True, "sql_context": bound_oracle["sql_context"],
+                                                      "independent_controls": len({row[0]["id"] for row in observations}) == 5})
+        if evaluation["outcome"] == "supported":
+            return "confirmed", "Two true/false SQL predicate pairs preserved the same real nonempty normal result only for true"
     elif kind == "semantic_negative":
         if item["kind"] != "input_test" or len(observations) != 3:
             raise EngineError("oracle_binding", "Semantic refutation needs an input test and normal/variant/sensitivity captures")
@@ -1114,6 +1128,8 @@ def validate_confirmation(project, decision, category=None):
                or proof.get("channel") == "behavioural_diff"
     if not required:
         return
+    if oracle.get("type") == "sql_boolean":
+        return
     if proof.get("channel") == "behavioural_diff":
         actual = _sql_behaviour_proof(project, proof)
         if not json_equal(actual, proof):
@@ -1243,7 +1259,7 @@ def evaluate(project,args):
     observations=[] if kind == "state_transition" else _observations(project,ids,item)
     outcome,reason="inconclusive","Experiment did not establish the requested invariant"
     proof = None
-    if kind in {"baseline", "semantic_negative", "state_invariant"}:
+    if kind in {"baseline", "sql_boolean", "semantic_negative", "state_invariant"}:
         outcome, reason = _json_oracle_result(project, item, operation, observations, oracle)
     elif kind=="state_transition":
         outcome, reason, proof = _state_transition(project, item, operation, ids, oracle)
@@ -1353,7 +1369,7 @@ def evaluate(project,args):
     else:
         raise EngineError("unsupported_oracle",
                           "Supported oracles: baseline, authorization, semantic_negative, state_invariant, state_transition, "
-                          "extraction, error_channel, sql_metadata; runtime labels are not proof")
+                          "extraction, error_channel, sql_metadata, sql_boolean; runtime labels are not proof")
     decision={"id":project.id("D"),"obligation_id":item["id"],"operation_id":operation["id"],
               "operation_signature":operation_signature(operation),"oracle":oracle,"outcome":outcome,
               "evidence_ids":ids,"reason":reason,"mode":"machine","oracle_version":SQL_METADATA_VERSION,"created_at":now()}
@@ -1397,17 +1413,19 @@ def record_finding(project,args):
             or mode != "analyst" or not is_xss_category(args["category"])):
         raise EngineError("analyst_obligation", "obligation_id is only supported for an explicitly reviewed XSS runtime finding")
     sql_evidence = None
+    claim = None
     if mode == "machine":
         if not isinstance(args.get("decision_id"), str) or not args["decision_id"]:
             raise EngineError("finding_decision",
                               "machine mode requires decision_id from assessment.evaluate; analyst mode requires "
                               "reviewer, reason and evidence_ids (SQL also needs proof_decision_id or sql_evidence)")
-        decision = project.get("decision", args["decision_id"])
-        from .engine import _decision_valid
-        _decision_valid(project, decision)
-        if decision["outcome"] != "confirmed":
-            raise EngineError("finding_decision", "A confirmed decision is required")
-        validate_confirmation(project, decision, args["category"])
+        decision, item, operation = current_machine_proof(project, args["decision_id"], args["category"])
+        from .proof_claim import machine_claim, capped_severity
+        claim = machine_claim(family=_category_family(args["category"]),
+                              oracle_type=decision["oracle"]["type"], operation_id=operation["id"],
+                              input_location=item.get("input_location"), input_selector=item.get("input_selector"))
+        severity = capped_severity(severity, claim["severity_cap"])
+        limitations = list(dict.fromkeys(claim["limitations"] + limitations))
     elif mode == "analyst":
         if not str(args.get("reviewer", "")).strip() or not str(args.get("reason", "")).strip():
             raise EngineError("analyst_review", "Explicit reviewer and impact reasoning required")
@@ -1490,6 +1508,10 @@ def record_finding(project,args):
              "remediation":args["remediation"],"severity":severity,"decision_id":decision["id"],
              "evidence_ids":decision["evidence_ids"],"mode":decision["mode"],"origin":origin,"status":"confirmed",
              "limitations":list(limitations),"created_at":now()}
+    if claim is not None:
+        finding["source_claim"] = {key: args.get(key) for key in ("title", "category", "impact", "severity")}
+        finding.update(title=claim["title"], category=claim["category"], impact=claim["impact"],
+                       proof_scope=claim["proof_scope"], severity_cap=claim["severity_cap"], claim_contract=claim)
     if is_sql_category(args["category"]):
         proof = decision.get("proof") or {}
         finding["proof"] = proof

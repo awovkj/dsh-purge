@@ -60,6 +60,9 @@ def _validate_operation_inputs(operation, *, registered=True):
                           {"operation_id": operation.get("id"), "next_action": "surface.inspect"})
     for entry in entries:
         _validate_input_identity(entry, operation.get("id"))
+        if "test_contract" in entry:
+            from .execution.input_contract import validate
+            validate(entry["test_contract"])
         if registered and "selector" not in entry:
             raise EngineError("input_selector", "Registered input is missing its exact selector; inspect its source before repair",
                               {"operation_id": operation.get("id"), "field": "selector", "next_action": "surface.inspect"})
@@ -118,6 +121,8 @@ def create_project(workspace, args):
 def operation_signature(operation):
     fields = ("url","method","protocol","operation_name","content_type","auth","allowed_roles","ownership")
     policy = {k: operation.get(k) for k in fields}
+    if operation.get("authorization_contract") is not None:
+        policy["authorization_contract"] = operation["authorization_contract"]
     if operation.get("state_scope") == "actor":
         policy["state_scope"] = "actor"
     return stable("S", policy)
@@ -160,7 +165,7 @@ def register_operation(project, hint):
     _validate_operation_inputs({"id": identity, "inputs": hint.get("inputs", [])}, registered=False)
     inputs = {}
     for entry in existing.get("inputs", []) + list(hint.get("inputs", [])):
-        normalized = {k:entry[k] for k in ("name","location","selector","source","consumer","schema_branch","schema_type","required","array_template","schema_locator","test_families") if k in entry}
+        normalized = {k:entry[k] for k in ("name","location","selector","source","consumer","schema_branch","schema_type","required","array_template","schema_locator","test_families","test_contract") if k in entry}
         if "test_families" in normalized:
             normalized["test_families"] = normalize_test_families(normalized["test_families"])
         normalized.setdefault("selector", normalized["name"])
@@ -218,6 +223,9 @@ def register_operation(project, hint):
         "content_type":media,"inputs":list(inputs.values()),"sources":sources,"auth":auth,
         "allowed_roles":sorted(set(roles)),"ownership":ownership,
         "created_at":existing.get("created_at",now())}
+    if "authorization_contract" in hint or "authorization_contract" in existing:
+        from .execution.authorization_provider import validate
+        record["authorization_contract"] = validate(hint.get("authorization_contract", existing.get("authorization_contract")))
     if state_scope is not None:
         record["state_scope"] = state_scope
     project.put("operation",record)
@@ -338,6 +346,8 @@ def credential_header_names(session):
 def credential_signature(session):
     names = credential_header_names(session)
     context = {"names": names, "credentials": {name: session["headers"][name] for name in names}}
+    if session.get("credential_origin") is not None:
+        context["origin"] = session["credential_origin"]
     if "credential_nonce" in session:
         nonce = session["credential_nonce"]
         if not isinstance(nonce, str) or not re.fullmatch(r"[a-f0-9]{64}", nonce):
@@ -363,6 +373,10 @@ def _verify_credential_snapshot(session, evidence, artifact):
                                   and evidence["credential_signature"] != signature):
         raise EngineError("credential_changed", "Credential classification or values differ from the captured identity; old observations cannot be relabelled")
     captured = {"headers": captured_headers, "credential_header_names": recorded_names}
+    if session.get("credential_origin") is not None:
+        if evidence.get("credential_origin") != session["credential_origin"]:
+            raise EngineError("credential_changed", "Captured credential origin differs from the session generation")
+        captured["credential_origin"] = session["credential_origin"]
     if "credential_nonce" in session:
         captured["credential_nonce"] = session["credential_nonce"]
     if credential_signature(captured) != signature:
@@ -394,7 +408,7 @@ def add_session(project, args):
         # which silently invalidates every capture already recorded against the old
         # identity. Renewal keeps id/generation/headers/verification and only moves
         # the liveness deadline, so historical evidence stays current.
-        if args.get("headers") or args.get("headers_file") or "credential_header_names" in args:
+        if args.get("headers") or args.get("headers_file") or "credential_header_names" in args or "origin_url" in args:
             raise EngineError("renew_shape",
                               "Renewal keeps the registered headers and credential_header_names; create a new session to change credentials or classification")
         session = dict(previous)
@@ -417,6 +431,9 @@ def add_session(project, args):
                "headers":headers,"verified_at":None,"verification_evidence_id":None,
                "credential_header_names": names, "credential_nonce": secrets.token_hex(32),
                "expires_at":(datetime.now(timezone.utc)+timedelta(seconds=ttl)).isoformat(),"created_at":now()}
+    if args.get("origin_url") is not None:
+        from .scope import origin
+        session["credential_origin"] = origin(require_scope(project.config, args["origin_url"]))
     session["credential_signature"] = credential_signature(session)
     project.put("session",session)
     project.event("session.created", {"session_id":identity,"actor_id":actor["id"],"generation":session["generation"]})
@@ -477,7 +494,10 @@ def session_valid(project, session):
 
 
 def require_session_origin(project, session, url):
-    """An established identity never forwards its headers to another origin."""
+    """Creation-time and verified origins both constrain credential forwarding."""
+    from .scope import origin
+    if session.get("credential_origin") is not None and origin(url) != session["credential_origin"]:
+        raise EngineError("credential_origin", "This session generation is bound to its creation-time credential origin, including its first identity verification")
     identity = session.get("verification_evidence_id")
     if not identity:
         # The first explicit identity.verify selects the scoped identity endpoint.
@@ -488,7 +508,6 @@ def require_session_origin(project, session, url):
             or evidence.get("actor_id") != session["actor_id"]):
         raise EngineError("identity_stale", "Identity endpoint belongs to a different session generation")
     artifact = project.read_artifact(evidence)
-    from .scope import origin
     if origin(artifact["request"]["url"]) != origin(url):
         raise EngineError("identity_origin", "A session cannot be sent to an origin different from its verified identity endpoint; register and verify a separate session")
 
@@ -1018,6 +1037,9 @@ def capture(project,args, *, for_identity=False):
         return project.get("evidence", prepared["existing"]["evidence_id"])
     operation, url, session, actor, resource = (prepared[key] for key in ("operation", "url", "session", "actor", "resource"))
     headers, body = prepared["headers"], prepared["body"]
+    guard = getattr(project, "before_http_dispatch", None)
+    if guard is not None:
+        guard({"url": url, "method": operation["method"], "session_id": session["id"] if session else None})
     run_id = prepared["run_id"] or project.id("RUN")
     signature = prepared["request_signature"]
     run = {"id":run_id,"kind":"http","status":"running","started_at":now(),"request_signature":signature,
@@ -1030,6 +1052,8 @@ def capture(project,args, *, for_identity=False):
     try:
         from .assessment_mode import capture_policy
         capture_policy(project, operation, args)
+        if guard is not None:
+            guard({"url": url, "method": operation["method"], "session_id": session["id"] if session else None})
         artifact = request(url,operation["method"],headers,body,prepared["timeout"],prepared["max_bytes"])
         identity = project.id("E")
         path,digest = project.artifact(identity,artifact)
@@ -1042,9 +1066,13 @@ def capture(project,args, *, for_identity=False):
             "resource_signature":resource_signature(resource) if resource else None,
             "credential_header_names":credential_header_names(session) if session else [],
             "credential_signature":credential_signature(session) if session else None,
+            "credential_origin":session.get("credential_origin") if session else None,
             "artifact_path":path,"sha256":digest,"complete":artifact["complete"],"created_at":now(),"trust":"observed",
             "run_id":run_id,"status_code":artifact["response"]["status"],"response_bytes":artifact["response"]["length"],
-            "auth_mode": prepared["auth_mode"]}
+            "auth_mode": prepared["auth_mode"],
+            "execution_receipt": {"schema": "awa-http-execution/v1", "dispatch_attempts": artifact.get("dispatch_attempts"),
+                                  "requests_sent": artifact.get("requests_sent"), "responses_received": artifact.get("responses_received"),
+                                  "elapsed_ms": artifact.get("elapsed_ms"), "response_bytes": artifact["response"]["length"]}}
         run.update(status="succeeded" if evidence["complete"] else "failed",evidence_id=identity,finished_at=now())
         if not evidence["complete"]:
             run.update(error_code=artifact.get("error", "evidence_incomplete"), next_action="run.inspect")
@@ -1062,7 +1090,8 @@ def capture(project,args, *, for_identity=False):
             project.put("run",run)
         except Exception:
             message += "; the final checkpoint could not be saved, so the claimed run must be reconciled"
-        raise EngineError(code, message, {"run_id": run_id, "operation_id": operation["id"], "next_action": "run.inspect"}) from exc
+        raise EngineError(code, message, {"run_id": run_id, "operation_id": operation["id"], "next_action": "run.inspect",
+                                        **({"requests_sent": 0} if isinstance(exc, EngineError) and exc.details.get("requests_sent") == 0 else {})}) from exc
 
 
 def verify_identity(project,args):
@@ -1420,6 +1449,11 @@ def declare_consumer(project, args):
     updated["consumer"] = consumer
     if families is not None:
         updated["test_families"] = families
+    if "test_contract" in args:
+        from .execution.input_contract import validate
+        updated["test_contract"] = validate(args["test_contract"])
+        if updated["test_contract"].get("consumer_url"):
+            require_scope(project.config, updated["test_contract"]["consumer_url"])
     project.put("operation", operation)
     project.event("surface.consumer_declared",
                   {"operation_id": operation["id"], "input_selector": selector, "consumer": consumer,

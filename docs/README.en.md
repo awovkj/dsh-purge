@@ -8,9 +8,13 @@ A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / 
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 
-Current version 1.8.0 · targets **DSH Desktop 0.2.2-rc.1** (0.2.1-rc.1 / rc.2 / rc.3 / rc.5 also pass)
+Current source version 1.12.0 · host patch source target **DSH Desktop 0.2.2-rc.1** (earlier versions supported 0.2.1-rc.1 / rc.2 / rc.3 / rc.5)
 
-1.8.0 ships the awa-ddd 2.2.0 production assessment source inside this project. Each engagement uses its own internal ledger; SRC stops testing an item once direct evidence is confirmed and retains unresolved coverage. [Implementation and usage](REDTEAM-AWA-SRC.md). Online 1.8.0 download links become usable after publication; local source and archives are available for acceptance.
+1.12.0 tightens actual SQL/template proof, draft-only model reviews and independent campaign coverage; adds bounded verified-principal access controls, managed browser-XSS recipes, a single capture worker and measured cost receipts. `tool.route` maps actual demand to offline discovery, Playwright, Yak replay or engagement-bound TscanPlus results. WSL remains an operator-selected backend. Static source graphs and deduplicated intelligence remain leads, not confirmed findings. [Optimization plan](THREE-MODE-OPTIMIZATION-PLAN.md) · [Implementation](MODE-UPGRADE-1.12.0.md) · [Post-upgrade review](THREE-MODE-REVIEW-1.12.0.md) · [Tool routing](TOOL-ROUTING.md).
+
+1.11.0 adds current-evidence response comparisons, offline sourcemap discovery, bounded HTTP capture batches, fixed-directory material readers, local NVD/KEV/GHSA metadata and CWE-based skill navigation. Typed failure receipts and proof-based workflow advice retain scope, SRC evidence stops and unfinished coverage. These additions were independently written using Pojun as a design reference. The embedded upstream remains awa-ddd 2.2.0. [Plan](MODE-UPGRADE-1.11.0-PLAN.md) · [Implementation and validation](MODE-UPGRADE-1.11.0.md) · [Action guide](DISCOVERY-WORKFLOW.md) · [Release notes](releases/1.11.0.md).
+
+This upgrade separates isolated truth/adapter fixtures from actual localhost HTTP tests. Real Playwright, Yak/Yakit, TscanPlus, WSL Kali, model tool selection, host/GUI and delegation acceptance remain unverified. The existing four-preset Loader and idle Agent tool-catalog acceptance on Desktop 0.2.2-rc.3 belongs to 1.10.0. Nothing was packaged, published, installed, applied or restarted on the live instance. The 1.12.0 URLs below require future publication; small fixtures cannot establish overall precision, recall or live-tool availability.
 
 **Original project and author:** independently maintained from [dsh-purge by 小杨 / YuJunZhiXue](https://github.com/YuJunZhiXue/dsh-purge). The original repository is available again. Original attribution, copyright and the MIT license are retained; this community distribution is not an official upstream release.
 
@@ -44,11 +48,19 @@ People usually call this a 破甲 ("armor-breaking") or unrestrained-mode plugin
 
 Local learning, personal projects, automation experiments and maintenance work. Use it on machines you own or are authorized to work on; get permission before touching anyone else's systems.
 
-## Built-in evidence assessment and SRC
+## Built-in evidence assessment, SRC and pentest
 
 The drill panel's built-in assessment page uses the current engagement's scope, candidates and evidence. Production code is checked in under `lib/redteam/assessment-engine/`, with the MIT license, attribution and per-file SHA256 provenance. Each engagement owns an `assessment` workspace and a fixed internal project named `assessment`. The first assessment initializes from an explicit HTTP(S) URL; no external AWA project binding is required. Model calls cannot select engine code or an external workspace.
 
-Use `redteam_assessment_status/start/run/import/review` for the native workflow. SRC retains the scope and exclusions declared at creation, obtains direct evidence, then stops that item and reports unresolved or untested work. Old external AWA settings and bindings remain as historical data and do not select or execute an external engine. The standalone awa-ddd 2.2.0 upgrade remains available separately; maintainers can check or synchronize the embedded source offline. Source upgrades preserve user prompts and settings and do not install, apply patches or restart the live DSH instance. See [source provenance, workflow and validation limits](REDTEAM-AWA-SRC.md).
+Use `redteam_assessment_status/start/run/import/review` for the native workflow and follow its `next_step`. The host reads the current v1 ledger or v2 Campaign at the real turn boundary; cancellation, new input, SRC stops and missing prerequisites take priority. Repeated failures keep the same material history and unfinished denominator.
+
+SRC first loads the installed `src-discovery` runbook through `redteam_src_runbook` and its fixed submission workflow through `resource:submission`. Its four role prompts are stages within the current session. Drafts capture the actual program rules, prerequisites, expected result, duplicate review, reproduction, impact and remediation. Current proof and draft completeness are checked separately; local readiness does not claim submission or platform acceptance. Direct-evidence stops remain in a separate immutable ledger after repairs, edits or finding deletion, with HTTP, identity, indirect recipes and browser requests checked before sending. The assessment panel provides Python/native/WSL settings, explicit local runtime probes, SRC registration receipts and continuation preferences. Missing Playwright remains an environment requirement.
+
+Select the `pentest` preset and create a separate `assessment_mode:pentest` engagement with explicit scope and exclude. Read `redteam_pentest_runbook`, establish the actual authentication and state prerequisites, then execute input controls and machine review. It uses the bundled engine's ordinary assessment policy, separates vulnerabilities from hardening recommendations, and permits in-scope test credential handles; existing SRC sessions and engagements remain fixed. `redteam_pentest_report` produces `reports/pentest-report.md/.json` with native v1 technical/reproduction artifacts or v2 matrices and finding details. The tool returns file paths, quality and remaining counts; the full report remains in files and the panel API. Preview also creates a versioned native local snapshot, without target traffic or automatic finalization. The export script's `--pentest` option carries verified native attachments with relative links. [Usage and delivery limits](PENTEST.md).
+
+Use exact `action.help` contracts before unfamiliar calls. `evidence.read` inspects actual JSON structure or redacted text offline; `surface.from_evidence` uses the bundled AST importer on complete JavaScript or strictly validated contiguous ranges. Baselines, HTTP 200 and equal response lengths do not establish vulnerability or negative security conclusions. Existing Playwright can be selected through the actual DSH_HOME or the operator's `PURGE_PLAYWRIGHT_ROOT`; package discovery and Chromium cache discovery are separate, and missing components are not installed automatically.
+
+`redteam_delivery_report` combines existing scores, evidence status, source findings, current engine coverage and SRC stops in bounded Markdown/JSON pages. Import, review and delivery use signed `next.arguments` while retaining the old offset API. High-value observed score-outcome requirements default on, with an explicitly saved false preference preserved; the existing private reproduction report remains available. Scoped redteam sessions use persistent bindings, explicit tool lists and typed assessment execution. Independent `awa_*` and embedded `redteam_assessment_*` keep separate ledgers; cross-ledger material must be imported as candidates again. Old external settings and bindings remain historical data. The embedded core remains 2.2.0; source upgrades preserve user prompts and settings and do not install, apply patches or restart the live DSH instance. See [source provenance, workflow and delivery limits](REDTEAM-AWA-SRC.md).
 
 ## Install
 
@@ -58,8 +70,10 @@ Use `redteam_assessment_status/start/run/import/review` for the native workflow.
 - Existing `dsh-purge` or separate panel installation: use the community installer to back up and migrate in place. Do not uninstall first or activate both packages.
 - CLI/Web users who already have `dsh` on PATH and use the `web` profile can use the official command below. Desktop users should not download another npx host to install into their existing desktop profile.
 
+The following fixed-version command requires a published 1.12.0 release; this local source upgrade has not created that download.
+
 ```sh
-dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.8.0/dsh-purge-community-1.8.0.tgz"
+dsh plugin --profile web add "https://github.com/kingcharleslzy-ai/dsh-purge/releases/download/v1.12.0/dsh-purge-community-1.12.0.tgz"
 ```
 
 Use the actual instance's profile and `DSH_HOME`. This project distributes via GitHub; do not substitute bare npm package names. The official command does not run our extra Release SHA256 check, migration snapshot or rollback wrapper.
@@ -86,7 +100,7 @@ Two separate preferences (check / install), default check-only every six hours. 
 
 ## Compatibility
 
-Plugin `dsh-purge-community` 1.8.0 · verified on DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / rc.2 / rc.3 / rc.5 · Node ≥ 18. Redteam tools require Node ≥ 22.5; built-in assessment requires Node ≥ 22.19 and Python ≥ 3.10, with the existing Playwright runtime for actual browser observation.
+Plugin source `dsh-purge-community` 1.12.0 · historical host coverage: DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / rc.2 / rc.3 / rc.5, interpreted using the corresponding historical records · Node ≥ 18. The isolated preset Loader and idle Agent tool-catalog acceptance on Desktop 0.2.2-rc.3 belongs to 1.10.0; full host and GUI remain unverified. Redteam tools require Node ≥ 22.5; built-in assessment requires Node ≥ 22.19 and Python ≥ 3.10, with an existing Playwright module and runnable browser for actual browser observation.
 
 ## Troubleshooting
 
@@ -100,7 +114,7 @@ If the panel does not open, confirm both sides run the same version, then follow
 
 ## Development
 
-`npm test`, `npm run check:docs`, `npm run check:client`, `npm run test:electron`, `npm run smoke`.
+`npm test`, `npm run test:optimization`, `npm run test:discovery`, `npm run check:docs`, `npm run check:client`, `npm run check:modes`, `npm run check:assessment`, `npm run test:ui`, `npm run test:electron`, `npm run smoke`. Actual 1.12.0 results and omitted checks are recorded in the [implementation record](MODE-UPGRADE-1.12.0.md). The optimization suite is also an npm post-test gate for test/redteam/assessment. Preset Loader acceptance requires an explicit installation path: `npm run check:mode-loader -- --host-root <absolute-installation-directory>`.
 
 Agent-facing instructions live in [AGENTS.md](../AGENTS.md); when the two disagree, AGENTS.md wins.
 

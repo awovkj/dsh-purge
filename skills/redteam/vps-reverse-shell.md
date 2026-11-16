@@ -4,7 +4,16 @@ description: 用自建 VPS（<你的VPS_IP>，SSH 私钥登录）做反弹 Shell
 whenToUse: 目标无法回连本机 / 需要公网固定监听端口 / 需要长期在线跳板 / 需要让智能体自己下发命令到反弹 Shell
 role: exploit
 enabled: true
+metadata:
+  cwe: []
+  class: [connectivity, impact-validation]
+  requires: [shell]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # VPS 中转与反弹 Shell（<你的VPS_IP>）
 

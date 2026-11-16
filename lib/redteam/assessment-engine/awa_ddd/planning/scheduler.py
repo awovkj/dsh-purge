@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from statistics import median
 
 from ..domain.hypothesis import requires_preparation
 from ..domain.repository import Repository
@@ -27,6 +28,8 @@ _PREP_ACTIONS = {
     "state_readback": ("review.disposition", "准备同身份只读读回绑定"),
     "exact_authorized_url": ("recon.snapshot", "绑定精确的授权 URL 与请求方法"),
     "current_http_observation": ("recon.snapshot", "收集当前正常业务观察"),
+    "dedicated_control_provider": ("action.help", "当前族缺少自动控制 provider；保留受阻分母，读取专门测试契约"),
+    "exact_input_request_binding": ("http.capture", "提供同操作、同身份的完整实际基线并绑定精确输入"),
 }
 
 
@@ -96,15 +99,44 @@ def _operation_importance(universe, hypothesis):
 def candidates(project, campaign, universe):
     """Return (ready, preparation) lists; never mutates attempt history."""
     repository = Repository(project)
-    hypotheses = [row for row in repository.list("hypothesis", limit=None)[0] if not row.get("superseded")]
+    from .membership import rows as member_rows
+    hypotheses = [row for row in member_rows(project, campaign, "hypothesis") if not row.get("superseded")]
+    own_runs = {row["hypothesis_id"]: row for row in member_rows(project, campaign, "run") if row.get("mode") == "test"}
+    measured_costs = {}
+    from ..runtime import execution_backend
+    samples = [row for row in repository.list("run", limit=None)[0]
+               if isinstance(row.get("execution_receipt"), dict)
+               and row["execution_receipt"].get("execution_backend") == execution_backend()
+               and type(row["execution_receipt"].get("elapsed_ms")) in {int, float}
+               and row["execution_receipt"]["elapsed_ms"] > 0 and row.get("mode") == "test"]
+    reference = median([row["execution_receipt"]["elapsed_ms"] for row in samples]) if samples else None
+    for sample in samples:
+        related = repository.get("hypothesis", sample["hypothesis_id"], required=False)
+        if related:
+            measured_costs.setdefault(related["family"], []).append(sample["execution_receipt"]["elapsed_ms"])
     family_totals, family_tested = {}, {}
     for row in hypotheses:
         family_totals[row["family"]] = family_totals.get(row["family"], 0) + 1
-        if row.get("status") in {"supported", "refuted", "inconclusive"}:
+        if row.get("status") in {"supported", "refuted"}:
             family_tested[row["family"]] = family_tested.get(row["family"], 0) + 1
     by_family = {}
     preparation = []
     for hypothesis in hypotheses:
+        if hypothesis.get("status") == "not_applicable":
+            preparation.append({"hypothesis_id": hypothesis["id"], "family": hypothesis["family"],
+                                "operation_id": hypothesis["operation_id"], "status": "blocked",
+                                "reason": "unverified_applicability", "next_action": "surface.inspect",
+                                "next": {"action": "surface.inspect", "input": {"operation_id": hypothesis["operation_id"]}},
+                                "offline_only": True, "automatic_retry_allowed": False, "denominator_retained": True})
+            continue
+        own_run = own_runs.get(hypothesis["id"])
+        if hypothesis.get("shared_prior_run_id") or hypothesis.get("status") in {"supported", "refuted", "inconclusive"} and own_run is None:
+            prior = [row for row in repository.list("run", limit=None)[0] if row.get("hypothesis_id") == hypothesis["id"] and row.get("mode") == "test"]
+            preparation.append({"hypothesis_id": hypothesis["id"], "family": hypothesis["family"],
+                                "operation_id": hypothesis["operation_id"], "reason": "shared_prior_result_not_campaign_proof",
+                                "next_action": "test.inspect", "next": {"action": "test.inspect", "input": {"run_id": prior[-1]["id"]}} if prior else None,
+                                "offline_only": True, "automatic_retry_allowed": False, "denominator_retained": True})
+            continue
         from ..assessment_mode import mode as project_mode, stop_receipt
         operation = project.get("operation", hypothesis.get("operation_id"), required=False)
         stopped = stop_receipt(project, operation) if operation is not None else None
@@ -117,7 +149,15 @@ def candidates(project, campaign, universe):
                                 "detail": "SRC 保留直接证据与未测范围，不为补齐覆盖度而继续利用。"})
             continue
         if hypothesis.get("status") not in {"ready", "unplanned"}:
-            if requires_preparation(hypothesis):
+            if hypothesis.get("status") == "inconclusive":
+                last_run = (hypothesis.get("run_ids") or [None])[-1]
+                preparation.append({"hypothesis_id": hypothesis["id"], "family": hypothesis["family"],
+                                    "operation_id": hypothesis.get("operation_id"), "status": "inconclusive",
+                                    "reason": (hypothesis.get("attempt") or {}).get("blocked_reason") or "Controls were inconclusive",
+                                    "next_action": "test.inspect", "next": {"action": "test.inspect", "input": {"run_id": last_run}},
+                                    "offline_only": True, "automatic_execution_allowed": False,
+                                    "automatic_retry_allowed": False, "denominator_retained": True})
+            elif requires_preparation(hypothesis):
                 preparation.append(_preparation_entry(hypothesis))
             continue
         lease = hypothesis.get("lease")
@@ -135,8 +175,13 @@ def candidates(project, campaign, universe):
                 "detail": "连续两次无进展；换族/换操作或修复前提后再试，不重复同一任务。",
             })
             continue
+        history = measured_costs.get(hypothesis["family"], [])
+        provider_cost = min(8.0, max(0.25, median(history) / reference)) if history and reference else 1.0
         score_row = score(hypothesis, family_totals=family_totals, family_tested=family_tested,
-                          operation_importance=_operation_importance(universe, hypothesis))
+                          operation_importance=_operation_importance(universe, hypothesis), provider_cost=provider_cost)
+        score_row.update(cost_source="measured_family_wall_time" if history else "heuristic_no_runtime_samples",
+                         cost_samples=len(history), measured_median_ms=median(history) if history else None,
+                         exploitability_source="uncalibrated_heuristic_not_precision")
         by_family.setdefault(hypothesis["family"], []).append((score_row, hypothesis))
     for family_rows in by_family.values():
         family_rows.sort(key=lambda item: (-item[0]["score"], item[1]["id"]))
@@ -150,6 +195,12 @@ def _preparation_entry(hypothesis):
         if item in _PREP_ACTIONS:
             action, reason = _PREP_ACTIONS[item]
             actions.append({"missing_context": item, "action": action, "reason": reason})
+    automatic = hypothesis.get("automatic_preparation") or {}
+    preparation = automatic.get("preparation") or {}
+    if automatic.get("provider_supported") is False:
+        actions = [{"missing_context": "dedicated_control_provider", "action": "action.help",
+                    "input": preparation.get("input") or {"name": "test.run_scenario"},
+                    "reason": hypothesis.get("state_reason") or "No automatic provider implements this family."}]
     return {
         "hypothesis_id": hypothesis["id"],
         "family": hypothesis["family"],
@@ -159,6 +210,10 @@ def _preparation_entry(hypothesis):
         "next_action": actions[0]["action"] if actions else "review.disposition",
         "preparation_actions": actions,
         "automatic_execution_allowed": False,
+        "state_reason": hypothesis.get("state_reason"),
+        "provider_supported": automatic.get("provider_supported"),
+        "capability": automatic.get("capability"),
+        "denominator_retained": True,
     }
 
 

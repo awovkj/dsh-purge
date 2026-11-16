@@ -76,6 +76,12 @@ _ERROR_CODES = _ERROR_CODES | frozenset((
     "v2_fixture_initial_state v2_oracle_missing v2_browser_marker v2_browser_visit v2_external_receipt v2_external "
     "v2_coverage v2_campaign_not_ready v2_migration_ledger v2_delivery_reason v2_campaign_state_reason "
     "v2_recipe_blocked v2_timestamp v2_observe_effect v2_accepted_by v2_campaign_target v2_explanation"
+    " input_test_contract authorization_contract src_stop_proof v2_oracle_version v2_oracle_scope v2_membership_integrity"
+    " v2_membership_kind v2_campaign_membership v2_prerequisite_unchanged v2_browser_source v2_browser_recipe v2_oracle_processing"
+    " tool_route_arguments tool_route_evidence wsl_runtime_environment finding_claim finding_severity"
+    " v2_control_execution v2_run_inflight v2_oracle_processing v2_run_idempotency v2_request_body v2_request_pointer"
+    " v2_request_input v2_request_baseline v2_request_identity v2_request_provider v2_request_url"
+    " capture_batch_fields capture_batch_request capture_batch_method capture_batch_context capture_batch_source capture_batch_cookie tool_route_campaign wsl_runtime_environment"
 ).split())
 _LOCATOR_KEYS = {"url", "finalUrl", "path", "locator", "schema_locator", "source_locator", "selector",
                  "input_selector", "location", "consumer_url", "source_url", "consumer_locator",
@@ -85,6 +91,8 @@ _HANDLE_PREFIXES = {"operation": {"O"}, "obligation": {"OB"}, "evidence": {"E"},
                     "page_visit": {"PV"}, "checkpoint": {"CP"}, "closure_review": {"CR"}, "finalization": {"FN"},
                     "recon_baseline": {"RC"}}
 _HANDLE_PREFIXES.update({"integration_import": {"IMP"}, "v2_run": {"RUN2"}, "v2_finding": {"FND"}})
+_HANDLE_PREFIXES.update({"v2_campaign": {"CAM"}, "v2_universe": {"UNI"}, "v2_hypothesis": {"HYP"},
+                         "v2_recipe": {"REC"}, "v2_review": {"REV"}, "v2_checkpoint": {"CP2"}})
 _LOCAL_ID_KINDS = {"actor", "session", "resource", "page", "function"}
 _LOCAL_PREFIXES = {"actor": "ACT", "session": "SES", "resource": "RES", "page": "PG", "function": "FN"}
 
@@ -475,10 +483,13 @@ def _schemas():
     input_row = {**_fields("name selector consumer schema_branch schema_type array_template source schema_locator"),
                  "location": _enum("path", "query", "header", "cookie", "body", "graphql"),
                  "required": _BOOL, "test_families": _Many(family), "registration_error": _enum("input_not_object")}
+    input_row["test_contract"] = {**_fields("response_selector template_dialect sql_context xss_context consumer_url"),
+                                  "baseline_evidence_id": _handle("evidence")}
     operation = {**_fields("url operation_name content_type allowed_roles sources created_at ownership_sampling"),
                  "id": _handle("operation"), "method": method, "protocol": _enum("http", "graphql"), "auth": auth,
                  "ownership": _BOOL, "state_scope": _enum("actor"), "input_count": _COUNT,
                  "inputs_truncated": _BOOL, "inputs": _Many(input_row)}
+    operation["authorization_contract"] = _fields("protected_selector resource_selector owner_selector tenant_selector")
     parameter_state = _enum("consumer_review", "tested", "observed_unassessed", "observation_limited", "needs_controls", "unobserved")
     parameter_identity = {**_fields("input_name input_selector schema_branch"), "id": _digest("PC"),
         "operation_id": _handle("operation"), "input_location": input_row["location"], "test_family": _enum("unclassified", "access_control", *TEST_FAMILIES)}
@@ -823,30 +834,90 @@ def _schemas():
     for name in ("tool.probe", "tool.sqlmap", "tool.yakit_replay", "tool.tscanplus_request", "tool.tscanplus_results",
                  "tool.tscanplus_summary", "tool.tscanplus_routes", "tool.inspect"):
         result[name] = run
+    v2_evaluation = {"outcome": _enum("observed", "supported", "refuted", "inconclusive", "effect_unknown"),
+                     "finding_allowed": _BOOL, **_fields("proof_scope oracle_type limitations missing")}
+    execution_receipt = {"schema": _enum("awa-test-execution/v1", "awa-http-execution/v1"),
+                         "execution_backend": _enum("native", "wsl"), **_fields("provider profile tokens"),
+                         "elapsed_ms": _NUMBER, **_fields("requests_sent responses_received dispatch_attempts response_bytes http_receipts browser_navigations", _COUNT),
+                         "all_target_requests_known": _BOOL}
+    v2_run = {**_fields("steps error dispatch_started_at completed_at created_at updated_at"), "execution_receipt": execution_receipt,
+              "id": _handle("v2_run"), "campaign_id": _handle("v2_campaign"),
+              "hypothesis_id": _handle("v2_hypothesis"), "recipe_id": _handle("v2_recipe"),
+              "recipe_revision": _COUNT, "recipe_spec_hash": _SHA256, "mode": _enum("observe", "test", "verify"),
+              "status": _enum("prepared", "claimed", "dispatch_started", "response_saved", "effect_unknown",
+                              "evaluation_pending", "evaluated", "published", "failed", "cancelled", "interrupted"),
+              "effect": {"unknown": _BOOL, "reconciled": _BOOL, "kind": _enum("read_only", "test_resource_write", "unknown")},
+              "evidence_ids": _Many(_handle("evidence")), "browser_visit_ids": _Many(_handle("page_visit")),
+              "decision_ids": _Many(_handle("v2_run")), "evaluation": v2_evaluation, "outcome": v2_evaluation["outcome"]}
+    v2_finding = {**_fields("title category impact remediation confidence proof_scope limitations created_at updated_at claim_contract"),
+                  "id": _handle("v2_finding"), "hypothesis_id": _handle("v2_hypothesis"),
+                  "run_id": _handle("v2_run"), "test_run_id": _handle("v2_run"), "decision_id": _handle("v2_run"),
+                  "review_id": _handle("v2_review"), "mode": _enum("machine", "reviewed"),
+                  "status": _enum("machine_confirmed", "reviewed_confirmed", "reviewed_draft", "rejected", "withdrawn", "superseded"),
+                  "severity": finding["severity"], "evidence_ids": _Many(_handle("evidence")), "current": _BOOL,
+                  "legacy_unlinked": _BOOL, "schema": _COUNT}
     result["test.run"] = {
         "outcome": _enum("observed", "supported", "refuted", "inconclusive", "effect_unknown"),
-        "run": {**_fields("id status mode error evaluation effect evidence_ids"), "id": _TEXT,
-                "status": _enum("prepared", "claimed", "dispatch_started", "response_saved", "effect_unknown",
-                                "evaluation_pending", "evaluated", "published", "failed", "cancelled", "interrupted"),
-                "effect": {"unknown": _BOOL, "reconciled": _BOOL, "kind": _enum("read_only", "test_resource_write", "unknown")},
-                "evidence_ids": _Many(_handle("evidence"))},
-        "finding": dict(result["finding.record"]),
-        "coverage_delta": {**_fields("tested finding_created family"), "tested": _COUNT, "finding_created": _BOOL},
-        "replayed": _BOOL, "requires_reconciliation": _BOOL, "notice": _TEXT,
+        "run": v2_run, "finding": v2_finding,
+        "coverage_delta": {**_fields("tested attempted conclusive finding_created family"), "tested": _COUNT,
+                           "attempted": _COUNT, "conclusive": _COUNT, "finding_created": _BOOL},
+        "replayed": _BOOL, "requires_reconciliation": _BOOL, "notice": _TEXT, "requests_sent": _COUNT,
     }
-    result["test.inspect"] = {**_fields("private_capsule_available control_count"), "recipe": _TEXT, "run": _TEXT}
+    v2_recipe = {**_fields("family provider oracle limits control_groups steps variable_names notice"),
+                 "id": _handle("v2_recipe"), "hypothesis_id": _handle("v2_hypothesis"), "revision": _COUNT,
+                 "spec_hash": _SHA256, "executable": _Rule("false"), "render_truncated": _BOOL,
+                 "private_ref": {"kind": _enum("test_recipe"), "id": _handle("v2_recipe"), "public_hash": _SHA256},
+                 "detail_action": {"action": _enum("test.inspect"), "input": {"recipe_id": _handle("v2_recipe")}}}
+    result["test.inspect"] = {"private_capsule_available": _BOOL, "control_count": _COUNT, "recipe": v2_recipe, "run": v2_run}
     result["campaign.status"] = {
         "campaign": _TEXT, "universe": _TEXT, "dimensions": _TEXT, "family_matrix": _TEXT,
         "route_matrix": _TEXT, "consumer_matrix": _TEXT, "known_case_matrix": _TEXT,
         "known_case_summary": _TEXT, "tool_yield": _TEXT, "finding_summary": _TEXT,
         "delivery": _TEXT, "unplanned_family_count": _COUNT, "unregistered_route_count": _COUNT,
         "open_hypothesis_count": _COUNT, "open_gap_count": _COUNT, "capabilities": _TEXT,
-        "next_action": _TEXT}
+        "membership": _TEXT, "recovery": _TEXT, "next_action": _TEXT}
     result["report.matrix"] = {
         "campaign_id": _TEXT, "universe": _TEXT, "dimensions": _TEXT, "family_matrix": _TEXT,
         "route_matrix": _TEXT, "consumer_matrix": _TEXT, "known_case_matrix": _TEXT,
         "known_case_summary": _TEXT, "tool_yield": _TEXT, "finding_summary": _TEXT,
-        "delivery": _TEXT, "denominators": _TEXT, "computed_by": _TEXT}
+        "delivery": _TEXT, "denominators": _TEXT, "membership": _TEXT, "recovery": _TEXT, "computed_by": _TEXT}
+    result["test.run_browser"] = {**result["test.run"], **_fields("evaluation finding_allowed notice"),
+                                  "finding_allowed": _BOOL, "evaluation": v2_evaluation}
+    result["review.finding"] = {"finding": v2_finding, "review": _TEXT, "machine_proof": _BOOL, "detection": _BOOL,
+                                 "draft_saved": _BOOL, "reviewer_independent": _BOOL, "requests_sent": _COUNT, "notice": _TEXT}
+    result["review.bind"] = {"finding": v2_finding, "requests_sent": _COUNT, "notice": _TEXT}
+    from .execution.capabilities import PROVIDERS, PROFILES
+    profile_ready = {"ready": _BOOL, "reasons": _Many(_TEXT)}
+    capability = {"provider": _enum(*PROVIDERS),
+                  **_fields("installed configured catalog_verified profile_supported authorized ready", _BOOL),
+                  **_fields("evidence unavailable_reasons profiles limitations configuration"),
+                  "profile_readiness": {name: profile_ready for entry in PROFILES.values() for name in entry["profiles"]}}
+    readiness = {"providers": _Many(capability), "automatic_recipes": _TEXT, "policy": _TEXT, "requests_sent": _COUNT}
+    result["recon.capabilities"] = readiness
+    route_input = {**template, "campaign_id": _handle("v2_campaign"), "headless": _BOOL, "table": _enum("poccheck"),
+                   "result_limit": _COUNT, "limit": _COUNT}
+    route_next = {"action": _enum("surface.from_evidence", "surface.from_sourcemap", "browser.visit", "browser.probe",
+                                  "action.help", "http.preflight", "tool.yakit_replay", "tool.tscanplus_summary",
+                                  "tool.tscanplus_results", "tool.tscanplus_routes", "assessment.prepare", "campaign.next", "evidence.inspect", "surface.inspect", "surface.list"),
+                  "input": route_input}
+    route_item = {"provider": _enum("native", *PROVIDERS), **_fields("profile reason missing"),
+                  "state": _enum("ready", "preparation_required"), "ready": _BOOL, "next": route_next, "fallback": route_next,
+                  "offline_only": _BOOL, "automatic_dispatch": _Rule("false"), "can_confirm": _Rule("false")}
+    result["tool.route"] = {**_fields("purpose assessment_mode execution_backend backend_selection host_mcp_visibility notice"),
+                            "items": _Many(route_item), "readiness": readiness,
+                            **_fields("total remaining requests_sent", _COUNT), "target_traffic_sent": _BOOL,
+                            "automatic_dispatch": _Rule("false")}
+    batch_row = {"index": _COUNT, "state": _enum("captured", "uncertain", "rejected"), "evidence_id": _handle("evidence"),
+                 "run_id": _handle("run"), "operation_id": _handle("operation"), "status_code": _Rule("http_status"),
+                 "capture_complete": _BOOL, "preflight_state": _enum("checked"), "reused": _BOOL,
+                 **_fields("requests_sent responses_received response_bytes dispatch_attempts", _COUNT),
+                 "error_code": _enum(*_ERROR_CODES), "automatic_retry_allowed": _Rule("false")}
+    result["http.capture_batch"] = {"state": _enum("partial", "completed"), "results": _Many(batch_row),
+                                     **_fields("total captured reused rejected uncertain incomplete remaining next_index capture_attempts requests_sent responses_received response_bytes dispatch_attempts", _COUNT),
+                                     "stopped_reason": _enum("capture_incomplete", "dispatch_uncertain", "item_rejected"),
+                                     "request_count_known": _BOOL, "elapsed_ms": _NUMBER, "execution_strategy": _enum("single_native_worker"),
+                                     "can_confirm": _Rule("false"), "security_coverage_granted": _Rule("false"),
+                                     "automatic_retry_allowed": _Rule("false")}
     result["tool.artifact"] = {**_fields("content name trust finding_status"), "run_id": _handle("run"),
                                 **_fields("offset limit total_chars next_offset", _COUNT), "usable_for_confirmation": _BOOL}
     evidence_hash = {"evidence_id": _handle("evidence"), "sha256": _SHA256, "kind": _enum("http", "browser"),
@@ -867,7 +938,7 @@ def _schemas():
                          **_fields("current validated usable_for_confirmation", _BOOL)}
     exchange_finding = {**_fields("category title"), "finding_id": finding_handle, "decision_id": proof_handle,
                         "mode": _enum("machine", "analyst"),
-                        "status": _enum("confirmed", "machine_confirmed", "reviewed_confirmed", "withdrawn", "rejected", "superseded"),
+                        "status": _enum("confirmed", "machine_confirmed", "reviewed_confirmed", "reviewed_draft", "withdrawn", "rejected", "superseded"),
                         "severity": _enum("info", "low", "medium", "high", "critical"),
                         "evidence_ids": _Many(_handle("evidence")), **_fields("current usable_for_confirmation", _BOOL)}
     exchange_common = {"schema": _enum("dsh-purge-awa/v1"), "project_id": _TEXT, "assessment_mode": config["assessment_mode"],
@@ -888,12 +959,12 @@ def _schemas():
         "decision_id": proof_handle, "evidence_ids": _Many(_handle("evidence")),
         "next_action": action, "help_action": action, "help_input": {"name": action}, "continuation": continuation,
         "test_family": family, "framing_issue": _enum("utf8_bom", "invalid_multipart"),
-        "reason_code": _enum("not_configured", "backend_mismatch", "overescaped_path", "not_absolute", "file_missing",
+        "reason_code": _enum("not_configured", "backend_mismatch", "overescaped_path", "not_absolute", "file_missing", "not_executable",
                              "wrong_filename", "invalid_path", "source_input_mismatch", "consumption_chain_required"),
         "execution_backend": _enum("native", "wsl"), "path_field": _enum("sqlmap_path", "yak_path"), "configured": _BOOL,
         "input_template": {"backend": _enum("all", "native", "wsl")},
         "repair": _enum("rewrite_utf8_without_bom", "rebuild_exact_multipart"),
-        "oracle_type": _enum("baseline", "authorization", "semantic_negative", "extraction", "sql_metadata", "error_channel", "state_invariant", "state_transition"),
+        "oracle_type": _enum("baseline", "authorization", "semantic_negative", "extraction", "sql_metadata", "sql_boolean", "error_channel", "state_invariant", "state_transition"),
         "required_fields": _Many(_TEXT),
         "completion": completion, "checkpoint_action": action, "stop_policy": _enum("exhaustion_only"),
         "progress_export": {"action": action, "input": {"stage": _enum("draft")}},
@@ -1242,7 +1313,7 @@ def _reproduction_sqlmap(project, target, decision, finding_id, files, steps):
                           " ".join("'" + item.replace("'", "''") + "'" for item in args)}
 
 
-EXECUTION_ACTIONS = frozenset({"http.capture", "identity.verify", "scenario.run", "browser.visit", "browser.probe", "tool.probe",
+EXECUTION_ACTIONS = frozenset({"http.capture", "http.capture_batch", "identity.verify", "scenario.run", "browser.visit", "browser.probe", "tool.probe",
     "tool.sqlmap", "tool.yakit_replay", "tool.tscanplus_request", "tool.tscanplus_results", "tool.tscanplus_summary", "tool.tscanplus_routes"})
 OFFLINE_MUTATIONS = frozenset({"project.update", "project.import_pentest", "surface.register", "surface.batch", "surface.import",
     "surface.declare_consumer", "identity.actor", "identity.session", "identity.resource", "browser.import_mcp", "page.register",

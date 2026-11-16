@@ -4,7 +4,16 @@ description: 凭据攻击：在线弱口令爆破（hydra）与离线哈希破�
 whenToUse: 发现登录入口（Web 后台/SSH/FTP/RDP/SMB/MySQL/MSSQL/Redis）需要试口令；或已拿到哈希/密文需要还原明文
 role: exploit
 enabled: true
+metadata:
+  cwe: [CWE-307, CWE-521, CWE-798]
+  class: [credentials, authentication]
+  requires: [shell, credentials]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell, credentials。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # 凭据攻击（在线爆破 + 离线破解）
 

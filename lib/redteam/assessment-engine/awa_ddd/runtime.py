@@ -44,6 +44,10 @@ _PATH_FIELDS = {
     "tool.probe": ("sqlmap_path", "yak_path"),
     "tool.sqlmap": ("sqlmap_path", "yak_path"),
     "tool.yakit_replay": ("sqlmap_path", "yak_path"),
+    "test.run_external": ("sqlmap_path", "yak_path", "body_file"),
+    "tool.tscanplus_request": ("body_file",),
+    "recon.import": ("path",), "recon.snapshot": ("path",), "recon.routes": ("path",),
+    "test.record_external": ("path",),
 }
 
 
@@ -102,6 +106,16 @@ def _resolved_tool_filename(value):
         return None
 
 
+def tool_file_binding(value):
+    try:
+        path = Path(value).resolve(strict=True)
+        info = path.stat()
+        return {"path": str(path), "size": info.st_size, "mtime_ns": info.st_mtime_ns,
+                "device": info.st_dev, "inode": info.st_ino}
+    except (OSError, ValueError, TypeError, RuntimeError):
+        return None
+
+
 def tool_path_reason(value, name):
     """Classify a local executable path without rewriting or echoing it."""
     if value is None or isinstance(value, str) and not value.strip():
@@ -126,6 +140,8 @@ def tool_path_reason(value, name):
         return "wrong_filename"
     if not _tool_file_exists(value):
         return "file_missing"
+    if name == "yak_path" and not _windows_paths() and not os.access(value, os.X_OK):
+        return "not_executable"
     resolved = _resolved_tool_filename(value)
     if resolved is None:
         return "file_missing"
@@ -218,7 +234,7 @@ def translate_request_paths(action, args):
     for field in _PATH_FIELDS.get(action, ()):
         if field in result and result[field] is not None:
             result[field] = translate_path(result[field])
-    if action in {"scenario.run", "scenario.preflight"} and isinstance(result.get("scenario"), dict):
+    if action in {"scenario.run", "scenario.preflight", "test.run_scenario"} and isinstance(result.get("scenario"), dict):
         scenario = dict(result["scenario"])
         if isinstance(scenario.get("steps"), list):
             steps = []
@@ -229,6 +245,9 @@ def translate_request_paths(action, args):
                 steps.append(copied)
             scenario["steps"] = steps
         result["scenario"] = scenario
+    elif action == "test.run_scenario" and isinstance(result.get("steps"), list):
+        result["steps"] = [{**step, **({"body_file": translate_path(step["body_file"])} if step.get("body_file") is not None else {})}
+                           if isinstance(step, dict) else step for step in result["steps"]]
     return result
 
 

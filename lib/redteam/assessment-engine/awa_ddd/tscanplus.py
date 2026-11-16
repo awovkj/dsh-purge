@@ -73,6 +73,9 @@ def _settings(project):
     if not isinstance(value, dict):
         raise EngineError("tscanplus_unconfigured", "Run tool.probe with adapter:tscanplus before selecting a target or querying scanner data")
     state = dict(value)
+    from .runtime import execution_backend
+    if state.get("execution_backend") != execution_backend():
+        raise EngineError("tscanplus_configuration", "The loopback catalog belongs to another or unverified runtime backend; explicitly re-probe here")
     state["mcp_url"], state["scanner_project"] = validate_endpoint(state.get("mcp_url")), _namespace(state.get("scanner_project"), max_length=20)
     probe_run = project.get("run", state.get("probe_run_id"))
     document = _document(project, probe_run)
@@ -304,6 +307,8 @@ def probe(project, args):
     if run.get("available"):
         state = {"mcp_url": endpoint, "scanner_project": namespace, "probe_run_id": run["id"],
                  "catalog_sha256": run["catalog_sha256"], "catalog": {"artifact_path": result["artifact_path"], "sha256": result["sha256"]}}
+        from .runtime import execution_backend
+        state["execution_backend"] = execution_backend()
         config = project.config
         project.set_config({**config, "external_tools": {**config.get("external_tools", {}), "tscanplus": state}})
     return _public(result, limitation="Catalog discovery did not invoke a scanner, touch target URLs, clear a database or prove any vulnerability")

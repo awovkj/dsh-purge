@@ -4,7 +4,16 @@ description: 目录与文件爆破：后台入口、备份文件、配置泄露�
 whenToUse: 已确认 Web 存活但指纹无直接 Nday 线索；需要找后台入口、备份、配置、源码、上传点等隐藏路径
 role: vuln-scan
 enabled: true
+metadata:
+  cwe: [CWE-200, CWE-538, CWE-540]
+  class: [recon, source-discovery]
+  requires: [shell]
 ---
+
+<!-- generated:skill-requirements -->
+执行需求：shell。
+执行前核对当前模式技能索引的 availability、requires 与 missing。模式禁止或本轮明确缺失的能力保留 blocked；运行前提未核实则为 unknown。受阻时不执行正文命令、不换工具绕过；只继续当前模式已有前提的 typed 或离线工作。技能标签、文件已存在和部署回执不授权执行，也不证明漏洞、权限或运行就绪。
+<!-- /generated:skill-requirements -->
 
 # 目录与文件爆破（找入口的主力）
 

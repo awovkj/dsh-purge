@@ -1,0 +1,8 @@
+# Bundle checks compare generated LF bytes on every platform.
+client.js text eol=lf
+lib/redteam/client.js text eol=lf
+packages/purge-panel/client.js text eol=lf
+# Provenance digests cover exact source bytes, including reviewed LF and CRLF files.
+lib/redteam/assessment-engine/** -text whitespace=cr-at-eol
+# The reviewed browser adaptation is generated as LF.
+lib/redteam/assessment-engine/awa_ddd/browser.py text eol=lf

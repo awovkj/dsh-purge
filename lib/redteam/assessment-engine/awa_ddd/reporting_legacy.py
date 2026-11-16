@@ -187,6 +187,9 @@ def _verification_level(project, finding):
     """Derive assurance from accepted proof, never a submitted finding label."""
     if finding.get("current") is not True:
         return "historical"
+    from .proof_claim import finding_proof_state
+    if finding_proof_state(project, finding).get("proof_pending"):
+        return "unverified"
     decision = project.get("decision", finding.get("decision_id"), required=False)
     if not decision or decision.get("outcome") != "confirmed":
         return "unverified"
@@ -772,9 +775,20 @@ def build_report(project, output_dir=None, *, stage="draft", finalization_id=Non
         reproduction = prepare_reproduction(project, original.get("findings") or [],
             context=source_context)
         projections = reproduction.get("finding_projections", {})
+        from .proof_claim import finding_proof_state
         evaluated = {**original, "findings": [
             {**finding, **projections.get(finding.get("id"), {}),
+             **finding_proof_state(project, finding),
              "verification_level": _verification_level(project, finding)} for finding in original.get("findings", [])]}
+        pending_findings = [row for row in evaluated["findings"] if row.get("current") and row.get("proof_pending")]
+        if pending_findings:
+            if stage == "final":
+                from .store import EngineError
+                raise EngineError("report_finding_proof", "Final delivery requires current bounded proof for every machine finding")
+            evaluated["proof_pending_findings"] = [row["id"] for row in pending_findings]
+            for row in evaluated["findings"]:
+                if row.get("proof_pending"):
+                    row["current"] = False
         delivery = "draft" if stage == "draft" else "final-completed"
         from .browser import coverage as browser_coverage
         operation_metadata = []

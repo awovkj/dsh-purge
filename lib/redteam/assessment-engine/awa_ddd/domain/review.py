@@ -52,6 +52,9 @@ def new_review_contract(*, hypothesis, run, mechanism, identity, control_groups,
             fail("v2_review_controls", f"Control group {group_id} needs normal and attack evidence")
         for control in controls:
             text(control.get("evidence_id"), "control_evidence_id", maximum=128)
+        evidence_ids = [control["evidence_id"] for control in controls]
+        if len(set(evidence_ids)) != len(evidence_ids):
+            fail("v2_review_controls", "Normal, attack and negative controls require distinct actual captures")
     observation = mapping(observation, "observation")
     text(observation.get("selector"), "observation_selector", maximum=1024)
     if "expected" not in observation or "actual" not in observation:
@@ -99,7 +102,8 @@ def new_review_contract(*, hypothesis, run, mechanism, identity, control_groups,
         "consumer_point": dict(consumer),
         "source_trust": dict(source),
         "reviewer": {"type": reviewer_type, "id": reviewer["id"], "source": reviewer["source"],
-                     "independent_human": reviewer_type == "human_independent"},
+                     "independent_human": False, "authority": "analyst_draft",
+                     "claimed_type": reviewer_type},
         "proof_scope": {"accepted": accepted, "not_proven": not_proven},
         "material": {"evidence_ids": evidence_ids, "digests": dict(digests)},
         "verification": {"version": text(verification.get("version", "1"), "verification_version", maximum=32),

@@ -141,10 +141,24 @@ try {
   );
   const waitRegistered = async () => {
     for (let i = 0; i < 100; i++) {
-      if (ctx.agentPresets.definitions.has("unrestricted")) {
+      if (
+        ctx.agentPresets.definitions.has("unrestricted") &&
+        ctx.agentPresets.definitions.has("src") &&
+        ctx.agentPresets.definitions.has("pentest")
+      ) {
         assert.equal(
           (await ctx.agentPresets.resolve("unrestricted")).broken,
           undefined,
+        );
+        assert.equal(
+          (await ctx.agentPresets.resolve("src")).broken,
+          undefined,
+          "SRC preset must activate; otherwise the new-session picker hides it",
+        );
+        assert.equal(
+          (await ctx.agentPresets.resolve("pentest")).broken,
+          undefined,
+          "pentest preset must activate; otherwise the new-session picker hides it",
         );
         return;
       }
@@ -198,6 +212,8 @@ try {
       pluginReloadAndDispose: true,
       customSourceUnchanged: true,
       byteExactBackup: true,
+      srcPresetHealthy: true,
+      pentestPresetHealthy: true,
     }),
   );
 } finally {

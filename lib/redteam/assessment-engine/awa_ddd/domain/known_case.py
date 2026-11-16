@@ -21,7 +21,7 @@ STATUSES = {"unplanned", "planned", "verified", "reported", "blocked", "not_appl
 def new_known_case(*, source_group, source_ref, url, method, family, mechanism,
                    params=None, expected_outcome="unknown", label_source=None,
                    build=None, preconditions=None, track="hint_assisted",
-                   case_id=None, status="unplanned"):
+                   case_id=None, status="unplanned", protocol=None, operation_name=None, content_type=None):
     text(source_group, "source_group", maximum=64)
     text(source_ref, "source_ref", maximum=2048)
     url = text(url, "url", maximum=8192)
@@ -36,12 +36,16 @@ def new_known_case(*, source_group, source_ref, url, method, family, mechanism,
         "source_group": source_group, "url": url, "method": method, "family": family,
         "mechanism": mechanism, "params": rows, "build": build,
     }
+    for key, value in (("protocol", protocol), ("operation_name", operation_name), ("content_type", content_type)):
+        if value is not None:
+            identity[key] = text(value, key, maximum=256)
     return {
         "id": case_id or stable_id("KC", identity),
         "source_group": source_group,
         "source_ref": source_ref,
         "url": url,
         "method": method,
+        "protocol": protocol, "operation_name": operation_name, "content_type": content_type,
         "family": family,
         "mechanism": mechanism,
         "params": rows,
@@ -62,7 +66,7 @@ def public_view(case):
     """Blind cases never expose their expected outcome before evaluation."""
     row = {key: case.get(key) for key in (
         "id", "source_group", "source_ref", "url", "method", "family", "mechanism", "params",
-        "build", "preconditions", "track", "status", "duplicate_of", "dedupe_key")}
+        "build", "preconditions", "track", "status", "duplicate_of", "dedupe_key", "protocol", "operation_name", "content_type")}
     if not case.get("label_hidden"):
         row["expected_outcome"] = case.get("expected_outcome")
         row["label_source"] = case.get("label_source")

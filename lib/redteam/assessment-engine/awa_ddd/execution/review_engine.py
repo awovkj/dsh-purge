@@ -20,8 +20,9 @@ def _current_evidence(project, evidence_id):
 
 def accept(project, args):
     repository = Repository(project)
-    hypothesis = repository.get("hypothesis", args["hypothesis_id"])
     run_row = repository.get("run", args["run_id"])
+    from ..planning.membership import hypothesis as member_hypothesis
+    hypothesis = member_hypothesis(project, repository.get("campaign", run_row["campaign_id"]), args["hypothesis_id"])
     if run_row.get("status") not in {"evaluated", "published"}:
         fail("v2_review_run", "Reviewed findings require a completed evaluated run")
     if run_row.get("hypothesis_id") != hypothesis["id"]:
@@ -41,6 +42,11 @@ def accept(project, args):
     supplied = material.get("digests") or {}
     if supplied and supplied != digests:
         fail("v2_review_material", "Review material digest does not match current evidence")
+    cited_controls = [control for group in args.get("control_groups") or [] for control in group.get("controls") or []]
+    if any(control.get("evidence_id") not in material_ids for control in cited_controls):
+        fail("v2_review_material", "Every reviewed control must be included in the exact material list")
+    if len({control.get("evidence_id") for control in cited_controls}) != len(cited_controls):
+        fail("v2_review_controls", "Independent reviewed controls cannot reuse the same capture")
     mechanism = args.get("mechanism") or {}
     mechanism.setdefault("family", hypothesis["family"])
     mechanism.setdefault("security_property", hypothesis["security_property"])
@@ -57,6 +63,23 @@ def accept(project, args):
         if identity.get("resource_id") and binding_resource.get("resource_id") \
                 and identity.get("resource_id") != binding_resource.get("resource_id"):
             fail("v2_review_identity", "Review resource does not match the frozen recipe")
+        from .test_runner import _control_result, _evidence_value
+        frozen_controls = recipe.get("controls") or [control for group in recipe.get("control_groups") or []
+                                                     for control in group.get("controls") or []]
+        for declared in cited_controls:
+            matching = [control for control in frozen_controls if control.get("role") == declared.get("role")]
+            if declared.get("id"):
+                matching = [control for control in matching if control.get("id") == declared["id"]]
+            if len(matching) != 1:
+                fail("v2_review_controls", "Review roles must identify one actual frozen control")
+            _control_result(project, recipe, matching[0], declared["evidence_id"])
+        attacks = [control for control in cited_controls if control.get("role") == "attack"]
+        observation = args.get("observation") or {}
+        if len(attacks) != 1 or not isinstance(observation.get("selector"), str):
+            fail("v2_review_observation", "Review needs one exact attack capture and response selector")
+        actual = _evidence_value(project, attacks[0]["evidence_id"], observation["selector"])
+        if digest(actual) != digest(observation.get("actual")):
+            fail("v2_review_observation", "Declared actual value differs from the complete captured artifact")
     contract = new_review_contract(
         hypothesis=hypothesis, run=run_row, mechanism=mechanism, identity=identity,
         control_groups=args.get("control_groups") or [], observation=args.get("observation") or {},
@@ -73,24 +96,28 @@ def accept(project, args):
         category=hypothesis["family"], impact=args.get("impact") or "Reviewed detection accepted under a bounded proof scope.",
         remediation=args.get("remediation") or "Apply the mechanism-specific fix and re-test.",
         evidence_ids=material_ids, proof_scope=contract["proof_scope"]["accepted"][0],
-        confidence=args.get("confidence") or "reviewed",
+        confidence="analyst_draft",
         limitations=contract["proof_scope"]["not_proven"] or ["Reviewed detection is not machine proof."])
     repository.add("finding", finding, immutable=False)
     hypothesis["finding_ids"] = sorted(set(hypothesis.get("finding_ids", []) + [finding["id"]]))
-    if hypothesis["status"] not in {"supported"}:
-        transition(hypothesis, "supported", reason="reviewed detection accepted")
     repository.save("hypothesis", hypothesis)
-    from ..assessment_mode import record_stop
-    record_stop(project, operation_id=hypothesis["operation_id"], evidence_ids=material_ids,
-                finding_id=finding["id"], oracle_type="analyst_review")
     return {"review": review_public(contract), "finding": finding,
-            "machine_proof": False, "detection": True,
-            "reviewer_independent": contract["reviewer"]["independent_human"]}
+            "machine_proof": False, "detection": False, "draft_saved": True,
+            "reviewer_independent": False, "requests_sent": 0,
+            "notice": "Analyst drafts preserve observations; only a current machine verdict or an authenticated operator path grants a detection or a new SRC stop."}
 
 
 def disposition(project, args):
     repository = Repository(project)
-    hypothesis = repository.get("hypothesis", args["hypothesis_id"])
+    from ..planning.membership import view as membership_view, hypothesis as member_hypothesis
+    campaigns = [row for row in repository.list("campaign", limit=None)[0] if row.get("state") == "active"
+                 and args["hypothesis_id"] in membership_view(project, row)["hypothesis_ids"]]
+    if args.get("campaign_id"):
+        campaigns = [row for row in campaigns if row["id"] == args["campaign_id"]]
+    if len(campaigns) != 1:
+        fail("v2_review_disposition", "Disposition requires an exact active campaign; specify campaign_id when this hypothesis is shared")
+    campaign = campaigns[0]
+    hypothesis = member_hypothesis(project, campaign, args["hypothesis_id"])
     status = args["status"]
     if status not in {"blocked", "not_applicable", "ready"}:
         fail("v2_review_disposition", "status must be blocked, not_applicable or ready")
@@ -104,29 +131,46 @@ def disposition(project, args):
         transition(hypothesis, "blocked", reason=prerequisite, missing_context=missing)
     elif status == "not_applicable":
         basis = args.get("applicability_basis") or {}
-        if not isinstance(basis, dict) or not basis.get("business_fact"):
+        if not isinstance(basis, dict) or set(basis) != {"business_fact"} or not basis.get("business_fact"):
             fail("v2_review_disposition", "not_applicable requires a business-fact applicability basis")
         evidence_ids = args.get("evidence_ids") or []
-        if not evidence_ids:
-            fail("v2_review_disposition", "not_applicable requires current applicability evidence")
+        if not isinstance(evidence_ids, list) or not 1 <= len(evidence_ids) <= 32 \
+                or any(not isinstance(identity, str) for identity in evidence_ids) or len(set(evidence_ids)) != len(evidence_ids):
+            fail("v2_review_disposition", "not_applicable requires 1..32 distinct current same-operation evidence IDs")
         for evidence_id in evidence_ids:
-            _current_evidence(project, evidence_id)
+            evidence, unused_artifact = _current_evidence(project, evidence_id)
+            if evidence.get("operation_id") != hypothesis["operation_id"]:
+                fail("v2_review_disposition", "Applicability material must belong to this exact operation; observed bytes do not prove the business-fact interpretation")
         hypothesis["applicability_basis"] = {"business_fact": text(basis["business_fact"], "business_fact"),
                                              "evidence_ids": evidence_ids,
-                                             "declared_by": args.get("reviewer")}
+                                             "declared_by": args.get("reviewer"), "confidence": "inferred",
+                                             "verified": False, "can_exclude": False}
         transition(hypothesis, "not_applicable", reason=basis["business_fact"])
     else:
-        transition(hypothesis, "ready", reason=args.get("reason") or "prerequisites rechecked")
+        from .recipe_builder import build, prerequisite_fingerprint
+        current = prerequisite_fingerprint(project, hypothesis)
+        old = (hypothesis.get("automatic_preparation") or {}).get("prerequisite_fingerprint")
+        if hypothesis.get("attempt", {}).get("attempt_count", 0) and (old is None or old == current):
+            fail("v2_prerequisite_unchanged", "Administrative readiness cannot erase an attempt; repair the actual task prerequisites first",
+                 next_action="test.inspect", automatic_retry_allowed=False)
+        universe = repository.get("universe", campaign["universe_id"])
+        built = build(project, campaign, universe, hypothesis)
+        if built.get("status") != "ready":
+            fail("v2_recipe_blocked", built.get("reason", "Actual prerequisites remain missing"), missing=built.get("missing", []))
+        transition(hypothesis, "ready", reason="Relevant actual prerequisites compile into a current frozen recipe", missing_context=[])
+        hypothesis.pop("blocked_prerequisite", None)
+        hypothesis.pop("execution_blocker", None)
     repository.save("hypothesis", hypothesis)
     return {"hypothesis": hypothesis, "status": hypothesis["status"],
-            "counts_as_tested": False if status == "not_applicable" else None}
+            "counts_as_tested": False if status == "not_applicable" else None,
+            "can_exclude": False, "denominator_retained": True, "requests_sent": 0}
 
 
 def bind(project, args):
     """Upgrade a reviewed finding using an existing machine evaluation, preserving history."""
     repository = Repository(project)
     finding = repository.get("finding", args["finding_id"])
-    if finding.get("status") != "reviewed_confirmed" or not finding.get("current"):
+    if finding.get("status") not in {"reviewed_confirmed", "reviewed_draft"} or not finding.get("current"):
         fail("v2_review_bind", "Only a current reviewed finding can be bound")
     run_row = repository.get("run", args["run_id"])
     if run_row.get("status") != "evaluated" or run_row.get("hypothesis_id") != finding["hypothesis_id"]:
@@ -136,13 +180,19 @@ def bind(project, args):
         fail("v2_review_bind", "Machine run did not produce a confirmable result")
     if not set(finding.get("evidence_ids") or []).issubset(set(run_row.get("evidence_ids") or [])):
         fail("v2_review_bind", "Reviewed evidence is not a subset of the machine run evidence")
-    machine = new_finding(
-        hypothesis_id=finding["hypothesis_id"], run_id=run_row["id"], mode="machine",
-        severity=finding["severity"], title=finding["title"], category=finding["category"],
-        impact=finding["impact"], remediation=finding["remediation"],
-        evidence_ids=finding["evidence_ids"], proof_scope=evaluation.get("proof_scope") or "machine",
-        decision_id=run_row["id"], limitations=evaluation.get("limitations") or [])
-    repository.add("finding", machine, immutable=False)
+    # Select an already generated machine finding, recheck its complete controls,
+    # and retain its bounded wording. Analyst text never becomes machine impact.
+    from ..integration import _v2_machine
+    proven = [row for row in repository.list("finding", limit=None)[0]
+              if row.get("run_id") == run_row["id"] and row.get("mode") == "machine"
+              and row.get("current") and row.get("status") == "machine_confirmed"]
+    if len(proven) != 1:
+        fail("v2_review_bind", "Binding needs one existing current machine finding from this exact run")
+    _v2_machine(project, proven[0])
+    source = proven[0]
+    # Its stable ID is the existing machine finding. Do not create a duplicate
+    # detection or replace its proof history merely because an analyst binds it.
+    machine = source
     finding["current"] = False
     finding["superseded_by"] = machine["id"]
     finding.setdefault("lifecycle", []).append({"status": "superseded", "reviewer": args.get("reviewer"),

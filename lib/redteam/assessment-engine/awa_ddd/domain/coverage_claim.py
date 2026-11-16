@@ -68,7 +68,7 @@ def consumer(*, inputs, declared):
                       notes=["Unknown consumers remain explicit hypotheses/gaps; they never count as tested."])
 
 
-def hypothesis(*, total, applicable, tested, dispositioned, outcomes):
+def hypothesis(*, total, applicable, tested, dispositioned, outcomes, attempted=None):
     tested = min(tested, applicable)
     status = "covered" if applicable and tested == applicable else "partial" if tested else "gap"
     claim = make_claim(dimension="hypothesis", scope="current_hypotheses", numerator=tested,
@@ -78,6 +78,10 @@ def hypothesis(*, total, applicable, tested, dispositioned, outcomes):
     claim["dispositioned"] = dispositioned
     claim["disposition_rate"] = round(dispositioned / total, 6) if total else None
     claim["tested_coverage"] = round(tested / applicable, 6) if applicable else None
+    claim["conclusive"] = tested
+    claim["conclusive_coverage"] = claim["tested_coverage"]
+    claim["attempted"] = attempted if attempted is not None else None
+    claim["attempted_coverage"] = round(attempted / applicable, 6) if applicable and attempted is not None else None
     return claim
 
 
